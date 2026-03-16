@@ -1,0 +1,62 @@
+name: release-windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  package:
+    name: compilar-y-empaquetar-windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Generar Cargo.lock si aún no existe
+        shell: pwsh
+        run: |
+          if (-not (Test-Path Cargo.lock)) {
+            cargo generate-lockfile
+          }
+
+      - name: Validar y compilar release
+        shell: pwsh
+        run: |
+          .\scripts\quality-gates.ps1
+          .\scripts\package-portable.ps1
+
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: |
+          winget install --id JRSoftware.InnoSetup -e --accept-package-agreements --accept-source-agreements --disable-interactivity
+
+      - name: Compilar instalador
+        shell: pwsh
+        run: .\scripts\package-inno.ps1
+
+      - name: Generar hashes
+        shell: pwsh
+        run: .\scripts\hash-artifacts.ps1
+
+      - name: Publicar artefactos de release
+        uses: actions/upload-artifact@v4
+        with:
+          name: rootcause-release-windows
+          path: |
+            build/**
+            target/release/rootcause.exe
+          if-no-files-found: error

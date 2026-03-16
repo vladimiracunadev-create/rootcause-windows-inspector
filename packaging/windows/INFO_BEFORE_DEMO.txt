@@ -1,0 +1,17 @@
+ROOTCAUSE DEMO - INFORMACION PREVIA
+
+Esta instalacion corresponde a una build publica de evaluacion.
+
+QUE HACE:
+- Observa procesos, disco, memoria, temporales, servicios y conexiones.
+- Ayuda a detectar causas reales de lentitud en Windows.
+
+QUE NO HACE:
+- No promete reparar todo automaticamente.
+- No reemplaza antivirus ni soporte tecnico.
+- No ejecuta acciones destructivas por si sola.
+
+ANTES DE CONTINUAR:
+- Lea la guia de uso previo instalada junto con la aplicacion.
+- Algunas funciones avanzadas pueden requerir permisos de administrador.
+- Puede cancelar ahora si no desea continuar.

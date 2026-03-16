@@ -1,0 +1,8 @@
+/target
+/build
+*.etl
+*.pdb
+*.bak
+*.tmp
+*.log
+.DS_Store

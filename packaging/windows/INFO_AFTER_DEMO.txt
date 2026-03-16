@@ -1,0 +1,15 @@
+ROOTCAUSE DEMO - INSTALACION COMPLETADA
+
+SE INSTALO:
+- RootCause Demo
+- Documentacion de uso, limitaciones y privacidad local
+- Scripts basicos de apoyo para modo de precision
+
+SIGUIENTE PASO RECOMENDADO:
+1. Abra LEEME-DEMO.txt
+2. Ejecute RootCause Demo
+3. Observe primero y actue despues
+
+WINDOWS 11:
+- El instalador crea accesos directos si usted lo permite.
+- El anclaje a Inicio o barra de tareas puede requerir accion manual del usuario.

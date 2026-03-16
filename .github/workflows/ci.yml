@@ -1,0 +1,75 @@
+name: ci-windows
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  validate:
+    name: validar-formato-lint-test-build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar toolchain Rust estable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Versiones
+        shell: pwsh
+        run: |
+          cargo --version
+          rustc --version
+          rustup show active-toolchain
+
+      - name: Generar Cargo.lock si aún no existe
+        shell: pwsh
+        run: |
+          if (-not (Test-Path Cargo.lock)) {
+            cargo generate-lockfile
+          }
+
+      - name: Formato
+        shell: pwsh
+        run: cargo fmt --all -- --check
+
+      - name: Análisis estático
+        shell: pwsh
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Tests
+        shell: pwsh
+        run: cargo test --all-targets --all-features -- --nocapture
+
+      - name: Build debug
+        shell: pwsh
+        run: cargo check --all-targets
+
+      - name: Build release
+        shell: pwsh
+        run: cargo build --release --verbose
+
+      - name: Publicar binario release como artefacto CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: rootcause-windows-release
+          path: |
+            target/release/rootcause.exe
+            README.md
+            LICENSE
+            SECURITY.md
+            docs/**
+            scripts/**
+          if-no-files-found: error

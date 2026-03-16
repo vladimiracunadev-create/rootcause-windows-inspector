@@ -1,0 +1,21 @@
+ROOTCAUSE DEMO
+
+Gracias por descargar RootCause Demo.
+
+ANTES DE USAR:
+1. Abra la aplicación y observe primero.
+2. Espere varias muestras antes de actuar.
+3. Revise procesos, temporales, servicios y conexiones.
+4. Exporte un JSON si quiere guardar evidencia.
+5. Use acciones de cierre, bloqueo o detención solo si entiende el impacto.
+
+ESTA DEMO:
+- diagnostica antes de intervenir,
+- no reemplaza antivirus,
+- no promete reparar todo automáticamente,
+- puede requerir permisos de administrador para algunas funciones.
+
+DOCUMENTOS RECOMENDADOS:
+- docs\GUIA_DE_USO_PREVIA.md
+- docs\LIMITACIONES_DEMO.md
+- docs\POLITICA_DE_PRIVACIDAD_LOCAL.md

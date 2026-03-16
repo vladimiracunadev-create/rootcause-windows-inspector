@@ -1,0 +1,33 @@
+[package]
+build = "build.rs"
+name = "rootcause-windows-inspector"
+version = "0.5.0"
+edition = "2024"
+authors = ["Vladimir Acuña <vladimiracunadev-create>"]
+description = "Monitor visual y forense ligero para detectar procesos, archivos temporales, conexiones y trazas ETW que degradan Windows."
+license = "MIT"
+repository = "https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
+publish = false
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6"
+eframe = { version = "0.27", default-features = false, features = ["default_fonts", "glow"] }
+egui = "0.27"
+regex = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = { version = "0.38", default-features = false }
+walkdir = "2.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[build-dependencies]
+winres = "0.1"
