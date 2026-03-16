@@ -14,15 +14,15 @@ use eframe::egui;
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("RootCause Demo")
+            .with_title("RootCause — Windows Inspector")
             .with_icon(rootcause_icon())
-            .with_inner_size([1440.0, 920.0])
-            .with_min_inner_size([1220.0, 760.0]),
+            .with_inner_size([1440.0, 900.0])
+            .with_min_inner_size([1100.0, 720.0]),
         ..Default::default()
     };
 
     eframe::run_native(
-        "RootCause Demo",
+        "RootCause — Windows Inspector",
         native_options,
         Box::new(|cc| Box::new(RootCauseApp::new(cc))),
     )
