@@ -6,7 +6,7 @@
 #define MyAppVersion "0.5.0"
 #define MyAppPublisher "Vladimir Acuña Dev"
 #define MyAppExeName "rootcause.exe"
-#define MyAppURL "https://example.invalid/rootcause-windows-inspector"
+#define MyAppURL "https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
 
 [Setup]
 AppId={{9F8F0676-76EC-462F-89CB-B95C3B76D019}

@@ -1,20 +1,20 @@
 name: release-windows
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  package:
-    name: compilar-y-empaquetar-windows
+  release:
+    name: compilar-empaquetar-publicar
     runs-on: windows-latest
 
     steps:
@@ -33,30 +33,62 @@ jobs:
             cargo generate-lockfile
           }
 
-      - name: Validar y compilar release
+      - name: Quality gates + build release
         shell: pwsh
-        run: |
-          .\scripts\quality-gates.ps1
-          .\scripts\package-portable.ps1
+        run: .\scripts\quality-gates.ps1
 
-      - name: Instalar Inno Setup
+      - name: Empaquetar ZIP portable
         shell: pwsh
-        run: |
-          winget install --id JRSoftware.InnoSetup -e --accept-package-agreements --accept-source-agreements --disable-interactivity
+        run: .\scripts\package-portable.ps1
+
+      - name: Instalar Inno Setup via Chocolatey
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
 
       - name: Compilar instalador
         shell: pwsh
         run: .\scripts\package-inno.ps1
 
-      - name: Generar hashes
+      - name: Generar hashes SHA-256
         shell: pwsh
         run: .\scripts\hash-artifacts.ps1
 
-      - name: Publicar artefactos de release
+      - name: Verificar artefactos generados
+        shell: pwsh
+        run: |
+          $required = @(
+            'build\RootCause-Portable.zip',
+            'build\installer\RootCause-Setup.exe',
+            'build\SHA256SUMS.txt'
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path $path)) {
+              Write-Error "Artefacto faltante: $path"
+              exit 1
+            }
+            $size = (Get-Item $path).Length / 1MB
+            Write-Host "OK  $path  ($([math]::Round($size, 2)) MB)" -ForegroundColor Green
+          }
+
+      - name: Subir artefactos al workflow (siempre)
         uses: actions/upload-artifact@v4
         with:
-          name: rootcause-release-windows
+          name: rootcause-release-${{ github.run_number }}
           path: |
-            build/**
-            target/release/rootcause.exe
+            build/RootCause-Portable.zip
+            build/installer/RootCause-Setup.exe
+            build/SHA256SUMS.txt
           if-no-files-found: error
+
+      - name: Publicar GitHub Release (solo en tags)
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: RootCause ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            build/RootCause-Portable.zip
+            build/installer/RootCause-Setup.exe
+            build/SHA256SUMS.txt
