@@ -1,0 +1,6 @@
+# Configuración explícita para evitar discrepancias entre versiones de rustfmt.
+# edition debe coincidir con Cargo.toml.
+edition = "2024"
+max_width = 100
+tab_spaces = 4
+newline_style = "Auto"
