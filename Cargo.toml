@@ -9,6 +9,10 @@ license = "MIT"
 repository = "https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
 publish = false
 
+[[bin]]
+name = "rootcause"
+path = "src/main.rs"
+
 [dependencies]
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
