@@ -1,17 +1,38 @@
 //! Punto de entrada de la aplicación.
 //!
-//! Este binario crea una ventana de escritorio ligera usando `eframe/egui`.
-//! Toda la lógica de diagnóstico vive en módulos separados para que la
-//! mantención futura sea simple y trazable.
+//! Soporta dos modos de operación:
+//!
+//! * **GUI** (por defecto): `rootcause` o `rootcause --gui`
+//! * **CLI**: `rootcause <comando>` — útil para scripts y automatización.
+//!
+//! El modo CLI se despacha a `cli::run()` sin inicializar ningún contexto
+//! gráfico, por lo que funciona en sesiones de consola sin pantalla.
 
 mod app;
+mod cli;
+mod meta;
 mod models;
 mod services;
 
 use app::RootCauseApp;
 use eframe::egui;
 
-fn main() -> eframe::Result<()> {
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+
+    // Si hay argumentos y el primero no es --gui, despachar al modo CLI.
+    if args.len() > 1 && args[1] != "--gui" {
+        std::process::exit(cli::run(&args[1..]));
+    }
+
+    // Modo GUI (predeterminado).
+    if let Err(e) = launch_gui() {
+        eprintln!("Error al iniciar la interfaz gráfica: {e}");
+        std::process::exit(1);
+    }
+}
+
+fn launch_gui() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("RootCause — Windows Inspector")

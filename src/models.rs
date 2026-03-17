@@ -78,6 +78,21 @@ pub struct ProcessInsight {
     pub command_line: Option<String>,
 }
 
+/// Información de hardware del equipo, recopilada una sola vez al iniciar.
+///
+/// Se usa en el tab Overview y en el CLI para contextualizar las métricas.
+#[derive(Debug, Clone, Default)]
+pub struct HardwareInfo {
+    pub os_name: String,
+    pub os_version: String,
+    pub host_name: String,
+    pub cpu_brand: String,
+    pub cpu_cores: usize,
+    pub cpu_freq_mhz: u64,
+    pub total_ram_gb: f32,
+    pub architecture: String,
+}
+
 /// Fila resumida del historial SQLite, lista para mostrar en la UI.
 #[derive(Debug, Clone, Default)]
 pub struct SnapshotRow {

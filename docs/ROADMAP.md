@@ -33,7 +33,12 @@
 - ✅ correlación proceso ↔ command line via `Get-CimInstance Win32_Process` en batch
 - ✅ ETL summary enriquecido: barra de proveedores ETW e indicadores en la UI
 - ✅ instalador silencioso: soporte `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` en Inno Setup
-- ✅ cero crates nuevos: todo con primitivos egui, PowerShell y SQLite existente
+- ✅ CLI completa: `rootcause <comando>` desde consola de Windows con `--help` y todos los comandos
+- ✅ tab **Acerca**: versión, autor, email, GitHub, GitLab, stack técnico, atajos, hardware
+- ✅ atajos de teclado: `F5` actualizar, `Ctrl+E` exportar, `Ctrl+1…8` cambio de tab
+- ✅ características del equipo: sección en tab Resumen y tab Acerca (OS, CPU, núcleos, RAM)
+- ✅ módulo `meta.rs`: constantes del producto en un único lugar
+- ✅ cero crates nuevos: todo con primitivos egui, PowerShell, SQLite y sysinfo existente
 
 ## v1.0 — Objetivo de distribución formal
 - producto estable para distribución más formal

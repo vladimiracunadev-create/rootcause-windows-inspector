@@ -47,6 +47,8 @@ No se eligió una base web pesada ni Electron porque el propio monitor no debe c
 src/
 ├── main.rs
 ├── app.rs
+├── cli.rs
+├── meta.rs
 ├── models.rs
 └── services/
     ├── mod.rs
@@ -63,19 +65,34 @@ src/
 ## 4) Responsabilidad por archivo
 
 ### `main.rs`
-Punto de entrada. Crea la ventana principal y registra la app.
+Punto de entrada. Detecta si hay argumentos CLI; si los hay, despacha a `cli::run()` y termina el proceso. Si no, levanta la ventana GUI.
+
+### `meta.rs`
+Constantes del producto: `VERSION`, `DISPLAY_NAME`, `AUTHOR`, `EMAIL`, `GITHUB`, `GITLAB`, `LICENSE`, `DESCRIPTION`. Único lugar de verdad; se usan en CLI y en el tab Acerca.
+
+### `cli.rs`
+Interfaz de línea de comandos completa.
+
+Responsabilidades:
+- `run(&[String]) -> i32` con dispatch de comandos,
+- `--help` con ASCII art del producto,
+- `--version`, `status`, `snapshot`, `history [N]`, `export`,
+- `wpr start/stop/cancel/analyze [--note NOTE]`,
+- `kill <PID>`, `block-ip <IP>`, `stop-service <name>`.
 
 ### `app.rs`
 Capa de interfaz.
 
 Responsabilidades:
-- layout general con tabs (Overview, Procesos, Temporales, Red, Servicios, ETL/WPR, Historial),
-- acciones del usuario,
+- layout general con tabs (Overview, Procesos, Temporales, Red, Servicios, ETL/WPR, Historial, Acerca),
+- atajos de teclado: `F5` = actualizar, `Ctrl+E` = exportar, `Ctrl+1…8` = cambio de tab,
 - semáforo,
 - sparklines de CPU / RAM / I/O (ring buffer `VecDeque<MetricSample>`, max 60 muestras),
+- sección "Características del equipo" en tab Resumen (datos de `HardwareInfo`),
 - filtro de severidad por tab de procesos,
 - tab de Historial con tabla SQLite y comparación A vs B,
 - notificaciones toast vía PowerShell (non-blocking),
+- tab Acerca con versión, autor, links, atajos y hardware del equipo,
 - control del modo de precisión,
 - vista de resumen ETL con barra de proveedores.
 
@@ -90,7 +107,8 @@ Responsabilidades:
 - servicios,
 - estado de precisión,
 - resumen ETL,
-- `SnapshotRow` para filas del historial SQLite.
+- `SnapshotRow` para filas del historial SQLite,
+- `HardwareInfo` para datos estáticos del hardware (OS, CPU, RAM, arquitectura).
 
 ### `services/inspector.rs`
 Orquestador principal.
@@ -99,6 +117,7 @@ Responsabilidades:
 - refrescar métricas,
 - calcular deltas,
 - ensamblar el snapshot completo,
+- `get_hardware_info()` — recopila datos de hardware una sola vez al iniciar,
 - exponer acciones de UI,
 - coordinar ETL + resumen.
 
@@ -198,7 +217,8 @@ El resumen ETL produce archivos intermedios visibles y revisables.
 - notas de caso dentro del historial,
 - exportación de evidencia más rica,
 - timeline básica de síntomas,
-- mejorar heurísticas ETL.
+- mejorar heurísticas ETL,
+- completar campos `EMAIL` y `GITLAB` en `meta.rs`.
 
 ### Mediano plazo
 - perfiles WPR más específicos,

@@ -113,7 +113,77 @@ No lo actives por defecto en todos los casos.
 
 ---
 
-## 6) Funciones nuevas en v0.6
+## 6) Uso desde la consola de Windows (CLI)
+
+El binario `rootcause.exe` funciona también como herramienta de línea de comandos.
+
+### Ver ayuda completa
+```
+rootcause --help
+rootcause --version
+```
+
+### Estado y datos en tiempo real
+```
+rootcause status          # estado del sistema (severidad, CPU, RAM, I/O, alertas)
+rootcause snapshot        # snapshot completo en JSON a stdout
+rootcause history [N]     # últimas N filas del historial (default 10)
+rootcause export          # exporta snapshot a JSON en Descargas/Documentos
+```
+
+### Acciones de intervención
+```
+rootcause kill <PID>              # finaliza proceso (respeta política de protección)
+rootcause block-ip <IP>           # bloquea IP vía firewall de Windows
+rootcause stop-service <nombre>   # detiene servicio permitido (bits, dosvc, sysmain, wuauserv)
+```
+
+### Captura ETL con WPR
+```
+rootcause wpr start [--note "descripción"]   # inicia captura ETL
+rootcause wpr stop  [--note "descripción"]   # detiene y guarda .etl
+rootcause wpr cancel                          # cancela sin guardar
+rootcause wpr analyze                         # resume el último .etl
+```
+
+### Lanzar GUI explícitamente
+```
+rootcause --gui
+```
+
+---
+
+## 7) Atajos de teclado (GUI)
+
+| Atajo        | Acción                        |
+|:-------------|:------------------------------|
+| `F5`         | Actualizar ahora              |
+| `Ctrl + E`   | Exportar snapshot a JSON      |
+| `Ctrl + 1`   | Ir a tab Resumen              |
+| `Ctrl + 2`   | Ir a tab Procesos             |
+| `Ctrl + 3`   | Ir a tab Conexiones           |
+| `Ctrl + 4`   | Ir a tab Temporales           |
+| `Ctrl + 5`   | Ir a tab ETW / WPR            |
+| `Ctrl + 6`   | Ir a tab Servicios            |
+| `Ctrl + 7`   | Ir a tab Historial            |
+| `Ctrl + 8`   | Ir a tab Acerca               |
+
+---
+
+## 8) Características del equipo (tab Resumen)
+
+Al final del tab **Resumen** aparece una sección "▸ Características del equipo" con:
+- nombre del equipo,
+- sistema operativo y versión,
+- arquitectura de CPU,
+- marca, número de núcleos y frecuencia del procesador,
+- RAM total.
+
+Los mismos datos aparecen en el tab **Acerca**, junto con la tabla de atajos de teclado.
+
+---
+
+## 9) Funciones nuevas en v0.6
 
 ### Sparklines (tab Overview)
 Muestra las últimas 60 muestras de CPU%, RAM% e I/O Write como mini-gráficos de línea. Útil para identificar picos recientes sin haber estado mirando la pantalla en ese momento.
@@ -132,3 +202,15 @@ El instalador Inno Setup ahora acepta parámetros de despliegue corporativo:
 ```
 RootCause-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```
+
+### Interfaz de línea de comandos (CLI)
+El binario funciona también como CLI. `rootcause --help` muestra todos los comandos disponibles. Ver sección 6 para referencia completa.
+
+### Atajos de teclado
+`F5` para refrescar, `Ctrl+E` para exportar, `Ctrl+1…8` para cambiar de tab sin usar el ratón. Ver sección 7.
+
+### Características del equipo
+Nueva sección al final del tab **Resumen** y en el tab **Acerca**: muestra OS, CPU, núcleos, frecuencia y RAM total del equipo. Ver sección 8.
+
+### Tab Acerca
+Nueva pestaña con versión del producto, autor, enlaces a GitHub/GitLab, stack técnico, atajos de teclado y hardware del equipo.

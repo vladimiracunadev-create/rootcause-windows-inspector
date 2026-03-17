@@ -249,6 +249,71 @@ cargo build --release
 ```
 
 
+## CLI del producto (rootcause.exe)
+
+El binario instalado funciona como herramienta de consola. Todos los comandos funcionan sin GUI.
+
+### Ayuda y versión
+
+```
+rootcause --help
+rootcause --version
+```
+
+### Estado del sistema
+
+```
+rootcause status
+```
+Imprime severidad, CPU, RAM, I/O y alertas activas.
+
+### Snapshot JSON
+
+```
+rootcause snapshot
+```
+Vuelca la instantánea completa a stdout en formato JSON.
+
+### Historial
+
+```
+rootcause history
+rootcause history 20
+```
+Muestra las últimas N filas del historial SQLite (default: 10).
+
+### Exportar
+
+```
+rootcause export
+```
+Guarda snapshot a JSON en la carpeta Descargas o Documentos.
+
+### Captura ETL
+
+```
+rootcause wpr start [--note "descripción"]
+rootcause wpr stop  [--note "descripción"]
+rootcause wpr cancel
+rootcause wpr analyze
+```
+
+### Acciones de intervención
+
+```
+rootcause kill <PID>
+rootcause block-ip <IP>
+rootcause stop-service <nombre>
+```
+
+### Forzar modo GUI
+
+```
+rootcause --gui
+```
+
+---
+
 ## Empaquetado de la demo pública
 
 ### Compilar instalador DEMO con Inno Setup

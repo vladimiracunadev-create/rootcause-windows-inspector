@@ -4,9 +4,10 @@
 //! cada tab dibuja su contenido con tablas, progress bars y tooltips para
 //! nombres o rutas largas. Sin scroll horizontal.
 
+use crate::meta;
 use crate::models::{
-    ProcessInsight, ServiceState, Severity, SnapshotRow, SystemSnapshot, TraceAnalysisSummary,
-    TracePathSummary, TraceProcessSummary,
+    HardwareInfo, ProcessInsight, ServiceState, Severity, SnapshotRow, SystemSnapshot,
+    TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
 };
 use crate::services::inspector::InspectorService;
 use crate::services::windows;
@@ -69,6 +70,7 @@ enum Tab {
     Precision,
     Services,
     History,
+    About,
 }
 
 impl Tab {
@@ -80,6 +82,7 @@ impl Tab {
         (Tab::Precision, "◉", "ETW / WPR"),
         (Tab::Services, "◧", "Servicios"),
         (Tab::History, "◑", "Historial"),
+        (Tab::About, "ℹ", "Acerca"),
     ];
 }
 
@@ -119,6 +122,8 @@ pub struct RootCauseApp {
     history_filter: String,
     // Filtro por severidad en tab Procesos (punto 6)
     proc_severity_filter: Option<Severity>,
+    // Información de hardware (recopilada una sola vez al iniciar)
+    hardware_info: HardwareInfo,
 }
 
 impl RootCauseApp {
@@ -146,9 +151,11 @@ impl RootCauseApp {
             history_compare_b: None,
             history_filter: String::new(),
             proc_severity_filter: None,
+            hardware_info: HardwareInfo::default(),
         };
         match inspector {
             Ok(svc) => {
+                app.hardware_info = svc.get_hardware_info();
                 app.status_line = svc.latest_history_line();
                 app.inspector = Some(svc);
             }
@@ -354,6 +361,50 @@ impl eframe::App for RootCauseApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint_after(Duration::from_secs(1));
 
+        // ── Atajos de teclado ──────────────────────────────────────────────────
+        // Se recogen en variables locales primero para evitar conflictos de borrow.
+        let mut should_refresh = false;
+        let mut should_export = false;
+        let mut tab_switch: Option<usize> = None;
+
+        ctx.input(|i| {
+            // F5 → Actualizar ahora
+            if i.key_pressed(egui::Key::F5) {
+                should_refresh = true;
+            }
+            // Ctrl+E → Exportar JSON
+            if i.key_pressed(egui::Key::E) && i.modifiers.ctrl {
+                should_export = true;
+            }
+            // Ctrl+1..8 → Cambiar de tab
+            for (key, idx) in [
+                (egui::Key::Num1, 0usize),
+                (egui::Key::Num2, 1),
+                (egui::Key::Num3, 2),
+                (egui::Key::Num4, 3),
+                (egui::Key::Num5, 4),
+                (egui::Key::Num6, 5),
+                (egui::Key::Num7, 6),
+                (egui::Key::Num8, 7),
+            ] {
+                if i.key_pressed(key) && i.modifiers.ctrl {
+                    tab_switch = Some(idx);
+                }
+            }
+        });
+
+        if should_refresh {
+            self.refresh_now();
+        }
+        if should_export {
+            self.export_snapshot();
+        }
+        if let Some(idx) = tab_switch {
+            if let Some(&(tab, _, _)) = Tab::ALL.get(idx) {
+                self.active_tab = tab;
+            }
+        }
+
         if self.snapshot.is_none()
             || (self.auto_refresh
                 && self.last_refresh_at.elapsed()
@@ -380,6 +431,14 @@ impl eframe::App for RootCauseApp {
                     .inner_margin(Margin::symmetric(16.0, 12.0)),
             )
             .show(ctx, |ui| {
+                // El tab Acerca no necesita snapshot — se muestra siempre.
+                if self.active_tab == Tab::About {
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false; 2])
+                        .show(ui, |ui| draw_tab_about(ui, &self.hardware_info));
+                    return;
+                }
+
                 let Some(snapshot) = self.snapshot.clone() else {
                     loading_screen(ui);
                     return;
@@ -396,7 +455,14 @@ impl eframe::App for RootCauseApp {
                         let mut sev_filter_change: Option<Option<Severity>> = None;
 
                         match self.active_tab {
-                            Tab::Overview => draw_tab_overview(ui, &snapshot, &self.metric_history),
+                            Tab::Overview => {
+                                draw_tab_overview(
+                                    ui,
+                                    &snapshot,
+                                    &self.metric_history,
+                                    &self.hardware_info,
+                                );
+                            }
                             Tab::Processes => draw_tab_processes(
                                 ui,
                                 &snapshot,
@@ -431,6 +497,8 @@ impl eframe::App for RootCauseApp {
                                 &mut self.history_compare_a,
                                 &mut self.history_compare_b,
                             ),
+                            // About se gestiona antes del guard de snapshot — nunca llega aquí.
+                            Tab::About => {}
                         }
 
                         match precision_action {
@@ -616,7 +684,12 @@ fn draw_statusbar(app: &RootCauseApp, ctx: &egui::Context) {
 
 // ── Tab: Resumen ───────────────────────────────────────────────────────────────
 
-fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot, history: &VecDeque<MetricSample>) {
+fn draw_tab_overview(
+    ui: &mut egui::Ui,
+    snap: &SystemSnapshot,
+    history: &VecDeque<MetricSample>,
+    hw: &HardwareInfo,
+) {
     let ov = &snap.overview;
     let score = compute_health_score(snap);
     let (score_fg, score_bg, score_label) = if score >= 80 {
@@ -781,6 +854,47 @@ fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot, history: &VecDequ
             ui.add_space(8.0);
             sparkline_card(ui, "I/O Escrit. MB", &io_vals, C_CR_FG, 200.0);
         });
+    }
+
+    // ── Características del equipo ───────────────────────────────────────────
+    if !hw.host_name.is_empty() || !hw.cpu_brand.is_empty() {
+        ui.add_space(18.0);
+        section_header(ui, "▸  Características del equipo");
+        ui.add_space(8.0);
+        egui::Frame::none()
+            .fill(BG_CARD)
+            .stroke(Stroke::new(1.0, BORDER))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(Margin::same(14.0))
+            .show(ui, |ui| {
+                ui.set_max_width(700.0);
+                ui.columns(2, |cols| {
+                    let left = &mut cols[0];
+                    hw_row(left, "🖥  Equipo", &hw.host_name);
+                    hw_row(left, "🪟  Sistema", &hw.os_name);
+                    hw_row(left, "📋  Versión OS", &hw.os_version);
+                    hw_row(left, "🏗  Arquitectura", &hw.architecture);
+
+                    let right = &mut cols[1];
+                    hw_row(
+                        right,
+                        "⚙  CPU",
+                        &format!("{}  ·  {} núcleos", hw.cpu_brand, hw.cpu_cores),
+                    );
+                    if hw.cpu_freq_mhz > 0 {
+                        hw_row(
+                            right,
+                            "⚡  Frecuencia",
+                            &format!("{:.1} GHz", hw.cpu_freq_mhz as f32 / 1000.0),
+                        );
+                    }
+                    hw_row(
+                        right,
+                        "💾  RAM total",
+                        &format!("{:.1} GB", hw.total_ram_gb),
+                    );
+                });
+            });
     }
 }
 
@@ -2026,6 +2140,251 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
                 ui.add(egui::Separator::default().spacing(0.0));
             }
         });
+}
+
+// ── Tab: Acerca ────────────────────────────────────────────────────────────────
+
+fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo) {
+    ui.add_space(28.0);
+
+    ui.vertical_centered(|ui| {
+        // ── Tarjeta principal ─────────────────────────────────────────────────
+        egui::Frame::none()
+            .fill(BG_CARD)
+            .stroke(Stroke::new(1.0, BORDER))
+            .rounding(Rounding::same(14.0))
+            .inner_margin(Margin::same(32.0))
+            .show(ui, |ui| {
+                ui.set_max_width(620.0);
+
+                // Logo + nombre
+                ui.horizontal(|ui| {
+                    draw_logo_icon(ui, 56.0);
+                    ui.add_space(18.0);
+                    ui.vertical(|ui| {
+                        ui.label(
+                            RichText::new(meta::DISPLAY_NAME)
+                                .size(22.0)
+                                .strong()
+                                .color(TEXT_PRI),
+                        );
+                        ui.add_space(2.0);
+                        pill(
+                            ui,
+                            &format!("v{}  ·  {}", meta::VERSION, meta::LICENSE),
+                            C_BL_FG,
+                            C_BL_BG,
+                        );
+                    });
+                });
+
+                ui.add_space(16.0);
+                ui.label(RichText::new(meta::DESCRIPTION).size(13.0).color(TEXT_SEC));
+
+                ui.add_space(18.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Contacto ─────────────────────────────────────────────────
+                section_header(ui, "▸  Autor y contacto");
+                ui.add_space(10.0);
+
+                about_row(ui, "Autor", meta::AUTHOR, TEXT_PRI);
+                if !meta::EMAIL.is_empty() {
+                    about_link_row(ui, "Email", &format!("mailto:{}", meta::EMAIL), meta::EMAIL);
+                }
+                about_link_row(ui, "GitHub", meta::GITHUB, meta::GITHUB);
+                if !meta::GITLAB.is_empty() {
+                    about_link_row(ui, "GitLab", meta::GITLAB, meta::GITLAB);
+                }
+
+                ui.add_space(18.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Stack técnico ─────────────────────────────────────────────
+                section_header(ui, "▸  Stack técnico");
+                ui.add_space(10.0);
+
+                about_row(ui, "Lenguaje", "Rust 2024 edition", TEXT_SEC);
+                about_row(ui, "GUI", "eframe / egui 0.27  ·  modo inmediato", TEXT_SEC);
+                about_row(
+                    ui,
+                    "Persistencia",
+                    "SQLite vía rusqlite  ·  bundled",
+                    TEXT_SEC,
+                );
+                about_row(ui, "Métricas", "sysinfo  ·  bajo consumo", TEXT_SEC);
+                about_row(
+                    ui,
+                    "Integración Windows",
+                    "PowerShell · netstat · WPR · tracerpt",
+                    TEXT_SEC,
+                );
+                about_row(ui, "Plataforma", "Windows 10 / 11  ·  x64", TEXT_SEC);
+                about_row(ui, "CI/CD", "GitHub Actions  ·  windows-latest", TEXT_SEC);
+
+                ui.add_space(18.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Nota final ────────────────────────────────────────────────
+                ui.label(
+                    RichText::new(
+                        "Diagnóstico primero. Intervención después.  \
+                         No intenta ser un limpiador mágico — busca explicar la causa real.",
+                    )
+                    .size(12.5)
+                    .italics()
+                    .color(TEXT_MUT),
+                );
+
+                ui.add_space(8.0);
+
+                // CLI hint
+                egui::Frame::none()
+                    .fill(BG_PANEL)
+                    .stroke(Stroke::new(1.0, BORDER))
+                    .rounding(Rounding::same(6.0))
+                    .inner_margin(Margin::same(10.0))
+                    .show(ui, |ui| {
+                        ui.label(
+                            RichText::new("  $ rootcause --help")
+                                .monospace()
+                                .size(12.0)
+                                .color(C_OK_FG),
+                        );
+                        ui.label(
+                            RichText::new(
+                                "Disponible también como herramienta de línea de comandos",
+                            )
+                            .size(11.0)
+                            .color(TEXT_MUT),
+                        );
+                    });
+
+                ui.add_space(18.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Atajos de teclado ─────────────────────────────────────────
+                section_header(ui, "▸  Atajos de teclado");
+                ui.add_space(10.0);
+
+                for (shortcut, action) in [
+                    ("F5", "Actualizar ahora"),
+                    ("Ctrl + E", "Exportar snapshot a JSON"),
+                    ("Ctrl + 1", "Ir a Resumen"),
+                    ("Ctrl + 2", "Ir a Procesos"),
+                    ("Ctrl + 3", "Ir a Conexiones"),
+                    ("Ctrl + 4", "Ir a Temporales"),
+                    ("Ctrl + 5", "Ir a ETW / WPR"),
+                    ("Ctrl + 6", "Ir a Servicios"),
+                    ("Ctrl + 7", "Ir a Historial"),
+                    ("Ctrl + 8", "Ir a Acerca"),
+                ] {
+                    ui.horizontal(|ui| {
+                        egui::Frame::none()
+                            .fill(BG_PANEL)
+                            .stroke(Stroke::new(1.0, BORDER))
+                            .rounding(Rounding::same(4.0))
+                            .inner_margin(Margin::symmetric(8.0, 2.0))
+                            .show(ui, |ui| {
+                                ui.label(
+                                    RichText::new(shortcut)
+                                        .monospace()
+                                        .size(11.5)
+                                        .color(C_BL_FG),
+                                );
+                            });
+                        ui.add_space(6.0);
+                        ui.label(RichText::new(action).size(12.0).color(TEXT_SEC));
+                    });
+                    ui.add_space(3.0);
+                }
+
+                // ── Hardware del equipo ───────────────────────────────────────
+                if !hw.host_name.is_empty() || !hw.cpu_brand.is_empty() {
+                    ui.add_space(18.0);
+                    ui.add(egui::Separator::default());
+                    ui.add_space(14.0);
+
+                    section_header(ui, "▸  Este equipo");
+                    ui.add_space(10.0);
+
+                    about_row(ui, "Nombre", &hw.host_name, TEXT_SEC);
+                    about_row(ui, "Sistema", &hw.os_name, TEXT_SEC);
+                    about_row(ui, "Versión OS", &hw.os_version, TEXT_SEC);
+                    about_row(ui, "Arquitectura", &hw.architecture, TEXT_SEC);
+                    about_row(
+                        ui,
+                        "CPU",
+                        &format!("{}  ·  {} núcleos", hw.cpu_brand, hw.cpu_cores),
+                        TEXT_SEC,
+                    );
+                    if hw.cpu_freq_mhz > 0 {
+                        about_row(
+                            ui,
+                            "Frecuencia",
+                            &format!("{:.1} GHz", hw.cpu_freq_mhz as f32 / 1000.0),
+                            TEXT_SEC,
+                        );
+                    }
+                    about_row(
+                        ui,
+                        "RAM total",
+                        &format!("{:.1} GB", hw.total_ram_gb),
+                        TEXT_SEC,
+                    );
+                }
+            });
+    });
+}
+
+/// Fila de dato de hardware con etiqueta fija y valor.
+fn hw_row(ui: &mut egui::Ui, label: &str, value: &str) {
+    ui.horizontal(|ui| {
+        ui.add_sized(
+            [140.0, 18.0],
+            egui::Label::new(RichText::new(label).size(11.5).color(TEXT_MUT)),
+        );
+        ui.label(RichText::new(value).size(11.5).color(TEXT_SEC));
+    });
+    ui.add_space(3.0);
+}
+
+/// Fila de información en el panel Acerca.
+fn about_row(ui: &mut egui::Ui, label: &str, value: &str, color: Color32) {
+    ui.horizontal(|ui| {
+        ui.add_sized(
+            [120.0, 18.0],
+            egui::Label::new(RichText::new(label).size(12.0).color(TEXT_MUT)),
+        );
+        ui.label(RichText::new(value).size(12.0).color(color));
+    });
+    ui.add_space(3.0);
+}
+
+/// Fila de enlace clickable en el panel Acerca.
+/// Abre la URL con el shell de Windows (`cmd /c start ""`).
+fn about_link_row(ui: &mut egui::Ui, label: &str, url: &str, display: &str) {
+    ui.horizontal(|ui| {
+        ui.add_sized(
+            [120.0, 18.0],
+            egui::Label::new(RichText::new(label).size(12.0).color(TEXT_MUT)),
+        );
+        let resp = ui.add(
+            egui::Button::new(RichText::new(display).size(12.0).color(C_BL_FG))
+                .fill(Color32::TRANSPARENT)
+                .stroke(Stroke::NONE),
+        );
+        if resp.on_hover_text("Abrir en el navegador").clicked() {
+            let _ = std::process::Command::new("cmd")
+                .args(["/c", "start", "", url])
+                .spawn();
+        }
+    });
+    ui.add_space(3.0);
 }
 
 // ── Widgets de UI reutilizables ────────────────────────────────────────────────

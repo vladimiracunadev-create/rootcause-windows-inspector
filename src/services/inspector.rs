@@ -5,8 +5,8 @@
 //! obtener datos, solo en cómo mostrarlos con claridad.
 
 use crate::models::{
-    Alert, ConnectionInsight, PrecisionStatus, ProcessInsight, ServiceState, Severity, SnapshotRow,
-    SystemOverview, SystemSnapshot, TempEntry, TraceAnalysisSummary,
+    Alert, ConnectionInsight, HardwareInfo, PrecisionStatus, ProcessInsight, ServiceState,
+    Severity, SnapshotRow, SystemOverview, SystemSnapshot, TempEntry, TraceAnalysisSummary,
 };
 use crate::services::{etl, network, persistence::PersistenceStore, temp_scan, windows};
 use anyhow::{Context, Result, anyhow};
@@ -130,6 +130,21 @@ impl InspectorService {
     /// Carga las últimas N filas del historial SQLite para la pestaña Historial.
     pub fn load_history(&self, limit: usize) -> Vec<SnapshotRow> {
         self.store.load_recent(limit).unwrap_or_default()
+    }
+
+    /// Recopila información estática del hardware del equipo (se llama una sola vez al iniciar).
+    pub fn get_hardware_info(&self) -> HardwareInfo {
+        let cpu = self.system.cpus().first();
+        HardwareInfo {
+            os_name: sysinfo::System::name().unwrap_or_else(|| "Windows".to_owned()),
+            os_version: sysinfo::System::long_os_version().unwrap_or_default(),
+            host_name: sysinfo::System::host_name().unwrap_or_default(),
+            cpu_brand: cpu.map(|c| c.brand().to_owned()).unwrap_or_default(),
+            cpu_cores: self.system.cpus().len(),
+            cpu_freq_mhz: cpu.map(|c| c.frequency()).unwrap_or(0),
+            total_ram_gb: self.system.total_memory() as f32 / 1_073_741_824.0,
+            architecture: std::env::consts::ARCH.to_owned(),
+        }
     }
 
     /// Captura una instantánea completa.
