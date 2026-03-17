@@ -39,6 +39,8 @@
 - ✅ características del equipo: sección en tab Resumen y tab Acerca (OS, CPU, núcleos, RAM)
 - ✅ módulo `meta.rs`: constantes del producto en un único lugar
 - ✅ cero crates nuevos: todo con primitivos egui, PowerShell, SQLite y sysinfo existente
+- ✅ landing page pública: `rootcause-landing` en GitHub Pages con releases públicos
+- ✅ hardening de seguridad: validación estricta de IP y nombre de servicio antes de invocar PowerShell (`is_valid_firewall_ip` en `windows.rs`), defensa en profundidad contra command injection
 
 ## v1.0 — Objetivo de distribución formal
 - producto estable para distribución más formal

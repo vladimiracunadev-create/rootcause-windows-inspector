@@ -139,7 +139,8 @@ Responsabilidades:
 - WPR,
 - `tracerpt`,
 - `show_toast_notification()` vía WinRT/PowerShell (non-blocking),
-- `batch_process_cmdlines()` vía `Get-CimInstance Win32_Process` en batch.
+- `batch_process_cmdlines()` vía `Get-CimInstance Win32_Process` en batch,
+- `is_valid_firewall_ip()` — validación estricta de IPv4/IPv6 antes de construir scripts PowerShell (defensa contra command injection).
 
 ### `services/etl.rs`
 Resumen asistido del ETL.

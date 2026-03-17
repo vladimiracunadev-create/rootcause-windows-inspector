@@ -161,21 +161,58 @@ pub fn terminate_process(pid: u32) -> Result<String> {
 }
 
 /// Crea una regla outbound para bloquear una IP remota sospechosa.
+///
+/// Valida estrictamente el formato de la IP antes de usarla en el script
+/// PowerShell para evitar inyección de comandos.
 pub fn block_remote_ip(ip: &str) -> Result<String> {
     let safe_ip = ip.trim();
+    if !is_valid_firewall_ip(safe_ip) {
+        bail!(
+            "Dirección IP no válida: '{safe_ip}'. \
+             Solo se aceptan IPv4 (ej. 1.2.3.4) o IPv6 (ej. 2001:db8::1)."
+        );
+    }
     let script = format!(
-        "New-NetFirewallRule -DisplayName 'RootCause block {safe_ip}' -Direction Outbound -RemoteAddress {safe_ip} -Action Block | Out-Null; Write-Output 'Regla creada para bloquear {safe_ip}'"
+        "New-NetFirewallRule \
+         -DisplayName 'RootCause block {safe_ip}' \
+         -Direction Outbound \
+         -RemoteAddress {safe_ip} \
+         -Action Block | Out-Null; \
+         Write-Output 'Regla creada para bloquear {safe_ip}'"
     );
     powershell(&script)
 }
 
 /// Detiene temporalmente un servicio permitido.
+///
+/// Valida que el nombre solo contenga caracteres alfanuméricos, guiones y
+/// guiones bajos (defensa en profundidad; la lista permitida está en
+/// `InspectorService::stop_service`).
 pub fn stop_service(service_name: &str) -> Result<String> {
     let safe = service_name.trim();
+    if safe.is_empty()
+        || !safe
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        bail!("Nombre de servicio no válido: '{safe}'.");
+    }
     let script = format!(
-        "Stop-Service -Name '{safe}' -Force -ErrorAction Stop; Write-Output 'Servicio {safe} detenido temporalmente'"
+        "Stop-Service -Name '{safe}' -Force -ErrorAction Stop; \
+         Write-Output 'Servicio {safe} detenido temporalmente'"
     );
     powershell(&script)
+}
+
+/// Valida que una cadena sea una dirección IPv4 o IPv6 segura para usar
+/// en scripts PowerShell. Solo permite dígitos hexadecimales, puntos y
+/// dos puntos — sin espacios, comillas ni metacaracteres de shell.
+fn is_valid_firewall_ip(ip: &str) -> bool {
+    if ip.is_empty() || ip.len() > 45 {
+        return false;
+    }
+    ip.chars()
+        .all(|c| c.is_ascii_hexdigit() || c == '.' || c == ':')
 }
 
 /// Indica si WPR está disponible en el sistema.

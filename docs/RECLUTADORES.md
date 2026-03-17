@@ -60,7 +60,8 @@ Este proyecto demuestra capacidades en varias áreas al mismo tiempo:
 - empaquetado,
 - CI en GitHub Actions,
 - checklist de release,
-- landing page del producto.
+- landing page del producto,
+- análisis y hardening de seguridad (command injection, validación de entradas antes de invocar PowerShell).
 
 ### CLI y experiencia de usuario
 - interfaz de línea de comandos completa (`rootcause --help`),
@@ -223,5 +224,5 @@ La ruta de escalamiento se desarrolla con más detalle en `docs/ARQUITECTURA_ESC
 
 ## 11. Versión actual
 
-**v0.6.0** — CLI completa, atajos de teclado, tab Acerca, características del equipo, sparklines, historial SQLite, comparación A vs B, filtro de severidad, notificaciones toast, correlación process↔cmdline, landing page del producto.
+**v0.6.0** — CLI completa, atajos de teclado, tab Acerca, características del equipo, sparklines, historial SQLite, comparación A vs B, filtro de severidad, notificaciones toast, correlación process↔cmdline, landing page del producto, hardening de seguridad (validación de IPs y servicios antes de ejecutar scripts PowerShell).
 
