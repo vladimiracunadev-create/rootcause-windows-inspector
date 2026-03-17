@@ -7,17 +7,19 @@ Esta guía explica cómo usar el software en un caso real de lentitud de Windows
 ## 1) Flujo mínimo recomendado
 
 1. abre la app,
-2. deja correr algunos refrescos,
+2. deja correr algunos refrescos — observa las sparklines de CPU / RAM / I/O en el tab **Overview**,
 3. mira el semáforo,
 4. revisa “Dónde mirar primero”,
-5. identifica si el problema parece venir de:
-   - proceso,
+5. ve al tab **Procesos** y usa el filtro de severidad para concentrarte en lo Critical primero,
+6. identifica si el problema parece venir de:
+   - proceso (revisa también el command line del proceso),
    - temporal,
    - red,
    - servicio,
    - update,
-6. exporta JSON si necesitas respaldo,
-7. activa modo de precisión solo si todavía no basta.
+7. si ya hay capturas anteriores, compara en el tab **Historial** para ver si empeoró,
+8. exporta JSON si necesitas respaldo,
+9. activa modo de precisión solo si todavía no basta.
 
 ---
 
@@ -103,3 +105,30 @@ No lo actives por defecto en todos los casos.
 2. cuando aparezca el síntoma activa o detén WPR según el caso,
 3. resume el último ETL,
 4. correlaciona hora del síntoma con alertas y snapshot.
+
+### Caso D: comparar si el problema empeoró en el tiempo
+1. abre el tab **Historial**,
+2. selecciona dos capturas con los botones **A** y **B**,
+3. revisa el panel de comparación — deltas de CPU / RAM / I/O / Alertas en verde o rojo.
+
+---
+
+## 6) Funciones nuevas en v0.6
+
+### Sparklines (tab Overview)
+Muestra las últimas 60 muestras de CPU%, RAM% e I/O Write como mini-gráficos de línea. Útil para identificar picos recientes sin haber estado mirando la pantalla en ese momento.
+
+### Filtro de severidad (tab Procesos)
+Botones **Critical / Warning / Normal / Todos** encima de la tabla. Concentra la vista en lo que importa cuando hay muchos procesos activos.
+
+### Notificaciones toast
+Si hay un proceso con severidad **Critical**, la app envía una notificación de Windows en segundo plano (no congela la UI). Cooldown de 90 segundos entre notificaciones del mismo tipo. Activar/desactivar con el checkbox 🔔 en el header.
+
+### Command line de proceso
+Los procesos Critical o con I/O > 20 MB muestran el command line completo del proceso en la tabla. Útil para distinguir instancias del mismo ejecutable lanzadas con parámetros distintos.
+
+### Instalación silenciosa
+El instalador Inno Setup ahora acepta parámetros de despliegue corporativo:
+```
+RootCause-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+```

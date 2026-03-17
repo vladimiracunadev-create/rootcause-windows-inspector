@@ -69,24 +69,28 @@ Punto de entrada. Crea la ventana principal y registra la app.
 Capa de interfaz.
 
 Responsabilidades:
-- layout general,
+- layout general con tabs (Overview, Procesos, Temporales, Red, Servicios, ETL/WPR, Historial),
 - acciones del usuario,
 - semáforo,
-- tablas principales,
+- sparklines de CPU / RAM / I/O (ring buffer `VecDeque<MetricSample>`, max 60 muestras),
+- filtro de severidad por tab de procesos,
+- tab de Historial con tabla SQLite y comparación A vs B,
+- notificaciones toast vía PowerShell (non-blocking),
 - control del modo de precisión,
-- vista de resumen ETL.
+- vista de resumen ETL con barra de proveedores.
 
 ### `models.rs`
 Modelos serializables.
 
 Responsabilidades:
 - snapshot de sistema,
-- procesos,
+- procesos (incluye `command_line: Option<String>` con `#[serde(default)]`),
 - conexiones,
 - temporales,
 - servicios,
 - estado de precisión,
-- resumen ETL.
+- resumen ETL,
+- `SnapshotRow` para filas del historial SQLite.
 
 ### `services/inspector.rs`
 Orquestador principal.
@@ -114,7 +118,9 @@ Responsabilidades:
 - firewall,
 - servicios,
 - WPR,
-- `tracerpt`.
+- `tracerpt`,
+- `show_toast_notification()` vía WinRT/PowerShell (non-blocking),
+- `batch_process_cmdlines()` vía `Get-CimInstance Win32_Process` en batch.
 
 ### `services/etl.rs`
 Resumen asistido del ETL.
@@ -127,6 +133,11 @@ Responsabilidades:
 
 ### `services/persistence.rs`
 Persistencia local SQLite.
+
+Responsabilidades:
+- guardar snapshots,
+- `load_recent(limit)` — devuelve últimas N filas como `Vec<SnapshotRow>`,
+- parsea `alerts_json` para derivar `alerts_count` y `has_critical`.
 
 ---
 
@@ -183,10 +194,11 @@ El resumen ETL produce archivos intermedios visibles y revisables.
 
 ## 8) Expansiones previstas
 
-### Corto plazo
-- mejorar heurísticas ETL,
-- agregar más scripts operativos,
-- ampliar validaciones de release.
+### Corto plazo (v0.7+)
+- notas de caso dentro del historial,
+- exportación de evidencia más rica,
+- timeline básica de síntomas,
+- mejorar heurísticas ETL.
 
 ### Mediano plazo
 - perfiles WPR más específicos,

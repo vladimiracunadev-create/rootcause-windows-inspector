@@ -13,7 +13,7 @@
 - ✅ relación snapshot ↔ ETL más visible
 - ✅ mejoras de whitelist local
 
-## v0.5 ✅ Entregado (versión actual)
+## v0.5 ✅ Entregado
 - ✅ parser resumido de ETL/metadata (`tracerpt` + `dumpfile.xml`)
 - ✅ resumen del último ETL desde la propia app
 - ✅ exportación `trace-analysis.json`
@@ -22,19 +22,18 @@
 - ✅ repositorio publicado en GitHub
 - ✅ release de GitHub con instrucciones completas de instalación y verificación
 - ✅ estabilización de CI: toolchain fijo, `rustfmt.toml` con `max_width = 100`
-- ✅ corrección de patrones Rust que rompían CI bajo `-D warnings`:
-  - `Ok(format!(...));` con `;` sobrante en bloques `#[cfg]`
-  - `collapsible_if` con let-chains Rust 2024
-  - `needless_return` en colas de funciones
-  - `collapsible_str_replace` con caracteres múltiples
+- ✅ corrección de patrones Rust que rompían CI bajo `-D warnings`
 - ✅ corrección de tests: escape de backslash en strings y orden de condiciones
 
-## v0.6 — Próxima iteración
-- exportación de evidencia más rica
-- notas de caso dentro del historial
-- empaquetado más corporativo
-- comparación temporal entre capturas
-- timeline básica de síntomas
+## v0.6 ✅ Entregado (versión actual)
+- ✅ sparklines de CPU / RAM / I/O con ring buffer (`VecDeque`) — sin crates extra
+- ✅ tab **Historial** con tabla SQLite y comparación A vs B con deltas
+- ✅ filtro de severidad por tab de procesos (Critical / Warning / Normal / todos)
+- ✅ notificaciones toast de Windows cuando aparece proceso Critical (PowerShell, non-blocking)
+- ✅ correlación proceso ↔ command line via `Get-CimInstance Win32_Process` en batch
+- ✅ ETL summary enriquecido: barra de proveedores ETW e indicadores en la UI
+- ✅ instalador silencioso: soporte `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` en Inno Setup
+- ✅ cero crates nuevos: todo con primitivos egui, PowerShell y SQLite existente
 
 ## v1.0 — Objetivo de distribución formal
 - producto estable para distribución más formal
