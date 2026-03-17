@@ -81,6 +81,7 @@ pub struct ProcessInsight {
 /// Fila resumida del historial SQLite, lista para mostrar en la UI.
 #[derive(Debug, Clone, Default)]
 pub struct SnapshotRow {
+    #[allow(dead_code)]
     pub id: i64,
     pub collected_at: String,
     pub cpu_usage: f32,

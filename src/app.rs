@@ -1847,8 +1847,9 @@ fn draw_tab_history(
         });
 
     // Panel de comparación
-    if let (Some(ai), Some(bi)) = (*compare_a, *compare_b) {
-        if let (Some(row_a), Some(row_b)) = (rows.get(ai), rows.get(bi)) {
+    if let (Some(ai), Some(bi)) = (*compare_a, *compare_b)
+        && let (Some(row_a), Some(row_b)) = (rows.get(ai), rows.get(bi))
+    {
             ui.add_space(14.0);
             section_header(ui, "▸  Comparación A vs B");
             ui.add_space(8.0);
@@ -1934,7 +1935,6 @@ fn draw_tab_history(
                         );
                     });
                 });
-        }
     }
 }
 
