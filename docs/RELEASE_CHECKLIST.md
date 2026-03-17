@@ -18,15 +18,18 @@ Checklist profesional antes de distribuir artefactos.
 
 ## 2) Documentación
 
-- [ ] README actualizado
+- [ ] README actualizado (ASCII art, tabs, estructura src)
 - [ ] BUILD_WINDOWS actualizado
 - [ ] COMMANDS actualizado
 - [ ] REQUIREMENTS actualizado
 - [ ] OPERACION actualizado
 - [ ] PRECISION_MODE_ETW actualizado
 - [ ] PACKAGING_WINDOWS actualizado
-- [ ] SECURITY revisado
+- [ ] ARCHITECTURE.md actualizado con módulos nuevos
 - [ ] ROADMAP actualizado con los ítems completados en esta versión
+- [ ] RECLUTADORES.md actualizado con funciones nuevas
+- [ ] SECURITY revisado
+- [ ] Landing page: versión actualizada en index.html
 
 ---
 
@@ -34,7 +37,11 @@ Checklist profesional antes de distribuir artefactos.
 
 - [ ] la UI arranca
 - [ ] refresco funciona
-- [ ] exportación JSON funciona
+- [ ] exportación JSON funciona (GUI y CLI: `rootcause export`)
+- [ ] CLI: `rootcause --help`, `status`, `snapshot`, `history` verificados
+- [ ] atajos de teclado verificados (F5, Ctrl+E, Ctrl+1…8)
+- [ ] tab Acerca muestra versión, autor y hardware del equipo correctamente
+- [ ] sección Características del equipo visible en tab Overview
 - [ ] bloqueo de IP funciona en entorno controlado
 - [ ] finalización de proceso funciona en entorno controlado
 - [ ] inicio / stop / cancel de WPR verificados si WPT está instalado

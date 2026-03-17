@@ -27,11 +27,16 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 ## Build, pruebas y entrega
 - [Build en Windows](BUILD_WINDOWS.md)
 - [Requisitos mínimos y recomendados](REQUIREMENTS.md)
-- [Comandos útiles](COMMANDS.md)
+- [Comandos útiles y CLI del producto](COMMANDS.md)
 - [CI en GitHub](CI_GITHUB.md)
 - [Pruebas en Windows](TESTING_WINDOWS.md)
 - [Checklist de release](RELEASE_CHECKLIST.md)
 - [Empaquetado Windows](PACKAGING_WINDOWS.md)
+
+## Producto y presentación
+- [Landing page del producto](../landing/README.md)
+- [Roadmap](ROADMAP.md)
+- [Nombres posibles del producto](NOMBRES_PRODUCTO.md)
 
 ## Precisión forense y ETL
 - [Modo de precisión ETW/WPR](PRECISION_MODE_ETW.md)

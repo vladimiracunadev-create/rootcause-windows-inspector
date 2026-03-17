@@ -59,7 +59,14 @@ Este proyecto demuestra capacidades en varias áreas al mismo tiempo:
 - guía de instalación,
 - empaquetado,
 - CI en GitHub Actions,
-- checklist de release.
+- checklist de release,
+- landing page del producto.
+
+### CLI y experiencia de usuario
+- interfaz de línea de comandos completa (`rootcause --help`),
+- atajos de teclado en la GUI,
+- tab Acerca con metadatos del producto,
+- información de hardware del equipo.
 
 ### Escalabilidad técnica
 - ruta clara para crecer a análisis más fino,
@@ -210,5 +217,11 @@ La ruta de escalamiento se desarrolla con más detalle en `docs/ARQUITECTURA_ESC
 
 ## 10. En una frase
 
-**RootCause es una herramienta Windows escrita en Rust que busca identificar con claridad la causa dominante de problemas de rendimiento, con una arquitectura ligera, profesional y preparada para escalar.**
+**RootCause es una herramienta Windows escrita en Rust que busca identificar con claridad la causa dominante de problemas de rendimiento, con una arquitectura ligera, CLI completa, GUI nativa y preparada para escalar.**
+
+---
+
+## 11. Versión actual
+
+**v0.6.0** — CLI completa, atajos de teclado, tab Acerca, características del equipo, sparklines, historial SQLite, comparación A vs B, filtro de severidad, notificaciones toast, correlación process↔cmdline, landing page del producto.
 

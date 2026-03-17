@@ -1,23 +1,23 @@
 ```
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║   ██████╗  ██████╗  ██████╗ ████████╗ ██████╗ █████╗ ██╗   ║
-║   ██╔══██╗██╔═══██╗██╔═══██╗╚══██╔══╝██╔════╝██╔══██╗██║   ║
-║   ██████╔╝██║   ██║██║   ██║   ██║   ██║     ███████║██║   ║
-║   ██╔══██╗██║   ██║██║   ██║   ██║   ██║     ██╔══██║██║   ║
-║   ██║  ██║╚██████╔╝╚██████╔╝   ██║   ╚██████╗██║  ██║███████╗
-║   ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝
-║                                                              ║
-║              W I N D O W S   I N S P E C T O R              ║
-║        Forensic diagnostics · Built in Rust · v0.6.0        ║
-╚══════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                   ║
+║  ██████╗  ██████╗  ██████╗ ████████╗ ██████╗  █████╗ ██╗   ██╗███████╗███████╗   ║
+║  ██╔══██╗██╔═══██╗██╔═══██╗╚══██╔══╝██╔════╝ ██╔══██╗██║   ██║██╔════╝██╔════╝   ║
+║  ██████╔╝██║   ██║██║   ██║   ██║   ██║      ███████║██║   ██║███████╗█████╗      ║
+║  ██╔══██╗██║   ██║██║   ██║   ██║   ██║      ██╔══██║██║   ██║╚════██║██╔══╝      ║
+║  ██║  ██║╚██████╔╝╚██████╔╝   ██║   ╚██████╗ ██║  ██║╚██████╔╝███████║███████╗    ║
+║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝    ║
+║                                                                                   ║
+║                     W I N D O W S   I N S P E C T O R                            ║
+║               Forensic diagnostics · Built in Rust · v0.6.0                      ║
+╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
 
 [![CI Windows](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/actions/workflows/ci.yml/badge.svg)](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
-[![Version](https://img.shields.io/badge/version-0.6.0-green.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.6.0-green.svg)](docs/ROADMAP.md)
 
 ---
 
@@ -75,6 +75,9 @@ El modo principal. Bajo consumo, útil para observación frecuente.
 - 🗃️ Exportación JSON · Historial SQLite con comparación A vs B
 - ⚡ Filtro de severidad por proceso (Critical / Warning / Normal)
 - 🔔 Notificaciones toast cuando aparece proceso Critical
+- ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…8` cambio de tab
+- 🖥️ Info de hardware del equipo: OS, CPU, núcleos, frecuencia, RAM
+- 💻 CLI completa: `rootcause --help` con todos los comandos desde consola
 
 ### 2 · Modo de precisión ETW/WPR
 Para cuando la observación liviana no basta.
@@ -113,13 +116,14 @@ Para cuando la observación liviana no basta.
 
 | Tab | Descripción |
 |---|---|
-| **Overview** | Semáforo global + sparklines de CPU / RAM / I/O |
+| **Overview** | Semáforo global + sparklines + características del equipo |
 | **Procesos** | Tabla con filtro de severidad + command line de proceso |
+| **Conexiones** | Conexiones activas por proceso + bloqueo de IP |
 | **Temporales** | Cachés de Windows (TEMP, SoftwareDistribution, etc.) |
-| **Red** | Conexiones activas + bloqueo de IP |
+| **ETW / WPR** | Captura WPR + resumen de traza ETL |
 | **Servicios** | wuauserv, BITS, DoSvc, SysMain + eventos recientes |
-| **ETL/WPR** | Captura WPR + resumen de traza |
 | **Historial** | Snapshots SQLite + comparación A vs B con deltas |
+| **Acerca** | Versión, autor, GitHub, atajos de teclado, hardware |
 
 ---
 
@@ -221,14 +225,17 @@ rootcause-windows-inspector/
 ├── LICENSE               ← Apache 2.0
 ├── SECURITY.md
 ├── docs/                 ← 25+ documentos de arquitectura, operación y producto
+├── landing/              ← Landing page del producto (HTML/CSS + deploy workflow)
 ├── packaging/windows/    ← Inno Setup .iss
 ├── scripts/              ← build, verify, package, wpr, etl
 └── src/
-    ├── main.rs
+    ├── main.rs           ← entrada: despacha CLI o GUI según args
+    ├── cli.rs            ← CLI completa (--help, status, snapshot, wpr, kill…)
+    ├── meta.rs           ← constantes del producto (versión, autor, links)
     ├── app.rs            ← UI completa (tabs, sparklines, historial, filtros)
-    ├── models.rs         ← structs compartidos
+    ├── models.rs         ← structs compartidos + HardwareInfo
     └── services/
-        ├── inspector.rs  ← orquestador principal
+        ├── inspector.rs  ← orquestador principal + get_hardware_info()
         ├── persistence.rs← SQLite + historial
         ├── windows.rs    ← PowerShell, WPR, toast, cmdlines
         ├── network.rs    ← netstat + clasificación
