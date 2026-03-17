@@ -234,16 +234,26 @@ pub fn start_wpr_general_profile(record_temp_dir: &Path, marker_text: &str) -> R
     #[cfg(target_os = "windows")]
     {
         if !wpr_available() {
-            bail!("wpr.exe no está disponible. Instala Windows Performance Toolkit antes de usar modo precisión.");
+            bail!(
+                "wpr.exe no está disponible. Instala Windows Performance Toolkit antes de usar modo precisión."
+            );
         }
         if wpr_is_recording().unwrap_or(false) {
-            bail!("Ya existe una captura WPR activa. Detén o cancela la sesión actual antes de iniciar otra.");
+            bail!(
+                "Ya existe una captura WPR activa. Detén o cancela la sesión actual antes de iniciar otra."
+            );
         }
 
         fs::create_dir_all(record_temp_dir)?;
         let temp_dir = record_temp_dir.display().to_string();
         let output = Command::new("wpr")
-            .args(["-start", "GeneralProfile", "-filemode", "-recordtempto", &temp_dir])
+            .args([
+                "-start",
+                "GeneralProfile",
+                "-filemode",
+                "-recordtempto",
+                &temp_dir,
+            ])
             .output()
             .context("No se pudo iniciar WPR")?;
 
@@ -274,7 +284,9 @@ pub fn stop_wpr_capture(output_path: &Path, problem_description: &str) -> Result
     #[cfg(target_os = "windows")]
     {
         if !wpr_available() {
-            bail!("wpr.exe no está disponible. Instala Windows Performance Toolkit antes de usar modo precisión.");
+            bail!(
+                "wpr.exe no está disponible. Instala Windows Performance Toolkit antes de usar modo precisión."
+            );
         }
 
         if let Some(parent) = output_path.parent() {
@@ -314,7 +326,9 @@ pub fn cancel_wpr_capture() -> Result<String> {
     #[cfg(target_os = "windows")]
     {
         if !wpr_available() {
-            bail!("wpr.exe no está disponible. Instala Windows Performance Toolkit antes de usar modo precisión.");
+            bail!(
+                "wpr.exe no está disponible. Instala Windows Performance Toolkit antes de usar modo precisión."
+            );
         }
 
         let output = Command::new("wpr")
@@ -336,11 +350,17 @@ pub fn cancel_wpr_capture() -> Result<String> {
 }
 
 /// Exporta un ETL a XML y summary.txt usando tracerpt para análisis automatizable.
-pub fn export_etl_with_tracerpt(etl_path: &Path, xml_path: &Path, summary_path: &Path) -> Result<String> {
+pub fn export_etl_with_tracerpt(
+    etl_path: &Path,
+    xml_path: &Path,
+    summary_path: &Path,
+) -> Result<String> {
     #[cfg(target_os = "windows")]
     {
         if !tracerpt_available() {
-            bail!("tracerpt.exe no está disponible. Instala Windows Performance Toolkit o usa el componente nativo presente en tu Windows.");
+            bail!(
+                "tracerpt.exe no está disponible. Instala Windows Performance Toolkit o usa el componente nativo presente en tu Windows."
+            );
         }
         if !etl_path.exists() {
             bail!("No existe el ETL {}", etl_path.display());
@@ -372,7 +392,10 @@ pub fn export_etl_with_tracerpt(etl_path: &Path, xml_path: &Path, summary_path: 
 
         return Ok(format!(
             "ETL exportado a XML y summary.txt en {}",
-            xml_path.parent().map(|p| p.display().to_string()).unwrap_or_default()
+            xml_path
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default()
         ));
     }
 

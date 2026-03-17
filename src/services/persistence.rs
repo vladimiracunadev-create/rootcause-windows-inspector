@@ -136,7 +136,12 @@ impl PersistenceStore {
         let timestamp = Utc::now().format("%Y%m%d-%H%M%S");
         dirs::download_dir()
             .or_else(dirs::document_dir)
-            .unwrap_or_else(|| self.db_path.parent().unwrap_or(Path::new(".")).to_path_buf())
+            .unwrap_or_else(|| {
+                self.db_path
+                    .parent()
+                    .unwrap_or(Path::new("."))
+                    .to_path_buf()
+            })
             .join(format!("rootcause-snapshot-{timestamp}.json"))
     }
 }

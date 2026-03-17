@@ -5,8 +5,8 @@
 //! nombres o rutas largas. Sin scroll horizontal.
 
 use crate::models::{
-    ConnectionInsight, PrecisionStatus, ProcessInsight, ServiceState, Severity, SystemSnapshot,
-    TempEntry, TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
+    ProcessInsight, ServiceState, Severity, SystemSnapshot, TraceAnalysisSummary, TracePathSummary,
+    TraceProcessSummary,
 };
 use crate::services::inspector::InspectorService;
 use eframe::egui::{self, Color32, FontId, Margin, RichText, Rounding, Sense, Stroke, Vec2};
@@ -321,12 +321,11 @@ impl eframe::App for RootCauseApp {
 
                         match self.active_tab {
                             Tab::Overview => draw_tab_overview(ui, &snapshot),
-                            Tab::Processes => draw_tab_processes(
-                                ui,
-                                &snapshot,
-                                &self.filter_text,
-                                |pid| pid_to_kill = Some(pid),
-                            ),
+                            Tab::Processes => {
+                                draw_tab_processes(ui, &snapshot, &self.filter_text, |pid| {
+                                    pid_to_kill = Some(pid)
+                                })
+                            }
                             Tab::Connections => draw_tab_connections(
                                 ui,
                                 &snapshot,
@@ -343,11 +342,9 @@ impl eframe::App for RootCauseApp {
                                 &mut self.precision_note,
                                 &mut precision_action,
                             ),
-                            Tab::Services => draw_tab_services(
-                                ui,
-                                &snapshot,
-                                |svc| svc_to_stop = Some(svc.to_owned()),
-                            ),
+                            Tab::Services => draw_tab_services(ui, &snapshot, |svc| {
+                                svc_to_stop = Some(svc.to_owned())
+                            }),
                         }
 
                         match precision_action {
@@ -386,7 +383,12 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 // Logo icon
                 draw_logo_icon(ui, 32.0);
                 ui.add_space(8.0);
-                ui.label(RichText::new("RootCause").size(16.0).strong().color(TEXT_PRI));
+                ui.label(
+                    RichText::new("RootCause")
+                        .size(16.0)
+                        .strong()
+                        .color(TEXT_PRI),
+                );
                 ui.label(
                     RichText::new("Windows Inspector")
                         .size(11.0)
@@ -410,10 +412,7 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 ui.add_space(8.0);
 
                 // Auto refresco
-                ui.checkbox(
-                    &mut app.auto_refresh,
-                    RichText::new("Auto").color(TEXT_SEC),
-                );
+                ui.checkbox(&mut app.auto_refresh, RichText::new("Auto").color(TEXT_SEC));
                 ui.add(
                     egui::Slider::new(&mut app.refresh_interval_secs, 3..=30)
                         .text(RichText::new("s").color(TEXT_MUT))
@@ -551,7 +550,11 @@ fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot) {
                             .strong()
                             .color(score_fg),
                     );
-                    ui.label(RichText::new("Salud del sistema").size(10.0).color(TEXT_MUT));
+                    ui.label(
+                        RichText::new("Salud del sistema")
+                            .size(10.0)
+                            .color(TEXT_MUT),
+                    );
                 });
             });
 
@@ -580,7 +583,10 @@ fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot) {
         overview_card(
             ui,
             "DISCO  I/O",
-            &format!("W {:.1}  R {:.1} MB", ov.io_write_mb_delta, ov.io_read_mb_delta),
+            &format!(
+                "W {:.1}  R {:.1} MB",
+                ov.io_write_mb_delta, ov.io_read_mb_delta
+            ),
             "Suma de procesos en el intervalo",
             ov.io_write_mb_delta / 220.0,
             severity_for_value(ov.io_write_mb_delta, 80.0, 220.0),
@@ -588,7 +594,10 @@ fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot) {
         overview_card(
             ui,
             "RED",
-            &format!("↓{:.1}  ↑{:.1} MB", ov.network_rx_mb_delta, ov.network_tx_mb_delta),
+            &format!(
+                "↓{:.1}  ↑{:.1} MB",
+                ov.network_rx_mb_delta, ov.network_tx_mb_delta
+            ),
             "Actividad entre refrescos",
             net / 80.0,
             severity_for_value(net, 15.0, 80.0),
@@ -634,12 +643,7 @@ fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot) {
                             .size(11.5),
                     );
                     if let Some(path) = &alert.path {
-                        ui.label(
-                            RichText::new(path)
-                                .small()
-                                .monospace()
-                                .color(TEXT_MUT),
-                        );
+                        ui.label(RichText::new(path).small().monospace().color(TEXT_MUT));
                     }
                 });
             ui.add_space(4.0);
@@ -674,22 +678,28 @@ fn draw_tab_processes<F: FnMut(u32)>(
     filter: &str,
     mut on_kill: F,
 ) {
-    section_header(ui, "▸  Procesos dominantes  ·  ordenados por severidad, I/O, RAM, CPU");
+    section_header(
+        ui,
+        "▸  Procesos dominantes  ·  ordenados por severidad, I/O, RAM, CPU",
+    );
     ui.add_space(8.0);
 
     // Cabecera de columnas
-    table_header(ui, &[
-        ("Proceso", W_NAME),
-        ("PID", W_PID),
-        ("CPU %", W_PCT),
-        ("", W_BAR),
-        ("RAM MB", W_MB),
-        ("", W_BAR),
-        ("W MB", W_MB),
-        ("R MB", W_MB),
-        ("Score", W_SCORE),
-        ("", W_ACTION),
-    ]);
+    table_header(
+        ui,
+        &[
+            ("Proceso", W_NAME),
+            ("PID", W_PID),
+            ("CPU %", W_PCT),
+            ("", W_BAR),
+            ("RAM MB", W_MB),
+            ("", W_BAR),
+            ("W MB", W_MB),
+            ("R MB", W_MB),
+            ("Score", W_SCORE),
+            ("", W_ACTION),
+        ],
+    );
 
     let mut to_kill: Option<u32> = None;
 
@@ -723,9 +733,7 @@ fn draw_tab_processes<F: FnMut(u32)>(
                             );
                             resp.on_hover_ui(|ui| {
                                 ui.set_max_width(360.0);
-                                ui.label(
-                                    RichText::new(&p.name).strong().color(TEXT_PRI),
-                                );
+                                ui.label(RichText::new(&p.name).strong().color(TEXT_PRI));
                                 ui.label(
                                     RichText::new(&p.exe_path)
                                         .small()
@@ -735,9 +743,7 @@ fn draw_tab_processes<F: FnMut(u32)>(
                                 if !p.reasons.is_empty() {
                                     ui.separator();
                                     for r in &p.reasons {
-                                        ui.label(
-                                            RichText::new(r).small().color(TEXT_SEC),
-                                        );
+                                        ui.label(RichText::new(r).small().color(TEXT_SEC));
                                     }
                                 }
                             });
@@ -773,7 +779,12 @@ fn draw_tab_processes<F: FnMut(u32)>(
                                         .color(TEXT_SEC),
                                 ),
                             );
-                            pbar(ui, (p.memory_mb / 16384.0).min(1.0), sev_fg(Severity::Warning), W_BAR);
+                            pbar(
+                                ui,
+                                (p.memory_mb / 16384.0).min(1.0),
+                                sev_fg(Severity::Warning),
+                                W_BAR,
+                            );
 
                             // Write MB
                             ui.add_sized(
@@ -781,7 +792,11 @@ fn draw_tab_processes<F: FnMut(u32)>(
                                 egui::Label::new(
                                     RichText::new(format!("{:.1}", p.io_write_mb_delta))
                                         .size(12.0)
-                                        .color(if p.io_write_mb_delta > 10.0 { fg } else { TEXT_MUT }),
+                                        .color(if p.io_write_mb_delta > 10.0 {
+                                            fg
+                                        } else {
+                                            TEXT_MUT
+                                        }),
                                 ),
                             );
 
@@ -799,9 +814,7 @@ fn draw_tab_processes<F: FnMut(u32)>(
                             ui.add_sized(
                                 [W_SCORE, 18.0],
                                 egui::Label::new(
-                                    RichText::new(format!("{}", p.score))
-                                        .size(12.0)
-                                        .color(fg),
+                                    RichText::new(format!("{}", p.score)).size(12.0).color(fg),
                                 ),
                             );
 
@@ -833,18 +846,24 @@ fn draw_tab_connections<F: FnMut(&str)>(
     only_public: bool,
     mut on_block: F,
 ) {
-    section_header(ui, "▸  Conexiones activas  ·  foco en IP pública y rutas poco confiables");
+    section_header(
+        ui,
+        "▸  Conexiones activas  ·  foco en IP pública y rutas poco confiables",
+    );
     ui.add_space(8.0);
 
-    table_header(ui, &[
-        ("Proceso", W_NAME),
-        ("PID", W_PID),
-        ("Proto", W_PROTO),
-        ("Estado", W_STATE),
-        ("Local", W_ADDR),
-        ("Remoto", W_ADDR),
-        ("", W_ACTION),
-    ]);
+    table_header(
+        ui,
+        &[
+            ("Proceso", W_NAME),
+            ("PID", W_PID),
+            ("Proto", W_PROTO),
+            ("Estado", W_STATE),
+            ("Local", W_ADDR),
+            ("Remoto", W_ADDR),
+            ("", W_ACTION),
+        ],
+    );
 
     let mut to_block: Option<String> = None;
 
@@ -885,9 +904,7 @@ fn draw_tab_connections<F: FnMut(&str)>(
                             );
                             resp.on_hover_ui(|ui| {
                                 ui.set_max_width(360.0);
-                                ui.label(
-                                    RichText::new(&c.process_name).strong().color(TEXT_PRI),
-                                );
+                                ui.label(RichText::new(&c.process_name).strong().color(TEXT_PRI));
                                 ui.label(
                                     RichText::new(&c.exe_path)
                                         .small()
@@ -929,7 +946,10 @@ fn draw_tab_connections<F: FnMut(&str)>(
                             let lr = ui.add_sized(
                                 [W_ADDR, 18.0],
                                 egui::Label::new(
-                                    RichText::new(&local_short).monospace().size(11.0).color(TEXT_MUT),
+                                    RichText::new(&local_short)
+                                        .monospace()
+                                        .size(11.0)
+                                        .color(TEXT_MUT),
                                 ),
                             );
                             if c.local_address.len() > 22 {
@@ -977,13 +997,16 @@ fn draw_tab_temp(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
     );
     ui.add_space(8.0);
 
-    table_header(ui, &[
-        ("Ruta", 340.0),
-        ("Tamaño", W_MB + 20.0),
-        ("", W_BAR),
-        ("Archivos", W_MB),
-        ("Nota", 0.0), // expansible
-    ]);
+    table_header(
+        ui,
+        &[
+            ("Ruta", 340.0),
+            ("Tamaño", W_MB + 20.0),
+            ("", W_BAR),
+            ("Archivos", W_MB),
+            ("Nota", 0.0), // expansible
+        ],
+    );
 
     egui::ScrollArea::vertical()
         .id_source("tab_temp")
@@ -1008,10 +1031,7 @@ fn draw_tab_temp(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
                             let resp = ui.add_sized(
                                 [340.0, 18.0],
                                 egui::Label::new(
-                                    RichText::new(&short)
-                                        .monospace()
-                                        .size(11.5)
-                                        .color(TEXT_SEC),
+                                    RichText::new(&short).monospace().size(11.5).color(TEXT_SEC),
                                 ),
                             );
                             if e.path.len() > 46 {
@@ -1044,7 +1064,10 @@ fn draw_tab_temp(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
                             // Nota (resto del espacio)
                             let note_short = trunc(&e.note, 50);
                             let nr = ui.label(
-                                RichText::new(&note_short).size(11.0).color(TEXT_MUT).italics(),
+                                RichText::new(&note_short)
+                                    .size(11.0)
+                                    .color(TEXT_MUT)
+                                    .italics(),
                             );
                             if e.note.len() > 50 {
                                 nr.on_hover_text(&e.note);
@@ -1188,7 +1211,11 @@ fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
-                let sev = ta.findings.first().map(|f| f.severity).unwrap_or(Severity::Healthy);
+                let sev = ta
+                    .findings
+                    .first()
+                    .map(|f| f.severity)
+                    .unwrap_or(Severity::Healthy);
                 pill(ui, &ta.headline, sev_fg(sev), sev_bg(sev));
                 pill(
                     ui,
@@ -1237,7 +1264,12 @@ fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
 }
 
 fn trace_processes_col(ui: &mut egui::Ui, procs: &[TraceProcessSummary]) {
-    ui.label(RichText::new("Procesos repetidos").strong().size(12.0).color(TEXT_SEC));
+    ui.label(
+        RichText::new("Procesos repetidos")
+            .strong()
+            .size(12.0)
+            .color(TEXT_SEC),
+    );
     ui.add_space(4.0);
     egui::ScrollArea::vertical()
         .id_source("tp")
@@ -1263,7 +1295,12 @@ fn trace_processes_col(ui: &mut egui::Ui, procs: &[TraceProcessSummary]) {
 }
 
 fn trace_paths_col(ui: &mut egui::Ui, paths: &[TracePathSummary]) {
-    ui.label(RichText::new("Rutas repetidas").strong().size(12.0).color(TEXT_SEC));
+    ui.label(
+        RichText::new("Rutas repetidas")
+            .strong()
+            .size(12.0)
+            .color(TEXT_SEC),
+    );
     ui.add_space(4.0);
     egui::ScrollArea::vertical()
         .id_source("tpa")
@@ -1277,9 +1314,7 @@ fn trace_paths_col(ui: &mut egui::Ui, paths: &[TracePathSummary]) {
                     .inner_margin(Margin::same(6.0))
                     .show(ui, |ui| {
                         let short = trunc(&p.path, 32);
-                        let resp = ui.label(
-                            RichText::new(&short).small().strong().color(fg),
-                        );
+                        let resp = ui.label(RichText::new(&short).small().strong().color(fg));
                         if p.path.len() > 32 {
                             resp.on_hover_text(&p.path);
                         }
@@ -1295,17 +1330,32 @@ fn trace_paths_col(ui: &mut egui::Ui, paths: &[TracePathSummary]) {
 }
 
 fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
-    ui.label(RichText::new("Contexto").strong().size(12.0).color(TEXT_SEC));
+    ui.label(
+        RichText::new("Contexto")
+            .strong()
+            .size(12.0)
+            .color(TEXT_SEC),
+    );
     ui.add_space(4.0);
     if !ta.public_ips.is_empty() {
-        ui.label(RichText::new("IPs públicas").size(11.0).strong().color(C_BL_FG));
+        ui.label(
+            RichText::new("IPs públicas")
+                .size(11.0)
+                .strong()
+                .color(C_BL_FG),
+        );
         for ip in ta.public_ips.iter().take(5) {
             ui.label(RichText::new(ip).small().monospace().color(TEXT_SEC));
         }
         ui.add_space(4.0);
     }
     if !ta.indicators.is_empty() {
-        ui.label(RichText::new("Indicadores").size(11.0).strong().color(C_WN_FG));
+        ui.label(
+            RichText::new("Indicadores")
+                .size(11.0)
+                .strong()
+                .color(C_WN_FG),
+        );
         for ind in ta.indicators.iter().take(5) {
             ui.label(RichText::new(ind).small().color(TEXT_SEC));
         }
@@ -1318,11 +1368,7 @@ fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
 
 // ── Tab: Servicios ─────────────────────────────────────────────────────────────
 
-fn draw_tab_services<F: FnMut(&str)>(
-    ui: &mut egui::Ui,
-    snap: &SystemSnapshot,
-    mut on_stop: F,
-) {
+fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, mut on_stop: F) {
     section_header(
         ui,
         "▸  Servicios  ·  correlaciona con Windows Update, BITS, Delivery Optimization",
@@ -1401,8 +1447,7 @@ fn draw_tab_services<F: FnMut(&str)>(
                             );
                         });
                         let msg_short = trunc(&evt.message, 100);
-                        let mr = ui
-                            .label(RichText::new(&msg_short).small().color(TEXT_SEC));
+                        let mr = ui.label(RichText::new(&msg_short).small().color(TEXT_SEC));
                         if evt.message.len() > 100 {
                             mr.on_hover_text(&evt.message);
                         }
@@ -1524,8 +1569,11 @@ fn alert_badge(ui: &mut egui::Ui, text: &str, fg: Color32, bg: Color32) {
     let w = (text.chars().count() as f32 * 7.0 + 18.0).max(40.0);
     let (rect, _) = ui.allocate_exact_size(Vec2::new(w, 22.0), Sense::hover());
     ui.painter().rect_filled(rect, Rounding::same(11.0), bg);
-    ui.painter()
-        .rect_stroke(rect, Rounding::same(11.0), Stroke::new(1.0, fg.linear_multiply(0.6)));
+    ui.painter().rect_stroke(
+        rect,
+        Rounding::same(11.0),
+        Stroke::new(1.0, fg.linear_multiply(0.6)),
+    );
     ui.painter().text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
@@ -1543,10 +1591,8 @@ fn pbar(ui: &mut egui::Ui, fraction: f32, color: Color32, width: f32) {
         .rect_filled(rect, Rounding::same(3.5), BG_PANEL);
     if fraction > 0.005 {
         let filled_w = (rect.width() * fraction.clamp(0.0, 1.0)).max(6.0);
-        let filled =
-            egui::Rect::from_min_size(rect.min, Vec2::new(filled_w, h));
-        ui.painter()
-            .rect_filled(filled, Rounding::same(3.5), color);
+        let filled = egui::Rect::from_min_size(rect.min, Vec2::new(filled_w, h));
+        ui.painter().rect_filled(filled, Rounding::same(3.5), color);
     }
 }
 
@@ -1633,10 +1679,7 @@ fn table_header(ui: &mut egui::Ui, cols: &[(&str, f32)]) {
                         ui.add_sized(
                             [w, 16.0],
                             egui::Label::new(
-                                RichText::new(hdr)
-                                    .size(11.0)
-                                    .strong()
-                                    .color(TEXT_MUT),
+                                RichText::new(hdr).size(11.0).strong().color(TEXT_MUT),
                             ),
                         );
                     } else {
@@ -1680,12 +1723,7 @@ fn info_row(ui: &mut egui::Ui, label: &str, value: &str) {
     ui.horizontal_wrapped(|ui| {
         ui.label(RichText::new(label).size(11.5).color(TEXT_MUT));
         let short = trunc(value, 60);
-        let resp = ui.label(
-            RichText::new(&short)
-                .size(11.5)
-                .monospace()
-                .color(TEXT_SEC),
-        );
+        let resp = ui.label(RichText::new(&short).size(11.5).monospace().color(TEXT_SEC));
         if value.len() > 60 {
             resp.on_hover_text(value);
         }
@@ -1696,12 +1734,7 @@ fn info_row_ok(ui: &mut egui::Ui, label: &str, value: &str) {
     ui.horizontal_wrapped(|ui| {
         ui.label(RichText::new(label).size(11.5).color(TEXT_MUT));
         let short = trunc(value, 60);
-        let resp = ui.label(
-            RichText::new(&short)
-                .size(11.5)
-                .monospace()
-                .color(C_OK_FG),
-        );
+        let resp = ui.label(RichText::new(&short).size(11.5).monospace().color(C_OK_FG));
         if value.len() > 60 {
             resp.on_hover_text(value);
         }
@@ -1723,8 +1756,7 @@ fn loading_screen(ui: &mut egui::Ui) {
 /// Logo RC con fondo azul.
 fn draw_logo_icon(ui: &mut egui::Ui, size: f32) {
     let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
-    ui.painter()
-        .rect_filled(rect, Rounding::same(6.0), ACCENT);
+    ui.painter().rect_filled(rect, Rounding::same(6.0), ACCENT);
     ui.painter().text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
@@ -1758,8 +1790,11 @@ fn draw_health_ring(ui: &mut egui::Ui, fraction: f32, color: Color32, size: f32)
     let r_in = size * 0.30;
 
     // Fondo del anillo
-    ui.painter()
-        .circle_stroke(center, (r_out + r_in) / 2.0, Stroke::new(r_out - r_in, BG_PANEL));
+    ui.painter().circle_stroke(
+        center,
+        (r_out + r_in) / 2.0,
+        Stroke::new(r_out - r_in, BG_PANEL),
+    );
 
     // Arco relleno (aproximado con segmentos)
     let steps = 48usize;
@@ -1768,7 +1803,7 @@ fn draw_health_ring(ui: &mut egui::Ui, fraction: f32, color: Color32, size: f32)
     let mid_r = (r_out + r_in) / 2.0;
     let stroke_w = r_out - r_in;
 
-    let points: Vec<egui::pos2> = (0..=((steps as f32 * fraction) as usize + 1))
+    let points: Vec<egui::Pos2> = (0..=((steps as f32 * fraction) as usize + 1))
         .map(|i| {
             let angle = start + (i as f32 / steps as f32) * sweep;
             egui::pos2(
@@ -1799,8 +1834,7 @@ fn draw_sev_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
     let fg = sev_fg(sev);
     let bg = sev_bg(sev);
-    ui.painter()
-        .circle_filled(rect.center(), size * 0.46, bg);
+    ui.painter().circle_filled(rect.center(), size * 0.46, bg);
     ui.painter()
         .circle_stroke(rect.center(), size * 0.46, Stroke::new(1.2, fg));
     let sym = match sev {
@@ -1846,8 +1880,7 @@ fn draw_service_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     let fg = sev_fg(sev);
     ui.painter()
         .circle_stroke(rect.center(), size * 0.35, Stroke::new(1.5, fg));
-    ui.painter()
-        .circle_filled(rect.center(), size * 0.14, fg);
+    ui.painter().circle_filled(rect.center(), size * 0.14, fg);
 }
 
 // ── Helpers de lógica ──────────────────────────────────────────────────────────
@@ -1932,8 +1965,7 @@ fn service_severity(svc: &ServiceState) -> Severity {
 }
 
 fn is_stoppable_service(svc: &ServiceState) -> bool {
-    ["wuauserv", "bits", "dosvc", "sysmain"]
-        .contains(&svc.name.to_ascii_lowercase().as_str())
+    ["wuauserv", "bits", "dosvc", "sysmain"].contains(&svc.name.to_ascii_lowercase().as_str())
 }
 
 fn trunc(s: &str, max: usize) -> String {

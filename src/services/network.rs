@@ -38,12 +38,8 @@ pub fn parse_netstat_output(
                     .get(&pid)
                     .cloned()
                     .unwrap_or_else(|| "Desconocido".to_owned());
-                let (severity, reason, is_public_remote) = classify_connection(
-                    &process_name,
-                    &exe_path,
-                    &remote_address,
-                    columns[3],
-                );
+                let (severity, reason, is_public_remote) =
+                    classify_connection(&process_name, &exe_path, &remote_address, columns[3]);
 
                 rows.push(ConnectionInsight {
                     protocol: "TCP".to_owned(),
@@ -66,12 +62,8 @@ pub fn parse_netstat_output(
                     .get(&pid)
                     .cloned()
                     .unwrap_or_else(|| "Desconocido".to_owned());
-                let (severity, reason, is_public_remote) = classify_connection(
-                    &process_name,
-                    &exe_path,
-                    &remote_address,
-                    "UDP",
-                );
+                let (severity, reason, is_public_remote) =
+                    classify_connection(&process_name, &exe_path, &remote_address, "UDP");
 
                 rows.push(ConnectionInsight {
                     protocol: "UDP".to_owned(),
@@ -106,15 +98,13 @@ pub fn classify_connection(
     state: &str,
 ) -> (Severity, String, bool) {
     let remote_ip = extract_ip(remote_address);
-    let is_public_remote = remote_ip
-        .as_deref()
-        .map(is_public_ip)
-        .unwrap_or(false);
+    let is_public_remote = remote_ip.as_deref().map(is_public_ip).unwrap_or(false);
 
     let lower_name = process_name.to_ascii_lowercase();
     let lower_path = exe_path.to_ascii_lowercase();
     let browser = looks_like_browser(&lower_name);
-    let path_is_temp = lower_path.contains("\\temp\\") || lower_path.contains("\\appdata\\local\\temp\\");
+    let path_is_temp =
+        lower_path.contains("\\temp\\") || lower_path.contains("\\appdata\\local\\temp\\");
     let established = state.eq_ignore_ascii_case("ESTABLISHED");
 
     if is_public_remote && path_is_temp && established {
@@ -128,7 +118,8 @@ pub fn classify_connection(
     if is_public_remote && established && !browser {
         return (
             Severity::Warning,
-            "Conexión pública activa; conviene validar si este proceso debería salir a Internet".to_owned(),
+            "Conexión pública activa; conviene validar si este proceso debería salir a Internet"
+                .to_owned(),
             true,
         );
     }
