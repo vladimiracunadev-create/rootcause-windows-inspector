@@ -3,7 +3,7 @@
 //! La base no intenta guardar todo el universo de datos, solo lo necesario para
 //! comparar tendencias y revisar qué proceso dominaba cuando apareció la lentitud.
 
-use crate::models::SystemSnapshot;
+use crate::models::{SnapshotRow, SystemSnapshot};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::{Connection, params};
@@ -78,6 +78,53 @@ impl PersistenceStore {
         )?;
 
         Ok(())
+    }
+
+    /// Devuelve las últimas N filas del historial para mostrar en la pestaña Historial.
+    pub fn load_recent(&self, limit: usize) -> Result<Vec<SnapshotRow>> {
+        let connection = Connection::open(&self.db_path)?;
+        let mut statement = connection.prepare(
+            r#"
+            SELECT id, collected_at, cpu_usage, memory_used_gb, memory_total_gb,
+                   io_write_mb_delta, temp_total_mb, dominant_process, alerts_json
+            FROM snapshots
+            ORDER BY id DESC
+            LIMIT ?1
+            "#,
+        )?;
+
+        let mut rows_out = Vec::new();
+        let mut rows = statement.query(params![limit as i64])?;
+        while let Some(row) = rows.next()? {
+            let alerts_json: String = row.get(8)?;
+            let alerts_count = serde_json::from_str::<serde_json::Value>(&alerts_json)
+                .ok()
+                .and_then(|v| v.as_array().map(|a| a.len()))
+                .unwrap_or(0);
+            let has_critical = serde_json::from_str::<serde_json::Value>(&alerts_json)
+                .ok()
+                .and_then(|v| {
+                    v.as_array().map(|a| {
+                        a.iter()
+                            .any(|e| e.get("severity").and_then(|s| s.as_str()) == Some("Critical"))
+                    })
+                })
+                .unwrap_or(false);
+
+            rows_out.push(SnapshotRow {
+                id: row.get(0)?,
+                collected_at: row.get(1)?,
+                cpu_usage: row.get(2)?,
+                memory_used_gb: row.get(3)?,
+                memory_total_gb: row.get(4)?,
+                io_write_mb_delta: row.get(5)?,
+                temp_total_mb: row.get(6)?,
+                dominant_process: row.get(7)?,
+                alerts_count,
+                has_critical,
+            });
+        }
+        Ok(rows_out)
     }
 
     /// Devuelve una línea resumen fácil de mostrar en la UI.

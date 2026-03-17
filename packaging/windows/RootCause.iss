@@ -50,9 +50,31 @@ Source: "..\..\scripts\wpr-start-general.ps1"; DestDir: "{app}\scripts"; Flags: 
 Source: "..\..\scripts\wpr-stop-general.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 Source: "..\..\scripts\wpa-open-latest.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 
+; ── Instalación silenciosa / corporativa ──────────────────────────────────────
+; Para instalar sin interfaz (despliegue GPO / SCCM / Intune / scripts):
+;
+;   RootCause-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+;
+; Para instalar para todos los usuarios (requiere administrador):
+;   RootCause-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /ALLUSERS /NORESTART
+;
+; Para elegir directorio de instalación:
+;   RootCause-Setup.exe /VERYSILENT /DIR="C:\Tools\RootCause" /NORESTART
+;
+; Para omitir el acceso directo en el escritorio:
+;   RootCause-Setup.exe /VERYSILENT /TASKS="!desktopicon" /NORESTART
+;
+; Para registrar el log de instalación:
+;   RootCause-Setup.exe /VERYSILENT /LOG="C:\Logs\rootcause-install.log"
+; ───────────────────────────────────────────────────────────────────────────────
+
+[Tasks]
+Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; \
+  GroupDescription: "Iconos adicionales:"; Flags: unchecked
+
 [Icons]
 Name: "{group}\RootCause"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\rootcause.ico"
-Name: "{autodesktop}\RootCause"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\rootcause.ico"
+Name: "{autodesktop}\RootCause"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\assets\rootcause.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Ejecutar RootCause"; Flags: nowait postinstall skipifsilent

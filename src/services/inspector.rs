@@ -6,7 +6,7 @@
 
 use crate::models::{
     Alert, ConnectionInsight, PrecisionStatus, ProcessInsight, ServiceState, Severity,
-    SystemOverview, SystemSnapshot, TempEntry, TraceAnalysisSummary,
+    SnapshotRow, SystemOverview, SystemSnapshot, TempEntry, TraceAnalysisSummary,
 };
 use crate::services::{etl, network, persistence::PersistenceStore, temp_scan, windows};
 use anyhow::{Context, Result, anyhow};
@@ -127,6 +127,11 @@ impl InspectorService {
             .unwrap_or_else(|| format!("Historial listo en {}", self.store.db_path().display()))
     }
 
+    /// Carga las últimas N filas del historial SQLite para la pestaña Historial.
+    pub fn load_history(&self, limit: usize) -> Vec<SnapshotRow> {
+        self.store.load_recent(limit).unwrap_or_default()
+    }
+
     /// Captura una instantánea completa.
     pub fn collect_snapshot(&mut self) -> Result<SystemSnapshot> {
         self.system.refresh_all();
@@ -196,6 +201,22 @@ impl InspectorService {
                 .then_with(|| b.memory_mb.total_cmp(&a.memory_mb))
                 .then_with(|| b.cpu_percent.total_cmp(&a.cpu_percent))
         });
+
+        // Obtener cmdline para los primeros procesos Críticos o de alto I/O (máx 6).
+        let critical_pids: Vec<u32> = processes
+            .iter()
+            .filter(|p| matches!(p.severity, Severity::Critical) || p.io_write_mb_delta > 20.0)
+            .take(6)
+            .map(|p| p.pid)
+            .collect();
+        if !critical_pids.is_empty() {
+            let cmdlines = windows::batch_process_cmdlines(&critical_pids);
+            for p in processes.iter_mut() {
+                if let Some(cmdline) = cmdlines.get(&p.pid) {
+                    p.command_line = Some(cmdline.clone());
+                }
+            }
+        }
 
         let connections = match windows::netstat() {
             Ok(output) => network::parse_netstat_output(&output, &process_names, &process_paths),

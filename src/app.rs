@@ -5,12 +5,22 @@
 //! nombres o rutas largas. Sin scroll horizontal.
 
 use crate::models::{
-    ProcessInsight, ServiceState, Severity, SystemSnapshot, TraceAnalysisSummary, TracePathSummary,
-    TraceProcessSummary,
+    ProcessInsight, ServiceState, Severity, SnapshotRow, SystemSnapshot, TraceAnalysisSummary,
+    TracePathSummary, TraceProcessSummary,
 };
 use crate::services::inspector::InspectorService;
+use crate::services::windows;
 use eframe::egui::{self, Color32, FontId, Margin, RichText, Rounding, Sense, Stroke, Vec2};
+use std::collections::VecDeque;
 use std::time::{Duration, Instant};
+
+// ── Muestra para sparklines ─────────────────────────────────────────────────────
+
+struct MetricSample {
+    cpu: f32,
+    ram_pct: f32,
+    io_write: f32,
+}
 
 // ── Paleta ─────────────────────────────────────────────────────────────────────
 
@@ -58,6 +68,7 @@ enum Tab {
     TempFiles,
     Precision,
     Services,
+    History,
 }
 
 impl Tab {
@@ -68,6 +79,7 @@ impl Tab {
         (Tab::TempFiles, "▤", "Temporales"),
         (Tab::Precision, "◉", "ETW / WPR"),
         (Tab::Services, "◧", "Servicios"),
+        (Tab::History, "◑", "Historial"),
     ];
 }
 
@@ -94,6 +106,19 @@ pub struct RootCauseApp {
     status_line: String,
     status_is_error: bool,
     active_tab: Tab,
+    // Sparklines (punto 1)
+    metric_history: VecDeque<MetricSample>,
+    // Notificaciones toast (punto 7)
+    notifications_enabled: bool,
+    last_critical_notification: Instant,
+    // Historial (puntos 3 y 8)
+    history_rows: Vec<SnapshotRow>,
+    history_last_load: Instant,
+    history_compare_a: Option<usize>,
+    history_compare_b: Option<usize>,
+    history_filter: String,
+    // Filtro por severidad en tab Procesos (punto 6)
+    proc_severity_filter: Option<Severity>,
 }
 
 impl RootCauseApp {
@@ -112,6 +137,15 @@ impl RootCauseApp {
             status_line: String::new(),
             status_is_error: false,
             active_tab: Tab::Overview,
+            metric_history: VecDeque::with_capacity(62),
+            notifications_enabled: true,
+            last_critical_notification: Instant::now() - Duration::from_secs(300),
+            history_rows: Vec::new(),
+            history_last_load: Instant::now() - Duration::from_secs(300),
+            history_compare_a: None,
+            history_compare_b: None,
+            history_filter: String::new(),
+            proc_severity_filter: None,
         };
         match inspector {
             Ok(svc) => {
@@ -138,6 +172,31 @@ impl RootCauseApp {
                     snap.overview.primary_reason
                 );
                 self.status_is_error = false;
+
+                // Sparklines: acumular muestra (máx 60 puntos ≈ 5 min a 5 s)
+                let ram_total = snap.overview.memory_total_gb.max(0.1);
+                let sample = MetricSample {
+                    cpu: snap.overview.cpu_usage_percent,
+                    ram_pct: snap.overview.memory_used_gb / ram_total * 100.0,
+                    io_write: snap.overview.io_write_mb_delta,
+                };
+                if self.metric_history.len() >= 60 {
+                    self.metric_history.pop_front();
+                }
+                self.metric_history.push_back(sample);
+
+                // Notificación toast si el equipo pasa a estado Crítico
+                if self.notifications_enabled
+                    && matches!(snap.overview.primary_severity, Severity::Critical)
+                    && self.last_critical_notification.elapsed() > Duration::from_secs(90)
+                {
+                    windows::show_toast_notification(
+                        "RootCause — Alerta Crítica",
+                        &snap.overview.primary_reason,
+                    );
+                    self.last_critical_notification = Instant::now();
+                }
+
                 self.snapshot = Some(snap);
                 self.last_refresh_at = Instant::now();
             }
@@ -146,6 +205,14 @@ impl RootCauseApp {
                 self.status_is_error = true;
             }
         }
+    }
+
+    fn load_history(&mut self) {
+        let Some(insp) = self.inspector.as_ref() else {
+            return;
+        };
+        self.history_rows = insp.load_history(60);
+        self.history_last_load = Instant::now();
     }
 
     fn export_snapshot(&mut self) {
@@ -295,6 +362,13 @@ impl eframe::App for RootCauseApp {
             self.refresh_now();
         }
 
+        // Recargar historial cuando el tab está activo y los datos son viejos (> 30 s)
+        if self.active_tab == Tab::History
+            && self.history_last_load.elapsed() > Duration::from_secs(30)
+        {
+            self.load_history();
+        }
+
         draw_header(self, ctx);
         draw_tabbar(self, ctx);
         draw_statusbar(self, ctx);
@@ -318,14 +392,21 @@ impl eframe::App for RootCauseApp {
                         let mut pid_to_kill: Option<u32> = None;
                         let mut ip_to_block: Option<String> = None;
                         let mut svc_to_stop: Option<String> = None;
+                        // Option<Option<Severity>>: outer=changed, inner=new value
+                        let mut sev_filter_change: Option<Option<Severity>> = None;
 
                         match self.active_tab {
-                            Tab::Overview => draw_tab_overview(ui, &snapshot),
-                            Tab::Processes => {
-                                draw_tab_processes(ui, &snapshot, &self.filter_text, |pid| {
-                                    pid_to_kill = Some(pid)
-                                })
+                            Tab::Overview => {
+                                draw_tab_overview(ui, &snapshot, &self.metric_history)
                             }
+                            Tab::Processes => draw_tab_processes(
+                                ui,
+                                &snapshot,
+                                &self.filter_text,
+                                self.proc_severity_filter,
+                                |pid| pid_to_kill = Some(pid),
+                                |sev| sev_filter_change = Some(sev),
+                            ),
                             Tab::Connections => draw_tab_connections(
                                 ui,
                                 &snapshot,
@@ -345,6 +426,13 @@ impl eframe::App for RootCauseApp {
                             Tab::Services => draw_tab_services(ui, &snapshot, |svc| {
                                 svc_to_stop = Some(svc.to_owned())
                             }),
+                            Tab::History => draw_tab_history(
+                                ui,
+                                &self.history_rows,
+                                &mut self.history_filter,
+                                &mut self.history_compare_a,
+                                &mut self.history_compare_b,
+                            ),
                         }
 
                         match precision_action {
@@ -362,6 +450,9 @@ impl eframe::App for RootCauseApp {
                         }
                         if let Some(svc) = svc_to_stop {
                             self.stop_service(&svc);
+                        }
+                        if let Some(new_sev) = sev_filter_change {
+                            self.proc_severity_filter = new_sev;
                         }
                     });
             });
@@ -427,6 +518,13 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                     &mut app.only_public_connections,
                     RichText::new("Solo IP públicas").color(TEXT_SEC),
                 );
+
+                ui.add_space(4.0);
+                ui.checkbox(
+                    &mut app.notifications_enabled,
+                    RichText::new("🔔").color(TEXT_SEC),
+                )
+                .on_hover_text("Activar notificaciones toast cuando el estado sea Crítico");
 
                 ui.add_space(8.0);
                 // Buscador
@@ -520,7 +618,7 @@ fn draw_statusbar(app: &RootCauseApp, ctx: &egui::Context) {
 
 // ── Tab: Resumen ───────────────────────────────────────────────────────────────
 
-fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot) {
+fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot, history: &VecDeque<MetricSample>) {
     let ov = &snap.overview;
     let score = compute_health_score(snap);
     let (score_fg, score_bg, score_label) = if score >= 80 {
@@ -668,21 +766,104 @@ fn draw_tab_overview(ui: &mut egui::Ui, snap: &SystemSnapshot) {
             }
         });
     }
+
+    // ── Sparklines de tendencia ───────────────────────────────────────────────
+    if history.len() >= 2 {
+        ui.add_space(18.0);
+        section_header(ui, "▸  Tendencia (últimas muestras)");
+        ui.add_space(8.0);
+        ui.horizontal_wrapped(|ui| {
+            let cpu_vals: Vec<f32> = history.iter().map(|s| s.cpu).collect();
+            let ram_vals: Vec<f32> = history.iter().map(|s| s.ram_pct).collect();
+            let io_vals: Vec<f32> = history.iter().map(|s| s.io_write).collect();
+
+            sparkline_card(ui, "CPU %", &cpu_vals, C_BL_FG, 200.0);
+            ui.add_space(8.0);
+            sparkline_card(ui, "RAM %", &ram_vals, C_WN_FG, 200.0);
+            ui.add_space(8.0);
+            sparkline_card(ui, "I/O Escrit. MB", &io_vals, C_CR_FG, 200.0);
+        });
+    }
 }
 
 // ── Tab: Procesos ──────────────────────────────────────────────────────────────
 
-fn draw_tab_processes<F: FnMut(u32)>(
+fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
     ui: &mut egui::Ui,
     snap: &SystemSnapshot,
     filter: &str,
+    sev_filter: Option<Severity>,
     mut on_kill: F,
+    mut on_sev_filter: G,
 ) {
     section_header(
         ui,
         "▸  Procesos dominantes  ·  ordenados por severidad, I/O, RAM, CPU",
     );
-    ui.add_space(8.0);
+    ui.add_space(6.0);
+
+    // Filtros de severidad rápidos
+    ui.horizontal(|ui| {
+        let sel_none = sev_filter.is_none();
+        if ui
+            .add(
+                egui::Button::new(RichText::new("Todos").size(11.5).color(if sel_none {
+                    TEXT_PRI
+                } else {
+                    TEXT_MUT
+                }))
+                .fill(if sel_none { BG_CARD } else { Color32::TRANSPARENT })
+                .stroke(Stroke::new(
+                    1.0,
+                    if sel_none { BORDER } else { Color32::TRANSPARENT },
+                ))
+                .rounding(Rounding::same(4.0)),
+            )
+            .clicked()
+        {
+            on_sev_filter(None);
+        }
+        for (label, sev, fg, bg) in [
+            ("■ Crítico", Severity::Critical, C_CR_FG, C_CR_BG),
+            ("▲ Aviso", Severity::Warning, C_WN_FG, C_WN_BG),
+            ("● Sano", Severity::Healthy, C_OK_FG, C_OK_BG),
+        ] {
+            let selected = sev_filter == Some(sev);
+            if ui
+                .add(
+                    egui::Button::new(
+                        RichText::new(label)
+                            .size(11.5)
+                            .color(if selected { fg } else { TEXT_MUT }),
+                    )
+                    .fill(if selected { bg } else { Color32::TRANSPARENT })
+                    .stroke(Stroke::new(
+                        1.0,
+                        if selected { fg.linear_multiply(0.5) } else { Color32::TRANSPARENT },
+                    ))
+                    .rounding(Rounding::same(4.0)),
+                )
+                .clicked()
+            {
+                on_sev_filter(Some(sev));
+            }
+        }
+
+        // Contador de resultados
+        let count = snap
+            .processes
+            .iter()
+            .filter(|p| matches_filter(&p.name, &p.exe_path, filter))
+            .filter(|p| sev_filter.is_none() || p.severity == sev_filter.unwrap())
+            .count();
+        ui.add_space(8.0);
+        ui.label(
+            RichText::new(format!("{count} proceso{}", if count != 1 { "s" } else { "" }))
+                .size(11.0)
+                .color(TEXT_MUT),
+        );
+    });
+    ui.add_space(6.0);
 
     // Cabecera de columnas
     table_header(
@@ -710,6 +891,7 @@ fn draw_tab_processes<F: FnMut(u32)>(
                 .processes
                 .iter()
                 .filter(|p| matches_filter(&p.name, &p.exe_path, filter))
+                .filter(|p| sev_filter.is_none() || p.severity == sev_filter.unwrap())
                 .take(30)
                 .enumerate()
             {
@@ -732,7 +914,7 @@ fn draw_tab_processes<F: FnMut(u32)>(
                                 ),
                             );
                             resp.on_hover_ui(|ui| {
-                                ui.set_max_width(360.0);
+                                ui.set_max_width(420.0);
                                 ui.label(RichText::new(&p.name).strong().color(TEXT_PRI));
                                 ui.label(
                                     RichText::new(&p.exe_path)
@@ -740,6 +922,20 @@ fn draw_tab_processes<F: FnMut(u32)>(
                                         .monospace()
                                         .color(TEXT_MUT),
                                 );
+                                if let Some(cmdline) = &p.command_line {
+                                    ui.separator();
+                                    ui.label(
+                                        RichText::new("Línea de comandos:")
+                                            .size(10.5)
+                                            .color(TEXT_MUT),
+                                    );
+                                    ui.label(
+                                        RichText::new(cmdline)
+                                            .small()
+                                            .monospace()
+                                            .color(C_BL_FG),
+                                    );
+                                }
                                 if !p.reasons.is_empty() {
                                     ui.separator();
                                     for r in &p.reasons {
@@ -1235,26 +1431,35 @@ fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
 
             if !ta.findings.is_empty() {
                 ui.add_space(10.0);
-                ui.label(RichText::new("Hallazgos").strong().color(TEXT_PRI));
-                for f in ta.findings.iter().take(3) {
-                    ui.add_space(4.0);
-                    let fg = sev_fg(f.severity);
-                    egui::Frame::none()
-                        .fill(sev_bg(f.severity))
-                        .stroke(Stroke::new(1.0, fg.linear_multiply(0.3)))
-                        .rounding(Rounding::same(5.0))
-                        .inner_margin(Margin::same(8.0))
-                        .show(ui, |ui| {
-                            ui.label(RichText::new(&f.title).strong().color(fg));
-                            ui.label(RichText::new(&f.detail).small().color(TEXT_SEC));
-                            ui.label(
-                                RichText::new(format!("Evidencia: {}", f.evidence))
-                                    .small()
-                                    .monospace()
-                                    .color(TEXT_MUT),
-                            );
-                        });
-                }
+                ui.label(
+                    RichText::new(format!("Hallazgos ({})", ta.findings.len()))
+                        .strong()
+                        .color(TEXT_PRI),
+                );
+                egui::ScrollArea::vertical()
+                    .id_source("etl_findings")
+                    .max_height(180.0)
+                    .show(ui, |ui| {
+                        for f in &ta.findings {
+                            ui.add_space(4.0);
+                            let fg = sev_fg(f.severity);
+                            egui::Frame::none()
+                                .fill(sev_bg(f.severity))
+                                .stroke(Stroke::new(1.0, fg.linear_multiply(0.3)))
+                                .rounding(Rounding::same(5.0))
+                                .inner_margin(Margin::same(8.0))
+                                .show(ui, |ui| {
+                                    ui.label(RichText::new(&f.title).strong().color(fg));
+                                    ui.label(RichText::new(&f.detail).small().color(TEXT_SEC));
+                                    ui.label(
+                                        RichText::new(format!("Evidencia: {}", f.evidence))
+                                            .small()
+                                            .monospace()
+                                            .color(TEXT_MUT),
+                                    );
+                                });
+                        }
+                    });
             }
 
             ui.add_space(10.0);
@@ -1334,12 +1539,51 @@ fn trace_paths_col(ui: &mut egui::Ui, paths: &[TracePathSummary]) {
 
 fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
     ui.label(
-        RichText::new("Contexto")
+        RichText::new("Proveedores ETW")
             .strong()
             .size(12.0)
             .color(TEXT_SEC),
     );
     ui.add_space(4.0);
+    if !ta.providers.is_empty() {
+        let max_count = ta.providers.iter().map(|(_, c)| *c).max().unwrap_or(1).max(1) as f32;
+        egui::ScrollArea::vertical()
+            .id_source("etl_prov")
+            .max_height(100.0)
+            .show(ui, |ui| {
+                for (name, count) in ta.providers.iter().take(10) {
+                    ui.horizontal(|ui| {
+                        let short = trunc(name, 24);
+                        ui.add_sized(
+                            [120.0, 14.0],
+                            egui::Label::new(RichText::new(&short).size(10.5).color(TEXT_SEC)),
+                        );
+                        pbar(ui, *count as f32 / max_count, C_BL_FG, 60.0);
+                        ui.label(
+                            RichText::new(format!("{count}"))
+                                .size(10.0)
+                                .color(TEXT_MUT),
+                        );
+                    });
+                }
+            });
+        ui.add_space(6.0);
+    }
+
+    if !ta.indicators.is_empty() {
+        ui.label(
+            RichText::new("Indicadores")
+                .size(11.0)
+                .strong()
+                .color(TEXT_SEC),
+        );
+        ui.add_space(2.0);
+        for ind in ta.indicators.iter().take(6) {
+            ui.label(RichText::new(format!("· {ind}")).size(10.5).color(TEXT_MUT));
+        }
+        ui.add_space(4.0);
+    }
+
     if !ta.public_ips.is_empty() {
         ui.label(
             RichText::new("IPs públicas")
@@ -1352,20 +1596,315 @@ fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
         }
         ui.add_space(4.0);
     }
-    if !ta.indicators.is_empty() {
-        ui.label(
-            RichText::new("Indicadores")
-                .size(11.0)
-                .strong()
-                .color(C_WN_FG),
-        );
-        for ind in ta.indicators.iter().take(5) {
-            ui.label(RichText::new(ind).small().color(TEXT_SEC));
-        }
-        ui.add_space(4.0);
-    }
     for lim in ta.limitations.iter().take(3) {
         ui.label(RichText::new(lim).small().italics().color(TEXT_MUT));
+    }
+}
+
+// ── Tab: Historial ─────────────────────────────────────────────────────────────
+
+fn draw_tab_history(
+    ui: &mut egui::Ui,
+    rows: &[SnapshotRow],
+    filter: &mut String,
+    compare_a: &mut Option<usize>,
+    compare_b: &mut Option<usize>,
+) {
+    section_header(ui, "▸  Historial de capturas  ·  últimas 60 entradas guardadas");
+    ui.add_space(8.0);
+
+    if rows.is_empty() {
+        ui.label(
+            RichText::new("Sin historial aún — el historial se acumula con cada refresco.")
+                .color(TEXT_MUT),
+        );
+        return;
+    }
+
+    // Buscador dentro del historial
+    ui.horizontal(|ui| {
+        draw_search_icon(ui, 14.0);
+        ui.add_space(4.0);
+        ui.add_sized(
+            [220.0, 24.0],
+            egui::TextEdit::singleline(filter)
+                .hint_text("Filtrar por proceso o fecha…")
+                .text_color(TEXT_PRI),
+        );
+        ui.add_space(8.0);
+        let total = rows.len();
+        let needle = filter.trim().to_ascii_lowercase();
+        let shown = if needle.is_empty() {
+            total
+        } else {
+            rows.iter()
+                .filter(|r| {
+                    r.dominant_process.to_ascii_lowercase().contains(&needle)
+                        || r.collected_at.contains(&needle)
+                })
+                .count()
+        };
+        ui.label(
+            RichText::new(format!("{shown} / {total}"))
+                .size(11.0)
+                .color(TEXT_MUT),
+        );
+    });
+    ui.add_space(6.0);
+
+    // Cabecera de columnas
+    table_header(
+        ui,
+        &[
+            ("Fecha / Hora", 150.0),
+            ("CPU %", W_PCT + 10.0),
+            ("RAM GB", W_MB + 10.0),
+            ("I/O W MB", W_MB + 10.0),
+            ("Temp MB", W_MB + 10.0),
+            ("Proceso dominante", 200.0),
+            ("Alertas", W_SCORE),
+            ("", W_ACTION + 30.0),
+        ],
+    );
+
+    egui::ScrollArea::vertical()
+        .id_source("tab_hist")
+        .show(ui, |ui| {
+            let needle = filter.trim().to_ascii_lowercase();
+            for (i, row) in rows
+                .iter()
+                .filter(|r| {
+                    needle.is_empty()
+                        || r.dominant_process.to_ascii_lowercase().contains(&needle)
+                        || r.collected_at.contains(&needle)
+                })
+                .enumerate()
+            {
+                let row_bg = if i % 2 == 0 { BG_APP } else { BG_ROW_ALT };
+                let (fg, bg) = if row.has_critical {
+                    (C_CR_FG, C_CR_BG)
+                } else if row.alerts_count > 0 {
+                    (C_WN_FG, C_WN_BG)
+                } else {
+                    (C_OK_FG, BG_CARD)
+                };
+
+                egui::Frame::none()
+                    .fill(row_bg)
+                    .inner_margin(Margin::symmetric(6.0, 4.0))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            // Fecha/hora (truncar a HH:MM:SS si es larga)
+                            let ts = if row.collected_at.len() > 19 {
+                                &row.collected_at[..19]
+                            } else {
+                                &row.collected_at
+                            };
+                            ui.add_sized(
+                                [150.0, 16.0],
+                                egui::Label::new(
+                                    RichText::new(ts).monospace().size(11.0).color(TEXT_SEC),
+                                ),
+                            );
+
+                            // CPU
+                            ui.add_sized(
+                                [W_PCT + 10.0, 16.0],
+                                egui::Label::new(
+                                    RichText::new(format!("{:.1}", row.cpu_usage))
+                                        .size(11.5)
+                                        .color(sev_fg(severity_for_value(row.cpu_usage, 55.0, 80.0))),
+                                ),
+                            );
+
+                            // RAM
+                            let ram_pct = row.memory_used_gb / row.memory_total_gb.max(0.1) * 100.0;
+                            ui.add_sized(
+                                [W_MB + 10.0, 16.0],
+                                egui::Label::new(
+                                    RichText::new(format!("{:.1}", row.memory_used_gb))
+                                        .size(11.5)
+                                        .color(sev_fg(severity_for_value(ram_pct, 70.0, 88.0))),
+                                ),
+                            );
+
+                            // I/O Write
+                            ui.add_sized(
+                                [W_MB + 10.0, 16.0],
+                                egui::Label::new(
+                                    RichText::new(format!("{:.1}", row.io_write_mb_delta))
+                                        .size(11.5)
+                                        .color(
+                                            sev_fg(severity_for_value(row.io_write_mb_delta, 80.0, 220.0)),
+                                        ),
+                                ),
+                            );
+
+                            // Temp
+                            ui.add_sized(
+                                [W_MB + 10.0, 16.0],
+                                egui::Label::new(
+                                    RichText::new(format!("{:.0}", row.temp_total_mb))
+                                        .size(11.5)
+                                        .color(TEXT_MUT),
+                                ),
+                            );
+
+                            // Proceso dominante
+                            let dp_short = trunc(&row.dominant_process, 26);
+                            let resp = ui.add_sized(
+                                [200.0, 16.0],
+                                egui::Label::new(
+                                    RichText::new(&dp_short).size(11.0).color(TEXT_SEC),
+                                ),
+                            );
+                            if row.dominant_process.len() > 26 {
+                                resp.on_hover_text(&row.dominant_process);
+                            }
+
+                            // Alertas
+                            ui.add_sized(
+                                [W_SCORE, 16.0],
+                                egui::Label::new(if row.alerts_count > 0 {
+                                    RichText::new(format!("{}", row.alerts_count))
+                                        .size(11.5)
+                                        .color(fg)
+                                } else {
+                                    RichText::new("—").size(11.5).color(TEXT_MUT)
+                                }),
+                            );
+
+                            // Botones Comparar A / B
+                            let is_a = *compare_a == Some(i);
+                            let is_b = *compare_b == Some(i);
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(if is_a { "A ✓" } else { "A" })
+                                            .size(11.0)
+                                            .color(if is_a { C_BL_FG } else { TEXT_MUT }),
+                                    )
+                                    .fill(if is_a { C_BL_BG } else { BG_CARD })
+                                    .rounding(Rounding::same(4.0)),
+                                )
+                                .on_hover_text("Marcar como punto A para comparación")
+                                .clicked()
+                            {
+                                *compare_a = if is_a { None } else { Some(i) };
+                            }
+                            if ui
+                                .add(
+                                    egui::Button::new(
+                                        RichText::new(if is_b { "B ✓" } else { "B" })
+                                            .size(11.0)
+                                            .color(if is_b { C_WN_FG } else { TEXT_MUT }),
+                                    )
+                                    .fill(if is_b { C_WN_BG } else { BG_CARD })
+                                    .rounding(Rounding::same(4.0)),
+                                )
+                                .on_hover_text("Marcar como punto B para comparación")
+                                .clicked()
+                            {
+                                *compare_b = if is_b { None } else { Some(i) };
+                            }
+                        });
+
+                        // Barra de severidad como acento lateral
+                        if row.has_critical || row.alerts_count > 0 {
+                            let r = ui.min_rect();
+                            ui.painter().line_segment(
+                                [
+                                    egui::pos2(r.left(), r.top()),
+                                    egui::pos2(r.left(), r.bottom()),
+                                ],
+                                Stroke::new(3.0, bg),
+                            );
+                        }
+                    });
+                ui.add(egui::Separator::default().spacing(0.0));
+            }
+        });
+
+    // Panel de comparación
+    if let (Some(ai), Some(bi)) = (*compare_a, *compare_b) {
+        if let (Some(row_a), Some(row_b)) = (rows.get(ai), rows.get(bi)) {
+            ui.add_space(14.0);
+            section_header(ui, "▸  Comparación A vs B");
+            ui.add_space(8.0);
+            egui::Frame::none()
+                .fill(BG_CARD)
+                .stroke(Stroke::new(1.0, BORDER))
+                .rounding(Rounding::same(8.0))
+                .inner_margin(Margin::same(12.0))
+                .show(ui, |ui| {
+                    ui.columns(3, |cols| {
+                        cols[0].label(RichText::new("Métrica").strong().size(12.0).color(TEXT_MUT));
+                        cols[1].label(
+                            RichText::new(format!("A  {}", &row_a.collected_at.chars().take(19).collect::<String>()))
+                                .strong()
+                                .size(12.0)
+                                .color(C_BL_FG),
+                        );
+                        cols[2].label(
+                            RichText::new(format!("B  {}", &row_b.collected_at.chars().take(19).collect::<String>()))
+                                .strong()
+                                .size(12.0)
+                                .color(C_WN_FG),
+                        );
+                    });
+                    ui.separator();
+                    for (label, va, vb) in [
+                        ("CPU %", row_a.cpu_usage, row_b.cpu_usage),
+                        ("RAM GB", row_a.memory_used_gb, row_b.memory_used_gb),
+                        ("I/O W MB", row_a.io_write_mb_delta, row_b.io_write_mb_delta),
+                        ("Temp MB", row_a.temp_total_mb, row_b.temp_total_mb),
+                    ] {
+                        let delta = vb - va;
+                        let delta_col = if delta > 0.5 {
+                            C_CR_FG
+                        } else if delta < -0.5 {
+                            C_OK_FG
+                        } else {
+                            TEXT_MUT
+                        };
+                        ui.columns(3, |cols| {
+                            cols[0].label(RichText::new(label).size(12.0).color(TEXT_SEC));
+                            cols[1].label(
+                                RichText::new(format!("{va:.1}"))
+                                    .size(12.0)
+                                    .color(C_BL_FG),
+                            );
+                            cols[2].label(
+                                RichText::new(format!(
+                                    "{vb:.1}  ({}{delta:.1})",
+                                    if delta >= 0.0 { "+" } else { "" }
+                                ))
+                                .size(12.0)
+                                .color(delta_col),
+                            );
+                        });
+                    }
+                    ui.separator();
+                    ui.columns(3, |cols| {
+                        cols[0].label(RichText::new("Alertas").size(12.0).color(TEXT_SEC));
+                        cols[1].label(
+                            RichText::new(format!("{}", row_a.alerts_count))
+                                .size(12.0)
+                                .color(C_BL_FG),
+                        );
+                        let diff = row_b.alerts_count as i64 - row_a.alerts_count as i64;
+                        cols[2].label(
+                            RichText::new(format!(
+                                "{}  ({}{diff})",
+                                row_b.alerts_count,
+                                if diff >= 0 { "+" } else { "" }
+                            ))
+                            .size(12.0)
+                            .color(if diff > 0 { C_CR_FG } else if diff < 0 { C_OK_FG } else { TEXT_MUT }),
+                        );
+                    });
+                });
+        }
     }
 }
 
@@ -1690,6 +2229,55 @@ fn table_header(ui: &mut egui::Ui, cols: &[(&str, f32)]) {
                     }
                 }
             });
+        });
+}
+
+/// Tarjeta de sparkline con fondo, label y valor actual.
+fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32, width: f32) {
+    let height = 52.0;
+    egui::Frame::none()
+        .fill(BG_CARD)
+        .stroke(Stroke::new(1.0, BORDER))
+        .rounding(Rounding::same(8.0))
+        .inner_margin(Margin::same(8.0))
+        .show(ui, |ui| {
+            ui.set_min_size(Vec2::new(width, height));
+            // Label + último valor
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(label).size(10.0).color(TEXT_MUT));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let last = values.last().copied().unwrap_or(0.0);
+                    ui.label(RichText::new(format!("{last:.1}")).size(12.0).strong().color(color));
+                });
+            });
+            ui.add_space(2.0);
+
+            // Dibujar la línea
+            let available = ui.available_width().max(40.0);
+            let (rect, _) = ui.allocate_exact_size(Vec2::new(available, 26.0), Sense::hover());
+            ui.painter().rect_filled(rect, Rounding::same(3.0), BG_PANEL);
+
+            if values.len() >= 2 {
+                let max_val = values.iter().cloned().fold(0.0_f32, f32::max).max(1.0);
+                let n = values.len();
+                let step = rect.width() / (n - 1).max(1) as f32;
+                let pts: Vec<egui::Pos2> = values
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &v)| {
+                        let x = rect.left() + i as f32 * step;
+                        let y = rect.bottom() - (v / max_val).clamp(0.0, 1.0) * rect.height();
+                        egui::pos2(x, y)
+                    })
+                    .collect();
+                for w in pts.windows(2) {
+                    ui.painter().line_segment([w[0], w[1]], Stroke::new(1.5, color));
+                }
+                // Punto actual
+                if let Some(&last_pt) = pts.last() {
+                    ui.painter().circle_filled(last_pt, 2.5, color);
+                }
+            }
         });
 }
 

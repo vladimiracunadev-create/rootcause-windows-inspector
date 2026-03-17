@@ -73,6 +73,24 @@ pub struct ProcessInsight {
     pub score: u8,
     pub can_terminate: bool,
     pub reasons: Vec<String>,
+    /// Línea de comandos completa del proceso, obtenida bajo demanda para procesos críticos.
+    #[serde(default)]
+    pub command_line: Option<String>,
+}
+
+/// Fila resumida del historial SQLite, lista para mostrar en la UI.
+#[derive(Debug, Clone, Default)]
+pub struct SnapshotRow {
+    pub id: i64,
+    pub collected_at: String,
+    pub cpu_usage: f32,
+    pub memory_used_gb: f32,
+    pub memory_total_gb: f32,
+    pub io_write_mb_delta: f32,
+    pub temp_total_mb: f32,
+    pub dominant_process: String,
+    pub alerts_count: usize,
+    pub has_critical: bool,
 }
 
 /// Elemento medible dentro de carpetas temporales o cachés de riesgo.

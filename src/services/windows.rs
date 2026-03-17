@@ -8,6 +8,7 @@
 use crate::models::{EventRecord, ServiceState};
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
@@ -461,4 +462,95 @@ fn map_service(value: &Value) -> ServiceState {
             .unwrap_or_default()
             .to_owned(),
     }
+}
+
+/// Muestra una notificación toast de Windows (no bloqueante, fire-and-forget).
+pub fn show_toast_notification(title: &str, body: &str) {
+    #[cfg(target_os = "windows")]
+    {
+        let safe_title = title.replace('\'', "\\'");
+        let safe_body = body.replace('\'', "\\'").chars().take(200).collect::<String>();
+        let script = format!(
+            r#"try {{
+  $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+  $t = [Windows.UI.Notifications.ToastTemplateType]::ToastText02
+  $xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent($t)
+  $xml.GetElementsByTagName('text')[0].InnerText = '{safe_title}'
+  $xml.GetElementsByTagName('text')[1].InnerText = '{safe_body}'
+  $n = [Windows.UI.Notifications.ToastNotification]::new($xml)
+  [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('RootCause Inspector').Show($n)
+}} catch {{ }}"#
+        );
+        let _ = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                &script,
+            ])
+            .spawn();
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = (title, body);
+}
+
+/// Obtiene la línea de comandos completa de los PIDs indicados en una sola llamada a WMI.
+/// Devuelve un mapa PID → CommandLine. Los procesos sin cmdline visible se omiten.
+pub fn batch_process_cmdlines(pids: &[u32]) -> HashMap<u32, String> {
+    #[cfg(target_os = "windows")]
+    {
+        if pids.is_empty() {
+            return HashMap::new();
+        }
+        let pid_list = pids
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let script = format!(
+            "Get-CimInstance Win32_Process -Filter 'ProcessId IN ({pid_list})' \
+             | Select-Object ProcessId,CommandLine \
+             | ConvertTo-Json -Compress"
+        );
+        let Ok(raw) = powershell(&script) else {
+            return HashMap::new();
+        };
+        parse_cmdline_json(&raw)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = pids;
+        HashMap::new()
+    }
+}
+
+fn parse_cmdline_json(raw: &str) -> HashMap<u32, String> {
+    let mut map = HashMap::new();
+    let Ok(value) = serde_json::from_str::<Value>(raw) else {
+        return map;
+    };
+    // ConvertTo-Json devuelve un objeto si hay un solo resultado, array si hay varios.
+    let entries = match &value {
+        Value::Array(arr) => arr.as_slice().to_vec(),
+        single => vec![single.clone()],
+    };
+    for entry in entries {
+        let pid = entry
+            .get("ProcessId")
+            .and_then(Value::as_u64)
+            .map(|v| v as u32);
+        let cmdline = entry
+            .get("CommandLine")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned);
+        if let (Some(pid), Some(cmdline)) = (pid, cmdline) {
+            map.insert(pid, cmdline);
+        }
+    }
+    map
 }
