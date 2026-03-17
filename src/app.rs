@@ -399,10 +399,10 @@ impl eframe::App for RootCauseApp {
         if should_export {
             self.export_snapshot();
         }
-        if let Some(idx) = tab_switch {
-            if let Some(&(tab, _, _)) = Tab::ALL.get(idx) {
-                self.active_tab = tab;
-            }
+        if let Some(idx) = tab_switch
+            && let Some(&(tab, _, _)) = Tab::ALL.get(idx)
+        {
+            self.active_tab = tab;
         }
 
         if self.snapshot.is_none()

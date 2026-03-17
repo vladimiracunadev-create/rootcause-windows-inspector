@@ -214,8 +214,8 @@ fn cmd_history(n: usize) -> i32 {
         return 0;
     }
     println!(
-        "{:<20}  {:>6}  {:>8}  {:>9}  {:>5}  {}",
-        "Fecha/Hora", "CPU%", "RAM GB", "I/O W MB", "Alrt", "Proceso dominante"
+        "{:<20}  {:>6}  {:>8}  {:>9}  {:>5}  Proceso dominante",
+        "Fecha/Hora", "CPU%", "RAM GB", "I/O W MB", "Alrt"
     );
     println!("{}", "─".repeat(80));
     for row in &rows {
