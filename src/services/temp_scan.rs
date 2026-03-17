@@ -180,7 +180,7 @@ mod tests {
                 "
 ",
             );
-        assert!(text.contains("windows\temp"));
+        assert!(text.contains("windows\\temp"));
         assert!(text.contains("softwaredistribution"));
         assert!(text.contains("deliveryoptimization"));
     }

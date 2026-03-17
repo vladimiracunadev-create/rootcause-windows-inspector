@@ -570,12 +570,12 @@ pub fn classify_process(
         reasons.push("Sin presión relevante en esta muestra".to_owned());
     }
 
-    let category = if lower_path.contains("\\windows\\softwaredistribution")
+    let category = if lower_path.contains("\\temp\\") {
+        "Temporal / instalador".to_owned()
+    } else if lower_path.contains("\\windows\\softwaredistribution")
         || lower_name.contains("update")
     {
         "Actualización / mantenimiento".to_owned()
-    } else if lower_path.contains("\\temp\\") {
-        "Temporal / instalador".to_owned()
     } else if lower_path.starts_with(r"c:\windows") {
         "Sistema operativo".to_owned()
     } else {
