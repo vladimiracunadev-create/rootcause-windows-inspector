@@ -1,4 +1,4 @@
-//! Capa de interfaz — diseño con tabs, estilo PC Manager dark.
+﻿//! Capa de interfaz — diseño con tabs, estilo PC Manager dark.
 //!
 //! Estructura: barra superior con logo + controles, barra de tabs horizontal,
 //! cada tab dibuja su contenido con tablas, progress bars y tooltips para
@@ -1916,7 +1916,7 @@ fn compute_health_score(snap: &SystemSnapshot) -> u8 {
         .filter(|a| matches!(a.severity, Severity::Critical))
         .count();
     score -= crits as f32 * 7.0;
-    score.max(0.0).min(100.0) as u8
+    score.clamp(0.0, 100.0) as u8
 }
 
 fn severity_for_value(v: f32, warn: f32, crit: f32) -> Severity {

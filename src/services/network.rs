@@ -1,4 +1,4 @@
-//! Parseo y clasificación de conexiones de red.
+﻿//! Parseo y clasificación de conexiones de red.
 //!
 //! Para minimizar dependencias y evitar capturas de bajo nivel demasiado
 //! invasivas, esta primera versión usa `netstat -ano -n` y aplica heurísticas.

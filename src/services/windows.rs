@@ -1,4 +1,4 @@
-//! Integración con utilidades nativas de Windows.
+﻿//! Integración con utilidades nativas de Windows.
 //!
 //! Esta capa se apoya en comandos estándar del sistema para evitar más peso de
 //! dependencias y llegar rápido a datos útiles: eventos, servicios, netstat,
@@ -31,7 +31,7 @@ pub fn powershell(script: &str) -> Result<String> {
             bail!(merge_output(&output));
         }
 
-        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned());
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -72,7 +72,7 @@ pub fn netstat() -> Result<String> {
             bail!(merge_output(&output));
         }
 
-        return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -149,7 +149,7 @@ pub fn terminate_process(pid: u32) -> Result<String> {
             bail!(merge_output(&output));
         }
 
-        return Ok(merge_output(&output));
+        Ok(merge_output(&output))
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -209,7 +209,7 @@ pub fn wpr_status() -> Result<String> {
         if merged.is_empty() {
             return Ok("WPR no devolvió salida para -status".to_owned());
         }
-        return Ok(merged);
+        Ok(merged)
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -267,7 +267,7 @@ pub fn start_wpr_general_profile(record_temp_dir: &Path, marker_text: &str) -> R
             let _ = Command::new("wpr").args(["-marker", &marker]).output();
         }
 
-        return Ok(format!(
+        Ok(format!(
             "Captura WPR iniciada con GeneralProfile en file mode. Carpeta temporal de traza: {temp_dir}"
         ));
     }
@@ -309,7 +309,7 @@ pub fn stop_wpr_capture(output_path: &Path, problem_description: &str) -> Result
             bail!(merge_output(&output));
         }
 
-        return Ok(format!(
+        Ok(format!(
             "Captura WPR detenida y guardada en {output_file}. Puedes resumirla desde la propia app o abrirla en WPA."
         ));
     }
@@ -340,7 +340,7 @@ pub fn cancel_wpr_capture() -> Result<String> {
             bail!(merge_output(&output));
         }
 
-        return Ok("Captura WPR cancelada".to_owned());
+        Ok("Captura WPR cancelada".to_owned())
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -390,7 +390,7 @@ pub fn export_etl_with_tracerpt(
             bail!(merge_output(&output));
         }
 
-        return Ok(format!(
+        Ok(format!(
             "ETL exportado a XML y summary.txt en {}",
             xml_path
                 .parent()

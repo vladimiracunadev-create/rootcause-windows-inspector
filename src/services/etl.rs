@@ -1,4 +1,4 @@
-//! Resumen asistido de capturas ETL.
+﻿//! Resumen asistido de capturas ETL.
 //!
 //! La meta no es reemplazar a WPA. La meta es reducir el tiempo hasta el primer
 //! hallazgo útil: detectar procesos, rutas, servicios, actualizaciones o IPs que
@@ -95,7 +95,7 @@ pub fn summarize_exported_etl(
     hot_paths.sort_by_key(|item| Reverse(item.occurrences));
     hot_paths.truncate(10);
 
-    let mut public_ips: Vec<String> = state.ip_counts.into_iter().map(|(ip, _)| ip).collect();
+    let mut public_ips: Vec<String> = state.ip_counts.into_keys().collect();
     public_ips.sort();
     public_ips.truncate(10);
 

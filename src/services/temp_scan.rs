@@ -1,4 +1,4 @@
-//! Escaneo de carpetas temporales.
+﻿//! Escaneo de carpetas temporales.
 //!
 //! Objetivo: detectar rápidamente qué zonas de TEMP están creciendo y cuánto
 //! pesan, sin convertir el monitor en otra carga pesada. Por eso el escaneo

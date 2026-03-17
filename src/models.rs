@@ -19,6 +19,7 @@ pub enum Severity {
 }
 
 impl Severity {
+    #[allow(dead_code)]
     /// Texto humano para la interfaz.
     pub fn label(self) -> &'static str {
         match self {
