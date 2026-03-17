@@ -191,6 +191,7 @@ impl InspectorService {
                 score,
                 can_terminate,
                 reasons,
+                command_line: None,
             });
         }
 
