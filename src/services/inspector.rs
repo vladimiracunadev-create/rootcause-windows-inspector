@@ -5,8 +5,8 @@
 //! obtener datos, solo en cómo mostrarlos con claridad.
 
 use crate::models::{
-    Alert, ConnectionInsight, PrecisionStatus, ProcessInsight, ServiceState, Severity,
-    SnapshotRow, SystemOverview, SystemSnapshot, TempEntry, TraceAnalysisSummary,
+    Alert, ConnectionInsight, PrecisionStatus, ProcessInsight, ServiceState, Severity, SnapshotRow,
+    SystemOverview, SystemSnapshot, TempEntry, TraceAnalysisSummary,
 };
 use crate::services::{etl, network, persistence::PersistenceStore, temp_scan, windows};
 use anyhow::{Context, Result, anyhow};

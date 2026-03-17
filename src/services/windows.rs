@@ -1,4 +1,4 @@
-﻿//! Integración con utilidades nativas de Windows.
+//! Integración con utilidades nativas de Windows.
 //!
 //! Esta capa se apoya en comandos estándar del sistema para evitar más peso de
 //! dependencias y llegar rápido a datos útiles: eventos, servicios, netstat,
@@ -469,7 +469,11 @@ pub fn show_toast_notification(title: &str, body: &str) {
     #[cfg(target_os = "windows")]
     {
         let safe_title = title.replace('\'', "\\'");
-        let safe_body = body.replace('\'', "\\'").chars().take(200).collect::<String>();
+        let safe_body = body
+            .replace('\'', "\\'")
+            .chars()
+            .take(200)
+            .collect::<String>();
         let script = format!(
             r#"try {{
   $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]

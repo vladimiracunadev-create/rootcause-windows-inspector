@@ -1,4 +1,4 @@
-﻿//! Capa de interfaz — diseño con tabs, estilo PC Manager dark.
+//! Capa de interfaz — diseño con tabs, estilo PC Manager dark.
 //!
 //! Estructura: barra superior con logo + controles, barra de tabs horizontal,
 //! cada tab dibuja su contenido con tablas, progress bars y tooltips para
@@ -396,9 +396,7 @@ impl eframe::App for RootCauseApp {
                         let mut sev_filter_change: Option<Option<Severity>> = None;
 
                         match self.active_tab {
-                            Tab::Overview => {
-                                draw_tab_overview(ui, &snapshot, &self.metric_history)
-                            }
+                            Tab::Overview => draw_tab_overview(ui, &snapshot, &self.metric_history),
                             Tab::Processes => draw_tab_processes(
                                 ui,
                                 &snapshot,
@@ -812,10 +810,18 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                 } else {
                     TEXT_MUT
                 }))
-                .fill(if sel_none { BG_CARD } else { Color32::TRANSPARENT })
+                .fill(if sel_none {
+                    BG_CARD
+                } else {
+                    Color32::TRANSPARENT
+                })
                 .stroke(Stroke::new(
                     1.0,
-                    if sel_none { BORDER } else { Color32::TRANSPARENT },
+                    if sel_none {
+                        BORDER
+                    } else {
+                        Color32::TRANSPARENT
+                    },
                 ))
                 .rounding(Rounding::same(4.0)),
             )
@@ -831,15 +837,19 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
             let selected = sev_filter == Some(sev);
             if ui
                 .add(
-                    egui::Button::new(
-                        RichText::new(label)
-                            .size(11.5)
-                            .color(if selected { fg } else { TEXT_MUT }),
-                    )
+                    egui::Button::new(RichText::new(label).size(11.5).color(if selected {
+                        fg
+                    } else {
+                        TEXT_MUT
+                    }))
                     .fill(if selected { bg } else { Color32::TRANSPARENT })
                     .stroke(Stroke::new(
                         1.0,
-                        if selected { fg.linear_multiply(0.5) } else { Color32::TRANSPARENT },
+                        if selected {
+                            fg.linear_multiply(0.5)
+                        } else {
+                            Color32::TRANSPARENT
+                        },
                     ))
                     .rounding(Rounding::same(4.0)),
                 )
@@ -858,9 +868,12 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
             .count();
         ui.add_space(8.0);
         ui.label(
-            RichText::new(format!("{count} proceso{}", if count != 1 { "s" } else { "" }))
-                .size(11.0)
-                .color(TEXT_MUT),
+            RichText::new(format!(
+                "{count} proceso{}",
+                if count != 1 { "s" } else { "" }
+            ))
+            .size(11.0)
+            .color(TEXT_MUT),
         );
     });
     ui.add_space(6.0);
@@ -930,10 +943,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                                             .color(TEXT_MUT),
                                     );
                                     ui.label(
-                                        RichText::new(cmdline)
-                                            .small()
-                                            .monospace()
-                                            .color(C_BL_FG),
+                                        RichText::new(cmdline).small().monospace().color(C_BL_FG),
                                     );
                                 }
                                 if !p.reasons.is_empty() {
@@ -1546,7 +1556,13 @@ fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
     );
     ui.add_space(4.0);
     if !ta.providers.is_empty() {
-        let max_count = ta.providers.iter().map(|(_, c)| *c).max().unwrap_or(1).max(1) as f32;
+        let max_count = ta
+            .providers
+            .iter()
+            .map(|(_, c)| *c)
+            .max()
+            .unwrap_or(1)
+            .max(1) as f32;
         egui::ScrollArea::vertical()
             .id_source("etl_prov")
             .max_height(100.0)
@@ -1559,11 +1575,7 @@ fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
                             egui::Label::new(RichText::new(&short).size(10.5).color(TEXT_SEC)),
                         );
                         pbar(ui, *count as f32 / max_count, C_BL_FG, 60.0);
-                        ui.label(
-                            RichText::new(format!("{count}"))
-                                .size(10.0)
-                                .color(TEXT_MUT),
-                        );
+                        ui.label(RichText::new(format!("{count}")).size(10.0).color(TEXT_MUT));
                     });
                 }
             });
@@ -1610,7 +1622,10 @@ fn draw_tab_history(
     compare_a: &mut Option<usize>,
     compare_b: &mut Option<usize>,
 ) {
-    section_header(ui, "▸  Historial de capturas  ·  últimas 60 entradas guardadas");
+    section_header(
+        ui,
+        "▸  Historial de capturas  ·  últimas 60 entradas guardadas",
+    );
     ui.add_space(8.0);
 
     if rows.is_empty() {
@@ -1713,7 +1728,11 @@ fn draw_tab_history(
                                 egui::Label::new(
                                     RichText::new(format!("{:.1}", row.cpu_usage))
                                         .size(11.5)
-                                        .color(sev_fg(severity_for_value(row.cpu_usage, 55.0, 80.0))),
+                                        .color(sev_fg(severity_for_value(
+                                            row.cpu_usage,
+                                            55.0,
+                                            80.0,
+                                        ))),
                                 ),
                             );
 
@@ -1734,9 +1753,11 @@ fn draw_tab_history(
                                 egui::Label::new(
                                     RichText::new(format!("{:.1}", row.io_write_mb_delta))
                                         .size(11.5)
-                                        .color(
-                                            sev_fg(severity_for_value(row.io_write_mb_delta, 80.0, 220.0)),
-                                        ),
+                                        .color(sev_fg(severity_for_value(
+                                            row.io_write_mb_delta,
+                                            80.0,
+                                            220.0,
+                                        ))),
                                 ),
                             );
 
@@ -1840,16 +1861,22 @@ fn draw_tab_history(
                     ui.columns(3, |cols| {
                         cols[0].label(RichText::new("Métrica").strong().size(12.0).color(TEXT_MUT));
                         cols[1].label(
-                            RichText::new(format!("A  {}", &row_a.collected_at.chars().take(19).collect::<String>()))
-                                .strong()
-                                .size(12.0)
-                                .color(C_BL_FG),
+                            RichText::new(format!(
+                                "A  {}",
+                                &row_a.collected_at.chars().take(19).collect::<String>()
+                            ))
+                            .strong()
+                            .size(12.0)
+                            .color(C_BL_FG),
                         );
                         cols[2].label(
-                            RichText::new(format!("B  {}", &row_b.collected_at.chars().take(19).collect::<String>()))
-                                .strong()
-                                .size(12.0)
-                                .color(C_WN_FG),
+                            RichText::new(format!(
+                                "B  {}",
+                                &row_b.collected_at.chars().take(19).collect::<String>()
+                            ))
+                            .strong()
+                            .size(12.0)
+                            .color(C_WN_FG),
                         );
                     });
                     ui.separator();
@@ -1869,11 +1896,8 @@ fn draw_tab_history(
                         };
                         ui.columns(3, |cols| {
                             cols[0].label(RichText::new(label).size(12.0).color(TEXT_SEC));
-                            cols[1].label(
-                                RichText::new(format!("{va:.1}"))
-                                    .size(12.0)
-                                    .color(C_BL_FG),
-                            );
+                            cols[1]
+                                .label(RichText::new(format!("{va:.1}")).size(12.0).color(C_BL_FG));
                             cols[2].label(
                                 RichText::new(format!(
                                     "{vb:.1}  ({}{delta:.1})",
@@ -1900,7 +1924,13 @@ fn draw_tab_history(
                                 if diff >= 0 { "+" } else { "" }
                             ))
                             .size(12.0)
-                            .color(if diff > 0 { C_CR_FG } else if diff < 0 { C_OK_FG } else { TEXT_MUT }),
+                            .color(if diff > 0 {
+                                C_CR_FG
+                            } else if diff < 0 {
+                                C_OK_FG
+                            } else {
+                                TEXT_MUT
+                            }),
                         );
                     });
                 });
@@ -2247,7 +2277,12 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
                 ui.label(RichText::new(label).size(10.0).color(TEXT_MUT));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let last = values.last().copied().unwrap_or(0.0);
-                    ui.label(RichText::new(format!("{last:.1}")).size(12.0).strong().color(color));
+                    ui.label(
+                        RichText::new(format!("{last:.1}"))
+                            .size(12.0)
+                            .strong()
+                            .color(color),
+                    );
                 });
             });
             ui.add_space(2.0);
@@ -2255,7 +2290,8 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
             // Dibujar la línea
             let available = ui.available_width().max(40.0);
             let (rect, _) = ui.allocate_exact_size(Vec2::new(available, 26.0), Sense::hover());
-            ui.painter().rect_filled(rect, Rounding::same(3.0), BG_PANEL);
+            ui.painter()
+                .rect_filled(rect, Rounding::same(3.0), BG_PANEL);
 
             if values.len() >= 2 {
                 let max_val = values.iter().cloned().fold(0.0_f32, f32::max).max(1.0);
@@ -2271,7 +2307,8 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
                     })
                     .collect();
                 for w in pts.windows(2) {
-                    ui.painter().line_segment([w[0], w[1]], Stroke::new(1.5, color));
+                    ui.painter()
+                        .line_segment([w[0], w[1]], Stroke::new(1.5, color));
                 }
                 // Punto actual
                 if let Some(&last_pt) = pts.last() {
