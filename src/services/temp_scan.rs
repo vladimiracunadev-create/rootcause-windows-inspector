@@ -114,11 +114,9 @@ fn accumulate_path(path: &Path) -> (u64, u64) {
         .filter_map(|entry| entry.ok())
         .take(MAX_FILES_PER_ENTRY)
     {
-        if let Ok(metadata) = entry.metadata() {
-            if metadata.is_file() {
-                total_bytes = total_bytes.saturating_add(metadata.len());
-                file_count = file_count.saturating_add(1);
-            }
+        if let Ok(metadata) = entry.metadata() && metadata.is_file() {
+            total_bytes = total_bytes.saturating_add(metadata.len());
+            file_count = file_count.saturating_add(1);
         }
     }
 

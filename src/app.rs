@@ -819,10 +819,10 @@ fn draw_tab_processes<F: FnMut(u32)>(
                             );
 
                             // Acción
-                            if p.can_terminate {
-                                if action_btn(ui, "Finalizar", C_CR_BG, C_CR_FG).clicked() {
-                                    to_kill = Some(p.pid);
-                                }
+                            if p.can_terminate
+                                && action_btn(ui, "Finalizar", C_CR_BG, C_CR_FG).clicked()
+                            {
+                                to_kill = Some(p.pid);
                             }
                         });
                     });
@@ -1173,10 +1173,11 @@ fn draw_tab_precision(
 
             ui.add_space(12.0);
             ui.horizontal_wrapped(|ui| {
-                if p.wpr_available && !recording {
-                    if action_btn(ui, "▶  Iniciar captura", C_OK_BG, C_OK_FG).clicked() {
-                        *precision_action = Some(PrecisionAction::Start);
-                    }
+                if p.wpr_available
+                    && !recording
+                    && action_btn(ui, "▶  Iniciar captura", C_OK_BG, C_OK_FG).clicked()
+                {
+                    *precision_action = Some(PrecisionAction::Start);
                 }
                 if p.wpr_available && recording {
                     if action_btn(ui, "■  Detener y guardar", C_WN_BG, C_WN_FG).clicked() {
@@ -1186,10 +1187,12 @@ fn draw_tab_precision(
                         *precision_action = Some(PrecisionAction::Cancel);
                     }
                 }
-                if !recording && p.tracerpt_available && p.last_trace_path.is_some() {
-                    if action_btn(ui, "⚡  Analizar ETL", C_BL_BG, C_BL_FG).clicked() {
-                        *precision_action = Some(PrecisionAction::Analyze);
-                    }
+                if !recording
+                    && p.tracerpt_available
+                    && p.last_trace_path.is_some()
+                    && action_btn(ui, "⚡  Analizar ETL", C_BL_BG, C_BL_FG).clicked()
+                {
+                    *precision_action = Some(PrecisionAction::Analyze);
                 }
             });
         });

@@ -45,11 +45,11 @@ pub fn powershell(script: &str) -> Result<String> {
 pub fn command_exists(command: &str) -> bool {
     #[cfg(target_os = "windows")]
     {
-        return Command::new("where")
+        Command::new("where")
             .arg(command)
             .output()
             .map(|output| output.status.success())
-            .unwrap_or(false);
+            .unwrap_or(false)
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -434,8 +434,7 @@ fn map_event(value: &Value) -> EventRecord {
             .get("Message")
             .and_then(Value::as_str)
             .unwrap_or_default()
-            .replace('\n', " ")
-            .replace('\r', " "),
+            .replace(['\n', '\r'], " "),
     }
 }
 

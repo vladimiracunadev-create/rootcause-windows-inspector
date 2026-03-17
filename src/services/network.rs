@@ -177,14 +177,12 @@ pub fn is_public_ip(ip: &str) -> bool {
         return false;
     }
 
-    if let Some(rest) = ip.strip_prefix("172.") {
-        if let Some(second_octet) = rest.split('.').next() {
-            if let Ok(value) = second_octet.parse::<u8>() {
-                if (16..=31).contains(&value) {
-                    return false;
-                }
-            }
-        }
+    if let Some(rest) = ip.strip_prefix("172.")
+        && let Some(second_octet) = rest.split('.').next()
+        && let Ok(value) = second_octet.parse::<u8>()
+        && (16..=31).contains(&value)
+    {
+        return false;
     }
 
     true

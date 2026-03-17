@@ -356,10 +356,10 @@ fn detect_process_name(field_name: &str, value: &str) -> Option<String> {
         || lower_field.contains("process")
         || lower_field.contains("command")
     {
-        if let Some(last) = lower_value.rsplit(['\\', '/']).next() {
-            if last.ends_with(".exe") || last.ends_with(".dll") || last.ends_with(".sys") {
-                return Some(last.to_owned());
-            }
+        if let Some(last) = lower_value.rsplit(['\\', '/']).next()
+            && (last.ends_with(".exe") || last.ends_with(".dll") || last.ends_with(".sys"))
+        {
+            return Some(last.to_owned());
         }
         if lower_value.ends_with(".exe") {
             return Some(lower_value);
