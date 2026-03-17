@@ -71,7 +71,13 @@ La evidencia debe quedar guardada y ser exportable.
 ## 4. Módulos principales
 
 ### `main.rs`
-Punto de entrada.
+Punto de entrada. Detecta args CLI → `cli::run()` o GUI.
+
+### `meta.rs`
+Constantes del producto: `VERSION`, `DISPLAY_NAME`, `AUTHOR`, `EMAIL`, `GITHUB`, `GITLAB`, `LICENSE`. Único lugar de verdad.
+
+### `cli.rs`
+Interfaz de línea de comandos completa: `--help`, `--version`, `status`, `snapshot`, `history [N]`, `export`, `wpr start/stop/cancel/analyze`, `kill`, `block-ip`, `stop-service`, `--gui`.
 
 ### `app.rs`
 Capa de presentación y estado visual.

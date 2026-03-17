@@ -230,7 +230,7 @@ Orden recomendado:
 2. `docs/RECLUTADORES.md`
 3. `docs/REPOSITORIO_ANALISIS.md`
 4. `docs/MANUAL_PARA_NOVATOS.md`
-5. `docs/RUST_PARA_SIGNALWATCH.md` si luego quieres entender más.
+5. `docs/RUST_PARA_ROOTCAUSE.md` si luego quieres entender más.
 
 ---
 

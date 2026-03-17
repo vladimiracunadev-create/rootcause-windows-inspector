@@ -88,8 +88,10 @@ rootcause-windows-inspector/
 │   ├── analyze-last-etl.*
 │   └── wpa-open-latest.ps1
 └── src/
-    ├── app.rs
     ├── main.rs
+    ├── app.rs
+    ├── cli.rs
+    ├── meta.rs
     ├── models.rs
     └── services/
         ├── etl.rs
