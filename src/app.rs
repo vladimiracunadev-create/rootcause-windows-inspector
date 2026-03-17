@@ -1850,91 +1850,90 @@ fn draw_tab_history(
     if let (Some(ai), Some(bi)) = (*compare_a, *compare_b)
         && let (Some(row_a), Some(row_b)) = (rows.get(ai), rows.get(bi))
     {
-            ui.add_space(14.0);
-            section_header(ui, "▸  Comparación A vs B");
-            ui.add_space(8.0);
-            egui::Frame::none()
-                .fill(BG_CARD)
-                .stroke(Stroke::new(1.0, BORDER))
-                .rounding(Rounding::same(8.0))
-                .inner_margin(Margin::same(12.0))
-                .show(ui, |ui| {
+        ui.add_space(14.0);
+        section_header(ui, "▸  Comparación A vs B");
+        ui.add_space(8.0);
+        egui::Frame::none()
+            .fill(BG_CARD)
+            .stroke(Stroke::new(1.0, BORDER))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(Margin::same(12.0))
+            .show(ui, |ui| {
+                ui.columns(3, |cols| {
+                    cols[0].label(RichText::new("Métrica").strong().size(12.0).color(TEXT_MUT));
+                    cols[1].label(
+                        RichText::new(format!(
+                            "A  {}",
+                            &row_a.collected_at.chars().take(19).collect::<String>()
+                        ))
+                        .strong()
+                        .size(12.0)
+                        .color(C_BL_FG),
+                    );
+                    cols[2].label(
+                        RichText::new(format!(
+                            "B  {}",
+                            &row_b.collected_at.chars().take(19).collect::<String>()
+                        ))
+                        .strong()
+                        .size(12.0)
+                        .color(C_WN_FG),
+                    );
+                });
+                ui.separator();
+                for (label, va, vb) in [
+                    ("CPU %", row_a.cpu_usage, row_b.cpu_usage),
+                    ("RAM GB", row_a.memory_used_gb, row_b.memory_used_gb),
+                    ("I/O W MB", row_a.io_write_mb_delta, row_b.io_write_mb_delta),
+                    ("Temp MB", row_a.temp_total_mb, row_b.temp_total_mb),
+                ] {
+                    let delta = vb - va;
+                    let delta_col = if delta > 0.5 {
+                        C_CR_FG
+                    } else if delta < -0.5 {
+                        C_OK_FG
+                    } else {
+                        TEXT_MUT
+                    };
                     ui.columns(3, |cols| {
-                        cols[0].label(RichText::new("Métrica").strong().size(12.0).color(TEXT_MUT));
-                        cols[1].label(
-                            RichText::new(format!(
-                                "A  {}",
-                                &row_a.collected_at.chars().take(19).collect::<String>()
-                            ))
-                            .strong()
-                            .size(12.0)
-                            .color(C_BL_FG),
-                        );
+                        cols[0].label(RichText::new(label).size(12.0).color(TEXT_SEC));
+                        cols[1].label(RichText::new(format!("{va:.1}")).size(12.0).color(C_BL_FG));
                         cols[2].label(
                             RichText::new(format!(
-                                "B  {}",
-                                &row_b.collected_at.chars().take(19).collect::<String>()
+                                "{vb:.1}  ({}{delta:.1})",
+                                if delta >= 0.0 { "+" } else { "" }
                             ))
-                            .strong()
                             .size(12.0)
-                            .color(C_WN_FG),
+                            .color(delta_col),
                         );
                     });
-                    ui.separator();
-                    for (label, va, vb) in [
-                        ("CPU %", row_a.cpu_usage, row_b.cpu_usage),
-                        ("RAM GB", row_a.memory_used_gb, row_b.memory_used_gb),
-                        ("I/O W MB", row_a.io_write_mb_delta, row_b.io_write_mb_delta),
-                        ("Temp MB", row_a.temp_total_mb, row_b.temp_total_mb),
-                    ] {
-                        let delta = vb - va;
-                        let delta_col = if delta > 0.5 {
+                }
+                ui.separator();
+                ui.columns(3, |cols| {
+                    cols[0].label(RichText::new("Alertas").size(12.0).color(TEXT_SEC));
+                    cols[1].label(
+                        RichText::new(format!("{}", row_a.alerts_count))
+                            .size(12.0)
+                            .color(C_BL_FG),
+                    );
+                    let diff = row_b.alerts_count as i64 - row_a.alerts_count as i64;
+                    cols[2].label(
+                        RichText::new(format!(
+                            "{}  ({}{diff})",
+                            row_b.alerts_count,
+                            if diff >= 0 { "+" } else { "" }
+                        ))
+                        .size(12.0)
+                        .color(if diff > 0 {
                             C_CR_FG
-                        } else if delta < -0.5 {
+                        } else if diff < 0 {
                             C_OK_FG
                         } else {
                             TEXT_MUT
-                        };
-                        ui.columns(3, |cols| {
-                            cols[0].label(RichText::new(label).size(12.0).color(TEXT_SEC));
-                            cols[1]
-                                .label(RichText::new(format!("{va:.1}")).size(12.0).color(C_BL_FG));
-                            cols[2].label(
-                                RichText::new(format!(
-                                    "{vb:.1}  ({}{delta:.1})",
-                                    if delta >= 0.0 { "+" } else { "" }
-                                ))
-                                .size(12.0)
-                                .color(delta_col),
-                            );
-                        });
-                    }
-                    ui.separator();
-                    ui.columns(3, |cols| {
-                        cols[0].label(RichText::new("Alertas").size(12.0).color(TEXT_SEC));
-                        cols[1].label(
-                            RichText::new(format!("{}", row_a.alerts_count))
-                                .size(12.0)
-                                .color(C_BL_FG),
-                        );
-                        let diff = row_b.alerts_count as i64 - row_a.alerts_count as i64;
-                        cols[2].label(
-                            RichText::new(format!(
-                                "{}  ({}{diff})",
-                                row_b.alerts_count,
-                                if diff >= 0 { "+" } else { "" }
-                            ))
-                            .size(12.0)
-                            .color(if diff > 0 {
-                                C_CR_FG
-                            } else if diff < 0 {
-                                C_OK_FG
-                            } else {
-                                TEXT_MUT
-                            }),
-                        );
-                    });
+                        }),
+                    );
                 });
+            });
     }
 }
 
