@@ -36,3 +36,17 @@ Si distribuyes binarios a terceros, documenta siempre:
 - límites funcionales,
 - formato de instalación,
 - hash SHA-256 de los artefactos.
+
+## Licencia
+
+Este software se distribuye bajo **Apache License 2.0**.
+
+Esto implica:
+
+- uso, modificación y redistribución libres con atribución,
+- grant explícito de patentes de los contribuidores,
+- no se otorgan derechos sobre la marca o nombre del producto.
+
+Ver [`LICENSE`](LICENSE) y [`docs/LICENCIA_Y_DECISION.md`](docs/LICENCIA_Y_DECISION.md) para el razonamiento completo y la ruta futura prevista.
+
+> **Nota:** el repositorio es actualmente privado. La visibilidad pública queda a criterio del autor.

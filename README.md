@@ -1,7 +1,7 @@
 # RootCause — Windows Inspector
 
 [![CI Windows](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/actions/workflows/ci.yml/badge.svg)](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
 [![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](CHANGELOG.md)
@@ -432,7 +432,7 @@ Detalle completo en [`docs/PACKAGING_WINDOWS.md`](docs/PACKAGING_WINDOWS.md).
 
 ## Licencia
 
-MIT — ver [`LICENSE`](LICENSE).
+Apache 2.0 — ver [`LICENSE`](LICENSE) y [`docs/LICENCIA_Y_DECISION.md`](docs/LICENCIA_Y_DECISION.md).
 
 ---
 

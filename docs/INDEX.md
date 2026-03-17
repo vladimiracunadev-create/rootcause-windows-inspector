@@ -42,6 +42,7 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 - [Roadmap](ROADMAP.md)
 - [Nombres posibles del producto](NOMBRES_PRODUCTO.md)
 - [Documento para reclutadores](RECLUTADORES.md)
+- [Licencia y decisión de distribución](LICENCIA_Y_DECISION.md)
 
 ## Identidad visual y packaging
 - [Marca, naming y branding técnico de RootCause](MARCA_Y_BRANDING_ROOTCAUSE.md)

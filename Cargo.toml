@@ -5,7 +5,7 @@ version = "0.5.0"
 edition = "2024"
 authors = ["Vladimir Acuña <vladimiracunadev-create>"]
 description = "Monitor visual y forense ligero para detectar procesos, archivos temporales, conexiones y trazas ETW que degradan Windows."
-license = "MIT"
+license = "Apache-2.0"
 repository = "https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
 publish = false
 
