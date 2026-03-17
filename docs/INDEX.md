@@ -42,6 +42,9 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 - [Modo de precisión ETW/WPR](PRECISION_MODE_ETW.md)
 - [Resumen de ETL](TRACE_SUMMARY_ETL.md)
 
+## 🗺️ Plan maestro y continuidad
+- [**Plan Maestro — prioridades, análisis, visión completa**](PLAN_MAESTRO.md) ← 📌 LEER PRIMERO en cada sesión nueva
+
 ## Estrategia del producto
 - [Marca, naming y branding técnico de RootCause](MARCA_Y_BRANDING_ROOTCAUSE.md)
 - [Roadmap](ROADMAP.md)
