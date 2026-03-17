@@ -19,6 +19,8 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
 [![Version](https://img.shields.io/badge/version-0.6.0-green.svg)](docs/ROADMAP.md)
 
+🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-landing/)**
+
 ---
 
 **RootCause** es un software de escritorio para **Windows** escrito en **Rust** orientado a un problema real: descubrir con claridad **qué proceso, carpeta, servicio, conexión o traza ETL** está degradando el equipo cuando aparecen síntomas como disco al 100 %, crecimiento anormal de `%TEMP%`, lentitud general, consumo alto de memoria o actividad de red sin explicación.
@@ -225,7 +227,7 @@ rootcause-windows-inspector/
 ├── LICENSE               ← Apache 2.0
 ├── SECURITY.md
 ├── docs/                 ← 25+ documentos de arquitectura, operación y producto
-├── landing/              ← Landing page del producto (HTML/CSS + deploy workflow)
+├── [rootcause-landing]   ← Repo público: landing page (https://vladimiracunadev-create.github.io/rootcause-landing/)
 ├── packaging/windows/    ← Inno Setup .iss
 ├── scripts/              ← build, verify, package, wpr, etl
 └── src/
