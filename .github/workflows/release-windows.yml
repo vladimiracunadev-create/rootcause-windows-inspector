@@ -80,7 +80,7 @@ jobs:
             build/SHA256SUMS.txt
           if-no-files-found: error
 
-      - name: Publicar GitHub Release (solo en tags)
+      - name: Publicar GitHub Release en repo privado (solo en tags)
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
@@ -124,8 +124,6 @@ jobs:
             ## Verificar integridad antes de ejecutar
 
             ```powershell
-            # Descarga SHA256SUMS.txt en la misma carpeta que los archivos
-            # Luego verifica cada uno:
             Get-FileHash .\RootCause-Portable.zip -Algorithm SHA256
             Get-FileHash .\RootCause-Setup.exe   -Algorithm SHA256
             # Compara con el contenido de SHA256SUMS.txt
@@ -141,34 +139,90 @@ jobs:
 
             ---
 
-            ## Funciones principales en esta versión
-
-            - Vista de procesos con puntuación de riesgo (CPU, RAM, disco, ruta)
-            - Escaneo de carpetas temporales (`%TEMP%`, `Windows\Temp`, SoftwareDistribution)
-            - Análisis de conexiones de red activas con clasificación de IPs públicas
-            - Eventos del sistema (advertencias y errores recientes)
-            - Estado de servicios clave de Windows Update y mantenimiento
-            - **Modo de precisión**: captura ETW/WPR, exportación y resumen automático de ETL
-            - Exportación de snapshot completo a JSON
-            - Acciones controladas: finalizar proceso, bloquear IP, detener servicio
-
-            ---
-
             ## ⚠ Nota de seguridad
 
             Este binario **no tiene firma digital** en esta versión.
             Windows puede mostrar una advertencia de SmartScreen — es esperado.
-            Para mayor confianza, compila desde el código fuente: ver [`docs/BUILD_WINDOWS.md`](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/BUILD_WINDOWS.md)
 
-            ---
-
-            ## Documentación
-
-            - [Manual de uso](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/OPERACION.md)
-            - [Guía de build desde código fuente](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/BUILD_WINDOWS.md)
-            - [Modo de precisión ETW/WPR](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/PRECISION_MODE_ETW.md)
-            - [Solución de problemas](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/TROUBLESHOOTING.md)
           files: |
             build/RootCause-Portable.zip
             build/installer/RootCause-Setup.exe
             build/SHA256SUMS.txt
+
+      # ── Publicar copia pública en rootcause-landing ──────────────────────────────
+      # Requiere un PAT (Personal Access Token) con scope "repo" para rootcause-landing,
+      # guardado como secreto LANDING_RELEASE_TOKEN en la configuración de ESTE repo privado.
+      # Ver docs/CI_GITHUB.md sección "Configurar LANDING_RELEASE_TOKEN".
+      - name: Publicar release público en rootcause-landing
+        if: github.ref_type == 'tag' && env.LANDING_TOKEN_AVAILABLE == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.LANDING_RELEASE_TOKEN }}
+          LANDING_TOKEN_AVAILABLE: ${{ secrets.LANDING_RELEASE_TOKEN != '' }}
+        shell: pwsh
+        run: |
+          $tag     = "${{ github.ref_name }}"
+          $title   = "RootCause Windows Inspector $tag"
+          $notes   = @"
+          ## RootCause Windows Inspector $tag
+
+          Monitor forense ligero para Windows. Detecta qué proceso, servicio o conexión está degradando tu equipo.
+
+          ---
+
+          ## Archivos en este release
+
+          | Archivo | Qué es |
+          |---|---|
+          | ``RootCause-Portable.zip`` | Versión portable — extraer y ejecutar, sin instalador |
+          | ``RootCause-Setup.exe`` | Instalador Windows — agrega rootcause al PATH |
+          | ``SHA256SUMS.txt`` | Hashes SHA-256 para verificar integridad |
+
+          ---
+
+          ## Instalación rápida
+
+          **Portable:**
+          1. Descarga ``RootCause-Portable.zip``
+          2. Extrae en cualquier carpeta
+          3. Ejecuta ``rootcause.exe`` (administrador recomendado)
+          4. O desde consola: ``rootcause --help``
+
+          **Instalador:**
+          1. Descarga ``RootCause-Setup.exe``
+          2. Ejecuta y sigue los pasos
+          3. ``rootcause`` queda disponible en el PATH del sistema
+
+          ---
+
+          ## Requisitos
+
+          - Windows 10 / 11 x64
+          - Administrador para algunas funciones (bloquear IP, detener servicios)
+          - [Windows Performance Toolkit](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/) para modo ETW/WPR
+
+          ---
+
+          ## Verificar integridad
+
+          ```powershell
+          Get-FileHash .\RootCause-Portable.zip -Algorithm SHA256
+          Get-FileHash .\RootCause-Setup.exe   -Algorithm SHA256
+          ```
+
+          Compara con ``SHA256SUMS.txt``.
+
+          ---
+
+          🌐 Landing: https://vladimiracunadev-create.github.io/rootcause-landing/
+          "@
+
+          $prerelease = if ("$tag" -match '-') { "--prerelease" } else { "" }
+
+          gh release create $tag `
+            --repo "vladimiracunadev-create/rootcause-landing" `
+            --title $title `
+            --notes $notes `
+            $prerelease `
+            "build/RootCause-Portable.zip" `
+            "build/installer/RootCause-Setup.exe" `
+            "build/SHA256SUMS.txt"

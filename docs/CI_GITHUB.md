@@ -54,8 +54,28 @@ Pensado para etiquetar releases o ejecutar manualmente:
 - instala Inno Setup,
 - compila el instalador,
 - genera hashes SHA-256,
-- publica el GitHub Release con instrucciones completas de instalación,
-- sube `RootCause-Portable.zip`, `RootCause-Setup.exe` y `SHA256SUMS.txt`.
+- publica el GitHub Release en el **repo privado** (copia interna),
+- **publica copia pública** en `rootcause-landing` (binarios descargables por cualquier persona),
+- sube `RootCause-Portable.zip`, `RootCause-Setup.exe` y `SHA256SUMS.txt` en ambos repos.
+
+#### Configurar LANDING_RELEASE_TOKEN
+
+Para que el step de publicación pública funcione, necesitas un **Personal Access Token (PAT)**
+con acceso al repo público `rootcause-landing`:
+
+1. Ir a GitHub → Settings → Developer settings → **Personal access tokens → Tokens (classic)**
+2. Crear token con scope **`repo`** (acceso completo a repositorios)
+3. Copiar el token generado
+4. Ir al repo privado → Settings → Secrets and variables → **Actions**
+5. Crear secreto llamado exactamente **`LANDING_RELEASE_TOKEN`** con el token
+
+Una vez configurado, cada push de un tag `v*` publicará automáticamente los binarios en:
+```
+https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest
+```
+
+> Si el secreto no está configurado (`LANDING_RELEASE_TOKEN` vacío), el step se omite
+> automáticamente sin romper el pipeline.
 
 ---
 
