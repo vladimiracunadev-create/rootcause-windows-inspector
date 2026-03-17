@@ -173,3 +173,122 @@ la captura duró demasiado.
 - filtra menos,
 - no dejes WPR corriendo si no estás capturando un caso,
 - evita abrirla junto con herramientas pesadas de análisis.
+
+---
+
+## 14) La CI falla con "mismatched types — found `()`" en `windows.rs`
+
+### Síntoma
+```text
+error[E0308]: mismatched types
+ --> src\services\windows.rs:235:5
+ |
+ | expected `Result<String, Error>`, found `()`
+ | help: remove this semicolon to return this value
+```
+
+### Causa
+`rustfmt` eliminó el `return` de una expresión multilínea pero dejó el `;` final, convirtiendo `Ok(format!(...))` en una sentencia que devuelve `()`.
+
+### Acción
+Busca en el bloque `#[cfg(target_os = "windows")]` afectado el patrón:
+
+```rust
+// ❌ Con semicolon después del format multilínea
+Ok(format!(
+    "Mensaje..."
+));   // ← este ; es el problema
+```
+
+Elimina el `;`:
+
+```rust
+// ✅ Expresión de cola sin semicolon
+Ok(format!(
+    "Mensaje..."
+))
+```
+
+---
+
+## 15) La CI falla con errores `clippy::collapsible_if`
+
+### Síntoma
+```text
+error: this `if` statement can be collapsed
+```
+
+### Causa
+Clippy con `-D warnings` no permite `if` anidados que se pueden expresar con `&&`.
+
+### Acción
+Colapsa el `if` interior:
+
+```rust
+// ❌ Antes
+if condicion_a {
+    if condicion_b {
+        accion();
+    }
+}
+
+// ✅ Después
+if condicion_a && condicion_b {
+    accion();
+}
+```
+
+Para `let`-chains (Rust 2024), `rustfmt` exige formato multilínea:
+
+```rust
+if let Some(x) = expresion
+    && condicion_adicional
+{
+    accion();
+}
+```
+
+---
+
+## 16) `cargo fmt --check` falla tras cambiar un `if-let` chain
+
+### Síntoma
+```text
+Diff in temp_scan.rs:
+-        if let Ok(x) = expr() && condicion {
++        if let Ok(x) = expr()
++            && condicion
++        {
+```
+
+### Causa
+`rustfmt` en Rust 2024 exige que las condiciones `&&` de un `if let` chain estén en líneas separadas con una indentación específica.
+
+### Acción
+Formatea manualmente como indica el diff, o ejecuta `cargo fmt --all` localmente antes del push.
+
+---
+
+## 17) Tests fallan por orden de condiciones en el clasificador
+
+### Síntoma
+```text
+assertion `left == right` failed
+  left: "Actualización / mantenimiento"
+ right: "Temporal / instalador"
+```
+
+### Causa
+Una condición genérica (como `nombre.contains("update")`) aparece antes de una condición más específica (como `ruta.contains("\\temp\\")`). Un proceso llamado `weird-updater.exe` coincide con ambas, pero la genérica gana por estar primero.
+
+### Acción
+Reordena las condiciones de más específica a más general:
+
+```rust
+// ✅ La ruta temporal va antes que el nombre
+if ruta.contains("\\temp\\") {
+    "Temporal / instalador"
+} else if nombre.contains("update") {
+    "Actualización / mantenimiento"
+}
+```

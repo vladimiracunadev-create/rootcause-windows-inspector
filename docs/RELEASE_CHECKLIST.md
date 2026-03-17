@@ -26,6 +26,7 @@ Checklist profesional antes de distribuir artefactos.
 - [ ] PRECISION_MODE_ETW actualizado
 - [ ] PACKAGING_WINDOWS actualizado
 - [ ] SECURITY revisado
+- [ ] ROADMAP actualizado con los ítems completados en esta versión
 
 ---
 
@@ -68,7 +69,17 @@ Checklist profesional antes de distribuir artefactos.
 
 ---
 
-## 7) Entrega final recomendada
+## 7) GitHub Release
+
+- [ ] `release-windows.yml` ejecutado y en verde
+- [ ] el release de GitHub tiene `body:` con instrucciones de instalación, no solo links de commits
+- [ ] se incluyen las secciones: instalación, verificación de hash, requisitos, funciones
+- [ ] los tres artefactos están adjuntos: ZIP, Setup.exe, SHA256SUMS.txt
+- [ ] el tag apunta al commit correcto (verificar con `git log --oneline`)
+
+---
+
+## 8) Entrega final recomendada
 
 - [ ] ZIP portable
 - [ ] instalador Inno si corresponde
@@ -76,9 +87,11 @@ Checklist profesional antes de distribuir artefactos.
 - [ ] notas de versión
 - [ ] fecha de build
 
+---
 
-## 8) CI/CD
+## 9) CI/CD
 
 - [ ] `release-windows.yml` validado manualmente
 - [ ] artefactos de GitHub Actions descargados y verificados
 - [ ] `Cargo.lock` generado y evaluado para commit
+- [ ] sin advertencias nuevas de clippy que puedan convertirse en errores futuros

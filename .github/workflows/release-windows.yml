@@ -87,7 +87,87 @@ jobs:
           name: RootCause ${{ github.ref_name }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-          generate_release_notes: true
+          body: |
+            ## RootCause — Windows Inspector ${{ github.ref_name }}
+
+            Software de diagnóstico para Windows escrito en Rust.
+            Detecta procesos problemáticos, archivos temporales, conexiones sospechosas y actividad de actualización en segundo plano.
+
+            ---
+
+            ## Qué hay en este release
+
+            | Archivo | Descripción |
+            |---|---|
+            | `RootCause-Portable.zip` | Versión portable — extraer y ejecutar, sin instalación |
+            | `RootCause-Setup.exe` | Instalador Inno Setup — instala en `Program Files` con acceso directo |
+            | `SHA256SUMS.txt` | Hashes SHA-256 para verificar integridad antes de ejecutar |
+
+            ---
+
+            ## Instalación rápida
+
+            ### Opción A — Portable (recomendado para pruebas)
+            1. Descarga `RootCause-Portable.zip`
+            2. Verifica el hash (ver abajo)
+            3. Extrae en cualquier carpeta
+            4. Ejecuta `rootcause.exe` como administrador
+
+            ### Opción B — Instalador
+            1. Descarga `RootCause-Setup.exe`
+            2. Verifica el hash (ver abajo)
+            3. Ejecuta el instalador y sigue los pasos
+            4. Abre RootCause desde el acceso directo en el escritorio o menú inicio
+
+            ---
+
+            ## Verificar integridad antes de ejecutar
+
+            ```powershell
+            # Descarga SHA256SUMS.txt en la misma carpeta que los archivos
+            # Luego verifica cada uno:
+            Get-FileHash .\RootCause-Portable.zip -Algorithm SHA256
+            Get-FileHash .\RootCause-Setup.exe   -Algorithm SHA256
+            # Compara con el contenido de SHA256SUMS.txt
+            ```
+
+            ---
+
+            ## Requisitos mínimos
+
+            - Windows 10 o Windows 11 (64-bit)
+            - Algunas funciones requieren privilegios de administrador
+            - Para el **modo de precisión ETW/WPR**: instalar [Windows Performance Toolkit](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/)
+
+            ---
+
+            ## Funciones principales en esta versión
+
+            - Vista de procesos con puntuación de riesgo (CPU, RAM, disco, ruta)
+            - Escaneo de carpetas temporales (`%TEMP%`, `Windows\Temp`, SoftwareDistribution)
+            - Análisis de conexiones de red activas con clasificación de IPs públicas
+            - Eventos del sistema (advertencias y errores recientes)
+            - Estado de servicios clave de Windows Update y mantenimiento
+            - **Modo de precisión**: captura ETW/WPR, exportación y resumen automático de ETL
+            - Exportación de snapshot completo a JSON
+            - Acciones controladas: finalizar proceso, bloquear IP, detener servicio
+
+            ---
+
+            ## ⚠ Nota de seguridad
+
+            Este binario **no tiene firma digital** en esta versión.
+            Windows puede mostrar una advertencia de SmartScreen — es esperado.
+            Para mayor confianza, compila desde el código fuente: ver [`docs/BUILD_WINDOWS.md`](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/BUILD_WINDOWS.md)
+
+            ---
+
+            ## Documentación
+
+            - [Manual de uso](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/OPERACION.md)
+            - [Guía de build desde código fuente](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/BUILD_WINDOWS.md)
+            - [Modo de precisión ETW/WPR](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/PRECISION_MODE_ETW.md)
+            - [Solución de problemas](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/TROUBLESHOOTING.md)
           files: |
             build/RootCause-Portable.zip
             build/installer/RootCause-Setup.exe

@@ -20,6 +20,14 @@
 - ✅ CI en GitHub Actions (formato, lint, tests, build release, artefactos)
 - ✅ pipeline de release con ZIP portable, instalador Inno y hashes SHA-256
 - ✅ repositorio publicado en GitHub
+- ✅ release de GitHub con instrucciones completas de instalación y verificación
+- ✅ estabilización de CI: toolchain fijo, `rustfmt.toml` con `max_width = 100`
+- ✅ corrección de patrones Rust que rompían CI bajo `-D warnings`:
+  - `Ok(format!(...));` con `;` sobrante en bloques `#[cfg]`
+  - `collapsible_if` con let-chains Rust 2024
+  - `needless_return` en colas de funciones
+  - `collapsible_str_replace` con caracteres múltiples
+- ✅ corrección de tests: escape de backslash en strings y orden de condiciones
 
 ## v0.6 — Próxima iteración
 - exportación de evidencia más rica
