@@ -269,7 +269,7 @@ pub fn start_wpr_general_profile(record_temp_dir: &Path, marker_text: &str) -> R
 
         Ok(format!(
             "Captura WPR iniciada con GeneralProfile en file mode. Carpeta temporal de traza: {temp_dir}"
-        ));
+        ))
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -311,7 +311,7 @@ pub fn stop_wpr_capture(output_path: &Path, problem_description: &str) -> Result
 
         Ok(format!(
             "Captura WPR detenida y guardada en {output_file}. Puedes resumirla desde la propia app o abrirla en WPA."
-        ));
+        ))
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -396,7 +396,7 @@ pub fn export_etl_with_tracerpt(
                 .parent()
                 .map(|p| p.display().to_string())
                 .unwrap_or_default()
-        ));
+        ))
     }
 
     #[cfg(not(target_os = "windows"))]
