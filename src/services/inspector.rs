@@ -5,8 +5,8 @@
 //! obtener datos, solo en cómo mostrarlos con claridad.
 
 use crate::models::{
-    Alert, ConnectionInsight, PrecisionStatus, ProcessInsight, ServiceState, Severity, SystemOverview,
-    SystemSnapshot, TempEntry, TraceAnalysisSummary,
+    Alert, ConnectionInsight, PrecisionStatus, ProcessInsight, ServiceState, Severity,
+    SystemOverview, SystemSnapshot, TempEntry, TraceAnalysisSummary,
 };
 use crate::services::{etl, network, persistence::PersistenceStore, temp_scan, windows};
 use anyhow::{Context, Result, anyhow};
@@ -70,7 +70,10 @@ impl InspectorService {
             .map(str::to_owned)
             .collect();
 
-        let own_pid = get_current_pid().ok().map(|pid| pid.as_u32()).unwrap_or_default();
+        let own_pid = get_current_pid()
+            .ok()
+            .map(|pid| pid.as_u32())
+            .unwrap_or_default();
         let store = PersistenceStore::new("RootCauseInspector")?;
 
         let base_precision_dir = dirs::document_dir()
@@ -87,11 +90,18 @@ impl InspectorService {
             .with_context(|| format!("No se pudo crear {}", precision_analysis_dir.display()))?;
 
         let precision_last_trace_path = latest_matching_file(&precision_traces_dir, |path| {
-            path.extension().and_then(|v| v.to_str()).map(|v| v.eq_ignore_ascii_case("etl")).unwrap_or(false)
+            path.extension()
+                .and_then(|v| v.to_str())
+                .map(|v| v.eq_ignore_ascii_case("etl"))
+                .unwrap_or(false)
         });
-        let precision_last_analysis_path = latest_matching_file_recursive(&precision_analysis_dir, |path| {
-            path.file_name().and_then(|v| v.to_str()).map(|v| v.eq_ignore_ascii_case("trace-analysis.json")).unwrap_or(false)
-        });
+        let precision_last_analysis_path =
+            latest_matching_file_recursive(&precision_analysis_dir, |path| {
+                path.file_name()
+                    .and_then(|v| v.to_str())
+                    .map(|v| v.eq_ignore_ascii_case("trace-analysis.json"))
+                    .unwrap_or(false)
+            });
 
         Ok(Self {
             system,
@@ -132,15 +142,22 @@ impl InspectorService {
         for process in self.system.processes().values() {
             let pid = process.pid().as_u32();
             let name = os_str_to_string(process.name());
-            let exe_path = process.exe().map(|path| path.display().to_string()).unwrap_or_default();
+            let exe_path = process
+                .exe()
+                .map(|path| path.display().to_string())
+                .unwrap_or_default();
             let parent_pid = process.parent().map(Pid::as_u32);
             let memory_mb = bytes_to_mb(process.memory());
             let cpu_percent = process.cpu_usage();
             let disk_usage = process.disk_usage();
 
             let baseline = self.process_baselines.entry(pid).or_default();
-            let read_delta = disk_usage.total_read_bytes.saturating_sub(baseline.read_total_bytes);
-            let write_delta = disk_usage.total_written_bytes.saturating_sub(baseline.write_total_bytes);
+            let read_delta = disk_usage
+                .total_read_bytes
+                .saturating_sub(baseline.read_total_bytes);
+            let write_delta = disk_usage
+                .total_written_bytes
+                .saturating_sub(baseline.write_total_bytes);
             baseline.read_total_bytes = disk_usage.total_read_bytes;
             baseline.write_total_bytes = disk_usage.total_written_bytes;
 
@@ -247,7 +264,8 @@ impl InspectorService {
                 detail: format!("No se pudo guardar el historial SQLite: {error}"),
                 pid: None,
                 path: None,
-                hint: "La app sigue funcionando; solo se pierde este punto del historial".to_owned(),
+                hint: "La app sigue funcionando; solo se pierde este punto del historial"
+                    .to_owned(),
             });
         }
 
@@ -289,7 +307,8 @@ impl InspectorService {
             };
         }
 
-        let status_detail = windows::wpr_status().unwrap_or_else(|error| format!("No se pudo consultar WPR: {error}"));
+        let status_detail = windows::wpr_status()
+            .unwrap_or_else(|error| format!("No se pudo consultar WPR: {error}"));
         let is_recording = windows::wpr_is_recording().unwrap_or(false);
 
         PrecisionStatus {
@@ -320,12 +339,19 @@ impl InspectorService {
     /// Inicia una captura WPR desde la propia aplicación.
     pub fn start_precision_capture(&mut self, problem_hint: &str) -> Result<String> {
         let message = windows::start_wpr_general_profile(&self.precision_traces_dir, problem_hint)?;
-        Ok(format!("{} | Carpeta de trabajo: {}", message, self.precision_traces_dir.display()))
+        Ok(format!(
+            "{} | Carpeta de trabajo: {}",
+            message,
+            self.precision_traces_dir.display()
+        ))
     }
 
     /// Detiene la captura WPR y guarda el ETL en la carpeta de trazas.
     pub fn stop_precision_capture(&mut self, problem_description: &str) -> Result<String> {
-        let filename = format!("rootcause-precision-{}.etl", Utc::now().format("%Y%m%d-%H%M%S"));
+        let filename = format!(
+            "rootcause-precision-{}.etl",
+            Utc::now().format("%Y%m%d-%H%M%S")
+        );
         let output_path = self.precision_traces_dir.join(filename);
         let message = windows::stop_wpr_capture(&output_path, problem_description)?;
         self.precision_last_trace_path = Some(output_path.clone());
@@ -343,15 +369,25 @@ impl InspectorService {
         let etl_path = self
             .precision_last_trace_path
             .clone()
-            .or_else(|| latest_matching_file(&self.precision_traces_dir, |path| {
-                path.extension().and_then(|v| v.to_str()).map(|v| v.eq_ignore_ascii_case("etl")).unwrap_or(false)
-            }))
+            .or_else(|| {
+                latest_matching_file(&self.precision_traces_dir, |path| {
+                    path.extension()
+                        .and_then(|v| v.to_str())
+                        .map(|v| v.eq_ignore_ascii_case("etl"))
+                        .unwrap_or(false)
+                })
+            })
             .ok_or_else(|| anyhow!("No hay ETL conocido para analizar"))?;
 
-        let (xml_path, summary_path, json_path) = etl::analysis_layout(&self.precision_analysis_dir, &etl_path);
-        let export_message = windows::export_etl_with_tracerpt(&etl_path, &xml_path, &summary_path)?;
-        let output_dir = json_path.parent().unwrap_or(self.precision_analysis_dir.as_path());
-        let analysis = etl::summarize_exported_etl(&etl_path, &xml_path, &summary_path, output_dir)?;
+        let (xml_path, summary_path, json_path) =
+            etl::analysis_layout(&self.precision_analysis_dir, &etl_path);
+        let export_message =
+            windows::export_etl_with_tracerpt(&etl_path, &xml_path, &summary_path)?;
+        let output_dir = json_path
+            .parent()
+            .unwrap_or(self.precision_analysis_dir.as_path());
+        let analysis =
+            etl::summarize_exported_etl(&etl_path, &xml_path, &summary_path, output_dir)?;
         self.precision_last_analysis_path = Some(json_path);
         Ok(format!("{} | {}", export_message, analysis.headline))
     }
@@ -360,7 +396,8 @@ impl InspectorService {
     pub fn export_snapshot(&self, snapshot: &SystemSnapshot) -> Result<String> {
         let path = self.store.export_path();
         let json = serde_json::to_string_pretty(snapshot)?;
-        fs::write(&path, json).with_context(|| format!("No se pudo escribir {}", path.display()))?;
+        fs::write(&path, json)
+            .with_context(|| format!("No se pudo escribir {}", path.display()))?;
         Ok(path.display().to_string())
     }
 
@@ -374,7 +411,10 @@ impl InspectorService {
             .process(Pid::from(pid as usize))
             .ok_or_else(|| anyhow!("El proceso ya no existe"))?;
         let name = os_str_to_string(process.name());
-        let exe_path = process.exe().map(|path| path.display().to_string()).unwrap_or_default();
+        let exe_path = process
+            .exe()
+            .map(|path| path.display().to_string())
+            .unwrap_or_default();
         if !self.can_terminate_process(pid, &name, &exe_path) {
             return Err(anyhow!("Proceso protegido por política local"));
         }
@@ -415,14 +455,19 @@ impl InspectorService {
 
     fn load_last_trace_analysis(&mut self) -> Result<Option<TraceAnalysisSummary>> {
         if self.precision_last_analysis_path.is_none() {
-            self.precision_last_analysis_path = latest_matching_file_recursive(&self.precision_analysis_dir, |path| {
-                path.file_name().and_then(|v| v.to_str()).map(|v| v.eq_ignore_ascii_case("trace-analysis.json")).unwrap_or(false)
-            });
+            self.precision_last_analysis_path =
+                latest_matching_file_recursive(&self.precision_analysis_dir, |path| {
+                    path.file_name()
+                        .and_then(|v| v.to_str())
+                        .map(|v| v.eq_ignore_ascii_case("trace-analysis.json"))
+                        .unwrap_or(false)
+                });
         }
         let Some(path) = self.precision_last_analysis_path.as_ref() else {
             return Ok(None);
         };
-        let text = fs::read_to_string(path).with_context(|| format!("No se pudo leer {}", path.display()))?;
+        let text = fs::read_to_string(path)
+            .with_context(|| format!("No se pudo leer {}", path.display()))?;
         let analysis = serde_json::from_str::<TraceAnalysisSummary>(&text)?;
         Ok(Some(analysis))
     }
@@ -487,7 +532,9 @@ pub fn classify_process(
 
     if write_mb >= 200.0 {
         score = score.saturating_add(40);
-        reasons.push(format!("Escritura intensa ({write_mb:.1} MB en el intervalo)"));
+        reasons.push(format!(
+            "Escritura intensa ({write_mb:.1} MB en el intervalo)"
+        ));
     } else if write_mb >= 40.0 {
         score = score.saturating_add(20);
         reasons.push(format!("Escritura perceptible ({write_mb:.1} MB)"));
@@ -498,9 +545,16 @@ pub fn classify_process(
         reasons.push("Ejecutable lanzado desde carpeta temporal".to_owned());
     }
 
-    if ["update", "installer", "setup", "msiexec", "trustedinstaller", "dism"]
-        .iter()
-        .any(|needle| lower_name.contains(needle))
+    if [
+        "update",
+        "installer",
+        "setup",
+        "msiexec",
+        "trustedinstaller",
+        "dism",
+    ]
+    .iter()
+    .any(|needle| lower_name.contains(needle))
     {
         score = score.saturating_add(12);
         reasons.push("Patrón de actualización/instalación detectado".to_owned());
@@ -516,7 +570,9 @@ pub fn classify_process(
         reasons.push("Sin presión relevante en esta muestra".to_owned());
     }
 
-    let category = if lower_path.contains("\\windows\\softwaredistribution") || lower_name.contains("update") {
+    let category = if lower_path.contains("\\windows\\softwaredistribution")
+        || lower_name.contains("update")
+    {
         "Actualización / mantenimiento".to_owned()
     } else if lower_path.contains("\\temp\\") {
         "Temporal / instalador".to_owned()
@@ -539,9 +595,15 @@ fn build_alerts(
 ) -> Vec<Alert> {
     let mut alerts = Vec::new();
 
-    if let Some(process) = processes.iter().find(|process| process.severity == Severity::Critical) {
+    if let Some(process) = processes
+        .iter()
+        .find(|process| process.severity == Severity::Critical)
+    {
         overview.primary_severity = Severity::Critical;
-        overview.primary_reason = format!("Proceso crítico detectado: {} (PID {})", process.name, process.pid);
+        overview.primary_reason = format!(
+            "Proceso crítico detectado: {} (PID {})",
+            process.name, process.pid
+        );
         alerts.push(Alert {
             severity: Severity::Critical,
             title: "Proceso dominante con presión alta".to_owned(),
@@ -551,11 +613,15 @@ fn build_alerts(
             ),
             pid: Some(process.pid),
             path: Some(process.exe_path.clone()),
-            hint: "Revísalo primero; si confirmas que no es esencial, puedes finalizarlo".to_owned(),
+            hint: "Revísalo primero; si confirmas que no es esencial, puedes finalizarlo"
+                .to_owned(),
         });
     }
 
-    if let Some(connection) = connections.iter().find(|item| item.severity == Severity::Critical) {
+    if let Some(connection) = connections
+        .iter()
+        .find(|item| item.severity == Severity::Critical)
+    {
         if overview.primary_severity < Severity::Critical {
             overview.primary_severity = Severity::Critical;
             overview.primary_reason = format!(
@@ -576,7 +642,10 @@ fn build_alerts(
         });
     }
 
-    if let Some(temp_entry) = temp_entries.iter().find(|entry| entry.severity == Severity::Critical) {
+    if let Some(temp_entry) = temp_entries
+        .iter()
+        .find(|entry| entry.severity == Severity::Critical)
+    {
         if overview.primary_severity < Severity::Warning {
             overview.primary_severity = Severity::Warning;
             overview.primary_reason = format!("Crecimiento temporal alto en {}", temp_entry.path);
@@ -630,7 +699,8 @@ fn build_alerts(
         alerts.push(Alert {
             severity: Severity::Healthy,
             title: "Estado estable".to_owned(),
-            detail: "No aparecieron procesos o conexiones anómalas dominantes en esta captura.".to_owned(),
+            detail: "No aparecieron procesos o conexiones anómalas dominantes en esta captura."
+                .to_owned(),
             pid: None,
             path: None,
             hint: "Mantén el monitoreo unos minutos cuando aparezca la lentitud real".to_owned(),

@@ -44,7 +44,10 @@ pub fn scan_temp_overview() -> Result<TempOverview> {
 
     Ok(TempOverview {
         total_mb: bytes_to_mb(total_bytes),
-        roots_scanned: roots.iter().map(|path| path.display().to_string()).collect(),
+        roots_scanned: roots
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect(),
         top_entries,
         limitations,
     })
@@ -59,7 +62,9 @@ pub fn candidate_roots() -> Vec<PathBuf> {
     }
     roots.push(PathBuf::from(r"C:\Windows\Temp"));
     roots.push(PathBuf::from(r"C:\Windows\SoftwareDistribution\Download"));
-    roots.push(PathBuf::from(r"C:\ProgramData\Microsoft\Windows\DeliveryOptimization\Cache"));
+    roots.push(PathBuf::from(
+        r"C:\ProgramData\Microsoft\Windows\DeliveryOptimization\Cache",
+    ));
 
     roots
 }
@@ -150,7 +155,6 @@ fn bytes_to_mb(bytes: u64) -> f32 {
     bytes as f32 / (1024.0 * 1024.0)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,7 +163,10 @@ mod tests {
     fn clasifica_severidad_de_temporales() {
         assert_eq!(classify_temp_size(10 * 1024 * 1024), Severity::Healthy);
         assert_eq!(classify_temp_size(600 * 1024 * 1024), Severity::Warning);
-        assert_eq!(classify_temp_size(2 * 1024 * 1024 * 1024), Severity::Critical);
+        assert_eq!(
+            classify_temp_size(2 * 1024 * 1024 * 1024),
+            Severity::Critical
+        );
     }
 
     #[test]
@@ -169,8 +176,10 @@ mod tests {
             .iter()
             .map(|p| p.display().to_string().to_ascii_lowercase())
             .collect::<Vec<_>>()
-            .join("
-");
+            .join(
+                "
+",
+            );
         assert!(text.contains("windows\temp"));
         assert!(text.contains("softwaredistribution"));
         assert!(text.contains("deliveryoptimization"));

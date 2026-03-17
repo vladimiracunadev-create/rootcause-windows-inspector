@@ -4,7 +4,9 @@
 //! hallazgo útil: detectar procesos, rutas, servicios, actualizaciones o IPs que
 //! aparezcan repetidamente en la traza exportada por herramientas oficiales.
 
-use crate::models::{Severity, TraceAnalysisSummary, TraceFinding, TracePathSummary, TraceProcessSummary};
+use crate::models::{
+    Severity, TraceAnalysisSummary, TraceFinding, TracePathSummary, TraceProcessSummary,
+};
 use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use regex::Regex;
@@ -81,7 +83,11 @@ pub fn summarize_exported_etl(
                 .get(&path)
                 .cloned()
                 .unwrap_or_else(|| "ruta".to_owned()),
-            severity: state.path_severity.get(&path).copied().unwrap_or(Severity::Healthy),
+            severity: state
+                .path_severity
+                .get(&path)
+                .copied()
+                .unwrap_or(Severity::Healthy),
             path,
             occurrences,
         })
@@ -110,7 +116,12 @@ pub fn summarize_exported_etl(
         });
     }
 
-    let headline = build_headline(&state.findings, &hot_processes, &hot_paths, &indicator_texts);
+    let headline = build_headline(
+        &state.findings,
+        &hot_processes,
+        &hot_paths,
+        &indicator_texts,
+    );
     let confidence = build_confidence(&summary_txt, state.total_events, &hot_paths, &hot_processes);
 
     let mut limitations = vec![
@@ -149,7 +160,8 @@ pub fn summarize_exported_etl(
 }
 
 fn parse_xml_events(xml_path: &Path, state: &mut WorkingSummary) -> Result<()> {
-    let file = File::open(xml_path).with_context(|| format!("No se pudo abrir {}", xml_path.display()))?;
+    let file =
+        File::open(xml_path).with_context(|| format!("No se pudo abrir {}", xml_path.display()))?;
     let reader = BufReader::new(file);
     let mut event = None::<WorkingEvent>;
 
@@ -196,7 +208,10 @@ fn parse_xml_events(xml_path: &Path, state: &mut WorkingSummary) -> Result<()> {
 fn apply_event(event: WorkingEvent, state: &mut WorkingSummary) {
     state.total_events = state.total_events.saturating_add(1);
     if !event.provider.is_empty() {
-        *state.provider_counts.entry(event.provider.clone()).or_insert(0) += 1;
+        *state
+            .provider_counts
+            .entry(event.provider.clone())
+            .or_insert(0) += 1;
     }
 
     let mut local_paths = Vec::new();
@@ -222,7 +237,10 @@ fn apply_event(event: WorkingEvent, state: &mut WorkingSummary) {
 
     for path in local_paths {
         *state.path_counts.entry(path.clone()).or_insert(0) += 1;
-        state.path_category.entry(path.clone()).or_insert_with(|| categorize_path(&path));
+        state
+            .path_category
+            .entry(path.clone())
+            .or_insert_with(|| categorize_path(&path));
         state
             .path_severity
             .entry(path.clone())
@@ -240,10 +258,16 @@ fn apply_event(event: WorkingEvent, state: &mut WorkingSummary) {
             );
         }
         if is_windows_update_path(&path) {
-            *state.indicators.entry("Actividad compatible con Windows Update / servicing".to_owned()).or_insert(0) += 1;
+            *state
+                .indicators
+                .entry("Actividad compatible con Windows Update / servicing".to_owned())
+                .or_insert(0) += 1;
         }
         if is_delivery_optimization_path(&path) {
-            *state.indicators.entry("Actividad compatible con Delivery Optimization".to_owned()).or_insert(0) += 1;
+            *state
+                .indicators
+                .entry("Actividad compatible con Delivery Optimization".to_owned())
+                .or_insert(0) += 1;
         }
     }
 
@@ -254,7 +278,10 @@ fn apply_event(event: WorkingEvent, state: &mut WorkingSummary) {
             .entry(proc_name.clone())
             .or_insert_with(|| reason_for_process(&proc_name));
         if looks_like_update_process(&proc_name) {
-            *state.indicators.entry("Procesos de actualización/instalación dentro de la traza".to_owned()).or_insert(0) += 1;
+            *state
+                .indicators
+                .entry("Procesos de actualización/instalación dentro de la traza".to_owned())
+                .or_insert(0) += 1;
         }
     }
 
@@ -271,11 +298,21 @@ fn apply_event(event: WorkingEvent, state: &mut WorkingSummary) {
         );
     }
 
-    if local_text.contains("trustedinstaller") || local_text.contains("wuauserv") || local_text.contains("musnotification") {
-        *state.indicators.entry("Señales de servicing o componentes del sistema".to_owned()).or_insert(0) += 1;
+    if local_text.contains("trustedinstaller")
+        || local_text.contains("wuauserv")
+        || local_text.contains("musnotification")
+    {
+        *state
+            .indicators
+            .entry("Señales de servicing o componentes del sistema".to_owned())
+            .or_insert(0) += 1;
     }
-    if local_text.contains("bits") || local_text.contains("background intelligent transfer service") {
-        *state.indicators.entry("BITS involucrado en la captura".to_owned()).or_insert(0) += 1;
+    if local_text.contains("bits") || local_text.contains("background intelligent transfer service")
+    {
+        *state
+            .indicators
+            .entry("BITS involucrado en la captura".to_owned())
+            .or_insert(0) += 1;
     }
 }
 
@@ -315,7 +352,10 @@ fn looks_like_windows_path(value: &str) -> bool {
 fn detect_process_name(field_name: &str, value: &str) -> Option<String> {
     let lower_field = field_name.to_ascii_lowercase();
     let lower_value = value.to_ascii_lowercase();
-    if lower_field.contains("image") || lower_field.contains("process") || lower_field.contains("command") {
+    if lower_field.contains("image")
+        || lower_field.contains("process")
+        || lower_field.contains("command")
+    {
         if let Some(last) = lower_value.rsplit(['\\', '/']).next() {
             if last.ends_with(".exe") || last.ends_with(".dll") || last.ends_with(".sys") {
                 return Some(last.to_owned());
@@ -358,7 +398,10 @@ fn private_172(ip: &str) -> bool {
     let Some(rest) = ip.strip_prefix("172.") else {
         return false;
     };
-    let second = rest.split('.').next().and_then(|value| value.parse::<u8>().ok());
+    let second = rest
+        .split('.')
+        .next()
+        .and_then(|value| value.parse::<u8>().ok());
     matches!(second, Some(value) if (16..=31).contains(&value))
 }
 
@@ -395,7 +438,9 @@ fn is_temp_executable_path(path: &str) -> bool {
 
 fn is_windows_update_path(path: &str) -> bool {
     let lower = path.to_ascii_lowercase();
-    lower.contains("\\softwaredistribution\\") || lower.contains("catroot") || lower.contains("winsxs")
+    lower.contains("\\softwaredistribution\\")
+        || lower.contains("catroot")
+        || lower.contains("winsxs")
 }
 
 fn is_delivery_optimization_path(path: &str) -> bool {
@@ -403,9 +448,18 @@ fn is_delivery_optimization_path(path: &str) -> bool {
 }
 
 fn looks_like_update_process(name: &str) -> bool {
-    ["trustedinstaller", "tiworker", "msiexec", "setup", "dism", "mouso", "usoclient", "wuauclt"]
-        .iter()
-        .any(|needle| name.contains(needle))
+    [
+        "trustedinstaller",
+        "tiworker",
+        "msiexec",
+        "setup",
+        "dism",
+        "mouso",
+        "usoclient",
+        "wuauclt",
+    ]
+    .iter()
+    .any(|needle| name.contains(needle))
 }
 
 fn reason_for_process(name: &str) -> String {
@@ -429,7 +483,10 @@ fn infer_process_severity(name: &str) -> Severity {
 }
 
 fn push_finding_once(target: &mut Vec<TraceFinding>, finding: TraceFinding) {
-    if target.iter().any(|item| item.title == finding.title && item.evidence == finding.evidence) {
+    if target
+        .iter()
+        .any(|item| item.title == finding.title && item.evidence == finding.evidence)
+    {
         return;
     }
     target.push(finding);
@@ -441,10 +498,16 @@ fn build_headline(
     hot_paths: &[TracePathSummary],
     indicators: &[String],
 ) -> String {
-    if let Some(finding) = findings.iter().find(|item| item.severity == Severity::Critical) {
+    if let Some(finding) = findings
+        .iter()
+        .find(|item| item.severity == Severity::Critical)
+    {
         return finding.title.clone();
     }
-    if hot_paths.iter().any(|item| item.category == "windows-update") {
+    if hot_paths
+        .iter()
+        .any(|item| item.category == "windows-update")
+    {
         return "La traza sugiere actividad relacionada con Windows Update o servicing".to_owned();
     }
     if let Some(process) = hot_processes.first() {
@@ -463,7 +526,8 @@ fn build_confidence(
     hot_processes: &[TraceProcessSummary],
 ) -> String {
     if total_events >= 500 && (!hot_paths.is_empty() || !hot_processes.is_empty()) {
-        return "Media-alta: la captura tiene suficiente volumen para orientar la investigación".to_owned();
+        return "Media-alta: la captura tiene suficiente volumen para orientar la investigación"
+            .to_owned();
     }
     if !summary_excerpt.is_empty() {
         return "Media: hay señal, pero conviene abrir WPA para ver el intervalo exacto".to_owned();
@@ -504,13 +568,17 @@ mod tests {
 
     #[test]
     fn reconoce_ruta_temporal_ejecutable() {
-        assert!(is_temp_executable_path(r"C:\Users\vbav\AppData\Local\Temp\setup.exe"));
+        assert!(is_temp_executable_path(
+            r"C:\Users\vbav\AppData\Local\Temp\setup.exe"
+        ));
         assert!(!is_temp_executable_path(r"C:\Windows\System32\notepad.exe"));
     }
 
     #[test]
     fn clasifica_actualizacion() {
-        assert!(is_windows_update_path(r"C:\Windows\SoftwareDistribution\Download\a.cab"));
+        assert!(is_windows_update_path(
+            r"C:\Windows\SoftwareDistribution\Download\a.cab"
+        ));
         assert!(looks_like_update_process("trustedinstaller.exe"));
     }
 }

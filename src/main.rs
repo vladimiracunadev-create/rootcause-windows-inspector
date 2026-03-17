@@ -72,18 +72,14 @@ fn rootcause_icon() -> egui::IconData {
     draw_rect(&mut rgba, width, 46, 24, 8, 8, [255, 255, 255, 255]);
     draw_rect(&mut rgba, width, 46, 34, 8, 8, [255, 255, 255, 255]);
 
-    egui::IconData { rgba, width, height }
+    egui::IconData {
+        rgba,
+        width,
+        height,
+    }
 }
 
-fn draw_rect(
-    rgba: &mut [u8],
-    width: u32,
-    x0: u32,
-    y0: u32,
-    w: u32,
-    h: u32,
-    color: [u8; 4],
-) {
+fn draw_rect(rgba: &mut [u8], width: u32, x0: u32, y0: u32, w: u32, h: u32, color: [u8; 4]) {
     for y in y0..(y0 + h) {
         for x in x0..(x0 + w) {
             let idx = ((y * width + x) * 4) as usize;
