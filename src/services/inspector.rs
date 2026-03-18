@@ -429,6 +429,12 @@ impl InspectorService {
         Ok(format!("{} | {}", export_message, analysis.headline))
     }
 
+    /// Exporta el historial a JSON junto al SQLite (copia de seguridad de último recurso).
+    pub fn export_history_backup(&self) -> Result<String> {
+        let path = self.store.export_history_backup(1000)?;
+        Ok(path.display().to_string())
+    }
+
     /// Exporta una instantánea a JSON en Descargas o Documentos.
     pub fn export_snapshot(&self, snapshot: &SystemSnapshot) -> Result<String> {
         let path = self.store.export_path();

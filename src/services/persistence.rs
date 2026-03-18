@@ -77,7 +77,39 @@ impl PersistenceStore {
             ],
         )?;
 
+        // Retención: mantener solo las últimas 1 000 filas para evitar crecimiento ilimitado.
+        connection.execute(
+            r#"
+            DELETE FROM snapshots
+            WHERE id NOT IN (
+                SELECT id FROM snapshots
+                ORDER BY id DESC
+                LIMIT 1000
+            )
+            "#,
+            [],
+        )?;
+
         Ok(())
+    }
+
+    /// Exporta el historial reciente a un archivo JSON como copia de seguridad.
+    ///
+    /// El JSON se escribe junto al archivo SQLite con el nombre
+    /// `rootcause-history-backup.json`. Se usa como respaldo de último recurso:
+    /// si la base SQLite se corrompe se puede recuperar el historial de aquí.
+    pub fn export_history_backup(&self, limit: usize) -> Result<PathBuf> {
+        let rows = self.load_recent(limit)?;
+        let json =
+            serde_json::to_string_pretty(&rows).context("No se pudo serializar el historial")?;
+        let backup_path = self
+            .db_path
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .join("rootcause-history-backup.json");
+        fs::write(&backup_path, json)
+            .with_context(|| format!("No se pudo escribir {}", backup_path.display()))?;
+        Ok(backup_path)
     }
 
     /// Devuelve las últimas N filas del historial para mostrar en la pestaña Historial.

@@ -94,7 +94,7 @@ pub struct HardwareInfo {
 }
 
 /// Fila resumida del historial SQLite, lista para mostrar en la UI.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct SnapshotRow {
     #[allow(dead_code)]
     pub id: i64,
