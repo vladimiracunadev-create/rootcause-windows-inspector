@@ -42,8 +42,28 @@
 - ✅ landing page pública: `rootcause-landing` en GitHub Pages con releases públicos
 - ✅ hardening de seguridad: validación estricta de IP y nombre de servicio antes de invocar PowerShell (`is_valid_firewall_ip` en `windows.rs`), defensa en profundidad contra command injection
 
+## v0.7 ✅ Entregado
+- ✅ Feature flags Cargo.toml: edición GUI (`--features gui`, default) y CLI-only (`--no-default-features`, ~4 MB sin egui)
+- ✅ `#[cfg(feature = "gui")]` en `main.rs` — compilación limpia sin GUI
+- ✅ SQLite retención automática (últimas 1000 filas) — evita crecimiento indefinido de la BD
+- ✅ Backup JSON automático al exportar (`rootcause-history-backup.json`) — recuperación ante fallo SQLite
+- ✅ Módulo PowerShell `RootCause.psm1` — 9 cmdlets nativos (`Get-RootCauseStatus`, `Stop-RootCauseProcess`, etc.)
+- ✅ Manifests de distribución: Scoop (`packaging/distribution/scoop/rootcause.json`), Winget (`VladimirAcuna.RootCause`), Chocolatey
+- ✅ Extensión VS Code: status bar con CPU/RAM/severidad en tiempo real, alertas Critical, panel de diagnóstico, 3 comandos (`rootcause.refresh`, `rootcause.export`, `rootcause.openPanel`)
+- ✅ Skeleton documentado de tray icon (`src/services/tray.rs`) — arquitectura con menú contextual y cambio de color por severidad
+- ✅ Skeleton Windows Service (`src/bin/rootcause-service.rs`) — arquitectura con SCM, named pipe y loop de captura documentados
+
 ## v1.0 — Objetivo de distribución formal
-- producto estable para distribución más formal
-- documentación madura de instalación y operación
-- firma digital si el presupuesto y proceso lo permiten
-- posibles rutas futuras a MSIX y distribución más empresarial
+- Tab Autostart (HKCU\...\Run + carpeta Startup + tareas programadas)
+- Tray icon activo (activar feature `tray`, `tray-icon = "0.14"`)
+- Alertas y umbrales configurables (`rootcause.toml` en AppData)
+- `rootcause snapshot --output <ruta>` en CLI
+- Scoop / Winget publicados con primer release público
+- Firma digital (CodeSigning cert — elimina SmartScreen)
+- Documentación madura de instalación y operación
+
+## v2.0+ — Largo plazo
+- Windows Service activo (captura 24/7, named pipe, diagnóstico de problemas nocturnos)
+- Edición Seguridad (solo procesos sospechosos + conexiones + bloqueo, orientada a SOC)
+- Edición Enterprise (Prometheus/Grafana, multi-equipo, GPO, CSV/Excel)
+- MSIX / Microsoft Store

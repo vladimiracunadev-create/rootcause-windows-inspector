@@ -29,6 +29,39 @@ Este documento define la ruta profesional para generar artefactos de distribuci�
 - desinstalación,
 - entrega más formal.
 
+### CLI-only binary (~4 MB)
+Build sin egui ni eframe. Para:
+- sysadmins y scripts de automatización,
+- Windows Server Core (sin escritorio),
+- integración en pipelines CI,
+- distribución por gestores de paquetes.
+
+```powershell
+cargo build --release --no-default-features
+# Produce: target\release\rootcause.exe (~4 MB, sin GUI)
+```
+
+### Módulo PowerShell
+`packaging/powershell/RootCause.psm1` — 9 cmdlets que envuelven la CLI.
+Distribución: copiar el `.psm1` a cualquier directorio en `$PSModulePath`.
+
+```powershell
+Import-Module .\packaging\powershell\RootCause.psm1
+Get-RootCauseStatus
+Get-RootCauseProcesses | Where-Object Severity -eq "Critical"
+```
+
+### VS Code Extension
+`vscode-extension/` — extensión TypeScript empaquetable con `vsce package`.
+Requiere: `npm install -g @vscode/vsce` y `npm install` en `vscode-extension/`.
+
+```powershell
+cd vscode-extension
+npm install
+npx vsce package   # genera rootcause-inspector-0.1.0.vsix
+code --install-extension rootcause-inspector-0.1.0.vsix
+```
+
 ---
 
 ## 3) Flujo recomendado
@@ -106,6 +139,52 @@ Esto ayuda a que:
 - el acceso del escritorio muestre `RootCause`,
 - el usuario pueda fijar la app en Windows 11 con una identidad visual coherente.
 
+
+## Distribución por gestores de paquetes Windows
+
+### Scoop
+Manifest: `packaging/distribution/scoop/rootcause.json`
+
+```powershell
+# Publicar en bucket Scoop propio
+scoop bucket add rootcause https://github.com/vladimiracunadev-create/rootcause-scoop-bucket
+scoop install rootcause
+
+# Una vez en el bucket oficial:
+scoop install rootcause
+```
+
+### Winget
+Manifest: `packaging/distribution/winget/rootcause.yaml`
+PackageIdentifier: `VladimirAcuna.RootCause`
+
+```powershell
+# Validar manifest localmente
+winget validate --manifest packaging\distribution\winget\
+
+# Subir a winget-pkgs: PR en https://github.com/microsoft/winget-pkgs
+# Instalación final del usuario:
+winget install VladimirAcuna.RootCause
+```
+
+### Chocolatey
+Manifests: `packaging/chocolatey/rootcause.nuspec` + `tools/chocolateyInstall.ps1`
+
+```powershell
+# Empaquetar localmente
+cd packaging\chocolatey
+choco pack
+
+# Publicar en Chocolatey Community (requiere cuenta):
+choco push rootcause-windows-inspector.X.Y.Z.nupkg --source https://push.chocolatey.org
+
+# Instalación final del usuario:
+choco install rootcause-windows-inspector
+```
+
+> **Prerequisito para los tres gestores:** tener al menos un release público con los artefactos en `rootcause-landing/releases`. Actualizar los campos `UPDATE_SHA256_ON_RELEASE` con los hashes SHA-256 reales de cada release.
+
+---
 
 ## Ruta recomendada para la demo pública
 

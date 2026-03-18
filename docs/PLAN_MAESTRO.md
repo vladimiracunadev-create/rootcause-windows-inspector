@@ -1,10 +1,10 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.6.0 · **Actualizado:** 2026-03-17
+**Versión base:** v0.7.0 · **Actualizado:** 2026-03-18
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
-> Estado del entorno: CI tiene **2 errores clippy bloqueantes** — resolver FASE 0 primero.
+> Estado del entorno: CI debe estar verde — v0.7 completada con múltiples ediciones del producto.
 
 ---
 
@@ -41,32 +41,30 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 
 ---
 
-## II. Estado técnico — lo que hay que resolver ya
+## II. Estado técnico — v0.7 entregada
 
-### Bloqueantes CI (resolver antes de cualquier otra cosa)
+### ✅ Completado en v0.7
+- Feature flags GUI/CLI-only en `Cargo.toml` (eframe/egui opcionales)
+- `#[cfg(feature = "gui")]` en `main.rs` — compilación limpia en ambas ediciones
+- SQLite retención automática (últimas 1000 filas)
+- Backup JSON automático al exportar snapshot
+- Módulo PowerShell `RootCause.psm1` (9 cmdlets)
+- Manifests Scoop, Winget (`VladimirAcuna.RootCause`), Chocolatey
+- VS Code Extension completa (`package.json` + `extension.ts`)
+- Skeleton tray icon documentado (`src/services/tray.rs`)
+- Skeleton Windows Service (`src/bin/rootcause-service.rs`)
+- Documentación actualizada en todos los docs clave
 
-| # | Error | Archivo | Fix exacto |
-|---|---|---|---|
-| 1 | `collapsible_if` | `src/app.rs:402` | `if let Some(idx) = tab_switch && let Some(&(tab,_,_)) = Tab::ALL.get(idx) { ... }` |
-| 2 | `print_literal` | `src/cli.rs:218` | Mover literal `"Proceso dominante"` dentro del string de formato |
-
-Después de corregir: `run_fmt.ps1` → push → verificar CI verde.
-
-### Código pendiente de v0.6 (ya diseñado, falta conectar)
-
-`get_hardware_info()` existe en `inspector.rs`. Falta:
-- Campo `hardware_info: HardwareInfo` en `RootCauseApp`
-- Poblar en `new()` con `insp.get_hardware_info()`
-- Sección hardware en tab Overview
-- Atajos de teclado en `update()` (patrón collect-then-execute para evitar borrow conflict)
-- Sección atajos en `draw_tab_about()`
-
-### Metadatos pendientes de confirmar (bloquean la distribución)
+### Metadatos pendientes de confirmar
 
 | Campo | Archivo | Estado |
 |---|---|---|
-| `EMAIL` | `src/meta.rs:20` | Vacío — pendiente confirmar |
-| `GITLAB` URL | `src/meta.rs:27` | Pendiente verificar |
+| `EMAIL` | `src/meta.rs:20` | Vacío — pendiente confirmar con usuario |
+| `GITLAB` URL | `src/meta.rs:27` | Pendiente verificar URL correcta |
+
+### Problema de entorno local (vigente)
+bash/MSYS2 usa `link.exe` incorrecto. Siempre usar `run_fmt.ps1` para formato.
+`cargo check` local puede fallar por linker — CI en GitHub Actions siempre funciona.
 
 ---
 
@@ -74,58 +72,52 @@ Después de corregir: `run_fmt.ps1` → push → verificar CI verde.
 
 ---
 
-### PRIORIDAD 1 — Completar lo que está a medio hacer
+### PRIORIDAD 1 — Completar lo pendiente (v0.6 + v0.7 resumen)
 
-**Por qué primero:** hay features diseñadas y parcialmente implementadas. Terminarlas antes de empezar nuevas es más eficiente y cierra v0.6 limpiamente.
+✅ **Completado:**
+- Fix CI (2 errores clippy) → CI verde
+- Hardware info en UI → tab Overview muestra OS, CPU, RAM, arquitectura
+- Atajos de teclado activos → F5, Ctrl+E, Ctrl+1…8
+- Tab Acerca completo → atajos + info del producto
+- Feature flags CLI-only → `--no-default-features` produce ~4 MB
+- SQLite retención + backup JSON automático
+- PowerShell module (9 cmdlets), Scoop/Winget/Chocolatey manifests
+- VS Code Extension completa
+- Skeletons tray + Windows Service
 
-1. **Fix CI** (2 errores clippy) → CI verde
-2. **Hardware info en UI** → tab Overview muestra OS, CPU, RAM, arquitectura
-3. **Atajos de teclado activos** → F5, Ctrl+E, Ctrl+1…8
-4. **Tab Acerca completo** → atajos documentados + info del producto
-5. **Telemetría en landing corregida** → "Sin telemetría activa" → "Telemetría: cero"
-6. **EMAIL y GitLab confirmados** → `src/meta.rs` completo
+⏳ **Pendiente:**
+1. **EMAIL y GitLab confirmados** → `src/meta.rs` completo (bloquea distribución)
+2. **Telemetría en landing corregida** → "Sin telemetría activa" → "Telemetría: cero"
 
 ---
 
-### PRIORIDAD 2 — Tres ediciones del producto
+### PRIORIDAD 2 — Ediciones del producto ✅ Completada en v0.7
 
-**Por qué:** el producto actual es bueno pero solo existe en una forma. Tres ediciones multiplican el alcance sin reescribir nada.
+**Estado actual — todas las ediciones implementadas:**
 
-#### Edición 1 — GUI completa (ya existe)
-`rootcause.exe` · ~18 MB · ventana gráfica + CLI combinadas.
+| Edición | Estado | Tamaño | Artefacto |
+|---|---|---|---|
+| GUI .exe | ✅ Producción | ~18 MB | `cargo build --release` |
+| CLI-only .exe | ✅ Producción | ~4 MB | `cargo build --release --no-default-features` |
+| PowerShell module | ✅ Producción | ~1 KB | `packaging/powershell/RootCause.psm1` |
+| VS Code Extension | ✅ Producción | TypeScript | `vscode-extension/` |
+| Tray icon | ⚙ Skeleton | — | `src/services/tray.rs` (activar feature `tray`) |
+| Windows Service | ⚙ Skeleton | — | `src/bin/rootcause-service.rs` (activar feature `service`) |
 
-#### Edición 2 — CLI-only (~4 MB)
-**Impacto real:** sysadmins, scripts de automatización, Windows Server sin escritorio, integración en pipelines CI, distribución por gestores de paquetes.
-
-Implementación con **feature flags de Rust** — un solo cambio en Cargo.toml:
-
+**Para activar Tray icon** (próxima versión):
 ```toml
-[features]
-default = ["gui"]
-gui = ["eframe", "egui"]
-
+# Cargo.toml
+tray = ["dep:tray-icon"]
 [dependencies]
-eframe = { version = "0.27", optional = true }
-egui   = { version = "0.27", optional = true }
+tray-icon = { version = "0.14", optional = true }
 ```
 
-```bash
-cargo build --release --no-default-features   # → ~4 MB, sin egui
+**Para activar Windows Service** (próxima versión):
+```toml
+service = ["dep:windows-service"]
+[dependencies]
+windows-service = { version = "0.6", optional = true }
 ```
-
-Ahorro real: ~13 MB (egui + fuentes eliminados). Riesgo: ninguno — `cli.rs` ya es independiente de `app.rs`.
-
-#### Edición 3 — Módulo PowerShell
-**Impacto real:** los sysadmins de empresas viven en PowerShell. Un módulo que se integra en sus scripts vale más que una app nueva.
-
-```powershell
-Import-Module RootCause
-Get-RootCauseStatus                              # objeto PS con Severity, CPU, RAM
-Get-RootCauseProcesses | Where-Object Severity -eq "Critical"
-Invoke-RootCauseExport -Path "C:\diag\snap.json"
-```
-
-Implementación: archivo `RootCause.psm1` que llama a `rootcause.exe` y convierte el JSON de salida en objetos PowerShell. **Cero cambios en Rust.**
 
 ---
 
@@ -185,8 +177,8 @@ Implementación: cambio mínimo en `cli.rs`. Una línea.
 
 **Por qué:** el producto puede ser descubierto y usado si está en los canales correctos.
 
-#### 5.1 Auto-publicar releases en landing (paso crítico)
-Actualmente los binarios no se publican automáticamente en el repo público. El flujo correcto:
+#### 5.1 Auto-publicar releases en landing (paso crítico, pendiente)
+Los manifests están listos (Scoop, Winget, Chocolatey). Falta conectar el CI:
 
 ```
 CI privado (build .exe) → gh release create --repo rootcause-landing → descarga pública
@@ -194,19 +186,22 @@ CI privado (build .exe) → gh release create --repo rootcause-landing → desca
 
 Requiere: secret `LANDING_RELEASE_TOKEN` (PAT con permisos al repo landing) en el repo privado.
 Resultado: los botones de descarga de la landing funcionan con cada nuevo release.
+Los campos `UPDATE_SHA256_ON_RELEASE` en los manifests se rellenan con el hash real del binario.
 
-#### 5.2 Gestores de paquetes Windows
+#### 5.2 Gestores de paquetes Windows ✅ Manifests creados
 
-| Canal | Comando de instalación | Esfuerzo | Audiencia |
-|---|---|---|---|
-| **Scoop** | `scoop install rootcause` | Bajo — un JSON | Desarrolladores |
-| **Winget** | `winget install rootcause` | Bajo — un YAML | Usuarios técnicos |
-| **Chocolatey** | `choco install rootcause` | Bajo — `.nuspec` | Sysadmins enterprise |
+| Canal | Manifest | Pendiente |
+|---|---|---|
+| **Scoop** | `packaging/distribution/scoop/rootcause.json` | PR en bucket scoop-extras o propio |
+| **Winget** | `packaging/distribution/winget/rootcause.yaml` | PR en microsoft/winget-pkgs |
+| **Chocolatey** | `packaging/chocolatey/rootcause.nuspec` | Cuenta Chocolatey + push |
 
-Prerequisito: tener al menos un release público disponible.
+Prerequisito para los tres: primer release público con binarios disponibles.
 
 #### 5.3 Firma digital
-Elimina la alerta SmartScreen en primera ejecución. Opción gratuita: self-signed cert (reduce el alerta pero no lo elimina). Opción real: CodeSigning cert comercial (~$70–200/año).
+Elimina la alerta SmartScreen. Opciones:
+- Self-signed (gratis, reduce pero no elimina el alerta)
+- CodeSigning cert comercial (~$70–200/año) — elimina completamente el alerta
 
 ---
 
@@ -227,13 +222,16 @@ En orden de impacto potencial:
 ## IV. Mapa de versiones del producto
 
 ```
-v0.6  →  v0.7              →  v1.0                →  v2.0+
-──────    ─────────────────    ─────────────────────    ──────────────────
-Actual    CLI-only binary      Tab Autostart            Windows Service
-          PowerShell module    Tray icon                VS Code Extension
-          Fix CI + deuda       Scoop / Winget           Edición Seguridad
-          Tab Acerca completo  Firma digital            Enterprise / Store
-          Hardware en UI       Alertas configurables
+v0.6  ✅   v0.7 ✅               v1.0 ⏳               v2.0+ ⏳
+──────────  ────────────────────  ──────────────────── ──────────────────
+GUI+CLI+    CLI-only binary ✅    Tab Autostart         Windows Service
+SQLite+     PowerShell module ✅  Tray icon activo      Edición Seguridad
+historial   Scoop/Winget/Choco✅  Scoop/Winget publis.  Edición Enterprise
+            VS Code Extension ✅  Firma digital         MSIX / Store
+            Tray skeleton ✅      Alertas config.
+            Service skeleton ✅   EMAIL+GitLab meta.rs
+            SQLite retención ✅
+            JSON backup ✅
 ```
 
 ---

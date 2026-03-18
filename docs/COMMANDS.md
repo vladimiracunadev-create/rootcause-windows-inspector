@@ -33,13 +33,20 @@ Verifica, idealmente:
 
 ## 2) Build
 
-### Build release directo
+### Edición GUI completa (por defecto, ~18 MB)
 
 ```powershell
 cargo build --release
 ```
 
-### Build release recomendado
+### Edición CLI-only (~4 MB, sin egui, sin interfaz gráfica)
+
+```powershell
+cargo build --release --no-default-features
+# Produce: target\release\rootcause.exe — ideal para scripts, Server Core, pipelines CI
+```
+
+### Build release recomendado (con scripts)
 
 ```powershell
 .\scripts\build-release.ps1
@@ -310,6 +317,74 @@ rootcause stop-service <nombre>
 
 ```
 rootcause --gui
+```
+
+---
+
+## Módulo PowerShell
+
+```powershell
+# Importar el módulo
+Import-Module .\packaging\powershell\RootCause.psm1
+
+# Ver estado del sistema como objeto PowerShell
+Get-RootCauseStatus
+
+# Procesos con filtro de severidad
+Get-RootCauseProcesses -MinSeverity "Warning"
+
+# Historial de capturas
+Get-RootCauseHistory -Count 20
+
+# Exportar snapshot a archivo
+Invoke-RootCauseExport -Path "C:\diag\snapshot.json"
+
+# Terminar proceso por PID
+Stop-RootCauseProcess -Pid 1234
+
+# Bloquear IP en firewall
+Block-RootCauseIp -IpAddress "1.2.3.4"
+
+# Detener servicio
+Stop-RootCauseService -ServiceName "bits"
+
+# Captura WPR desde PowerShell
+Start-RootCauseCapture -Note "Disco al 100%"
+Stop-RootCauseCapture -Note "Disco al 100%"
+```
+
+---
+
+## VS Code Extension
+
+```powershell
+# Empaquetar la extensión (requiere Node.js)
+cd vscode-extension
+npm install
+npx vsce package
+
+# Instalar en VS Code
+code --install-extension rootcause-inspector-0.1.0.vsix
+```
+
+Comandos disponibles desde la paleta de comandos (`Ctrl+Shift+P`):
+- `RootCause: Actualizar estado del sistema`
+- `RootCause: Exportar snapshot a JSON`
+- `RootCause: Abrir panel de diagnóstico`
+
+---
+
+## Gestores de paquetes Windows
+
+```powershell
+# Scoop
+scoop install rootcause
+
+# Winget
+winget install VladimirAcuna.RootCause
+
+# Chocolatey
+choco install rootcause-windows-inspector
 ```
 
 ---

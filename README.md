@@ -92,21 +92,63 @@ Para cuando la observación liviana no basta.
 
 ---
 
+## 🗂️ Ediciones del producto
+
+| Edición | Tamaño | Instalación | Audiencia |
+|---|---|---|---|
+| **GUI .exe** (por defecto) | ~18 MB | Instalador / portable | Usuario final, sysadmin |
+| **CLI .exe** (sin egui) | ~4 MB | `--no-default-features` | Scripts, Server Core, CI |
+| **PowerShell module** | ~1 KB | `Import-Module RootCause` | Automatización enterprise |
+| **VS Code Extension** | TypeScript | `code --install-extension` | Desarrolladores |
+| **Tray icon** | (feature pendiente) | Bundle con GUI | Monitor proactivo |
+| **Windows Service** | (skeleton) | `sc.exe create` | Background 24/7 |
+
+```powershell
+# Edición CLI-only (~4 MB, sin interfaz gráfica)
+cargo build --release --no-default-features
+
+# Edición GUI completa (~18 MB, por defecto)
+cargo build --release
+```
+
+---
+
+## 📦 Gestores de paquetes Windows
+
+```powershell
+# Scoop
+scoop install rootcause
+
+# Winget
+winget install VladimirAcuna.RootCause
+
+# Chocolatey
+choco install rootcause-windows-inspector
+```
+
+Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/powershell/`.
+
+---
+
 ## 📁 Estado de entrega del repositorio
 
 ### ✅ Incluye
 - Código fuente completo en Rust
-- GUI nativa ligera con `eframe/egui`
+- GUI nativa con `eframe/egui` (feature `gui`, por defecto)
+- Edición CLI-only mediante feature flags (`--no-default-features`)
+- Módulo PowerShell (`RootCause.psm1`) — 9 cmdlets nativos
+- Manifests de distribución: Scoop, Winget, Chocolatey
+- Extensión VS Code con status bar, alertas y panel de diagnóstico
+- Skeletons documentados: Tray icon y Windows Service
 - Scripts de verificación, build, empaquetado y análisis ETL
 - Documentación profunda de arquitectura, requisitos, operación y CI
 - Modo de precisión WPR/ETW integrado en la interfaz
-- Resumen asistido del último ETL usando `tracerpt` y heurísticas propias
+- Historial SQLite (últimas 1000 filas) + backup automático a JSON
 - Instalador silencioso compatible con despliegue corporativo (`/VERYSILENT /SUPPRESSMSGBOXES`)
 
 ### ❌ No incluye
 - `.exe` precompilado
 - Firma digital
-- Servicio residente de fondo
 - Driver de kernel
 - Parser completo equivalente a WPA
 
@@ -222,23 +264,36 @@ Detalle completo → [`docs/PACKAGING_WINDOWS.md`](docs/PACKAGING_WINDOWS.md)
 
 ```text
 rootcause-windows-inspector/
-├── Cargo.toml            ← versión, dependencias
+├── Cargo.toml            ← versión, features (gui / cli-only), dependencias
 ├── README.md
 ├── LICENSE               ← Apache 2.0
 ├── SECURITY.md
 ├── docs/                 ← 25+ documentos de arquitectura, operación y producto
-├── [rootcause-landing]   ← Repo público: landing page (https://vladimiracunadev-create.github.io/rootcause-landing/)
-├── packaging/windows/    ← Inno Setup .iss
+├── [rootcause-landing]   ← Repo público: landing page + releases públicos
+├── packaging/
+│   ├── windows/          ← Inno Setup .iss (instalador GUI)
+│   ├── powershell/       ← RootCause.psm1 (módulo PowerShell, 9 cmdlets)
+│   ├── chocolatey/       ← rootcause.nuspec + chocolateyInstall.ps1
+│   └── distribution/
+│       ├── scoop/        ← rootcause.json (manifest Scoop)
+│       └── winget/       ← rootcause.yaml (manifest Winget)
+├── vscode-extension/     ← Extensión VS Code (TypeScript, status bar, alertas)
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── src/extension.ts
 ├── scripts/              ← build, verify, package, wpr, etl
 └── src/
-    ├── main.rs           ← entrada: despacha CLI o GUI según args
+    ├── main.rs           ← entrada: despacha CLI o GUI según args + feature guards
     ├── cli.rs            ← CLI completa (--help, status, snapshot, wpr, kill…)
     ├── meta.rs           ← constantes del producto (versión, autor, links)
     ├── app.rs            ← UI completa (tabs, sparklines, historial, filtros)
     ├── models.rs         ← structs compartidos + HardwareInfo
+    ├── bin/
+    │   └── rootcause-service.rs  ← skeleton Windows Service
     └── services/
         ├── inspector.rs  ← orquestador principal + get_hardware_info()
-        ├── persistence.rs← SQLite + historial
+        ├── persistence.rs← SQLite + backup JSON automático (últimas 1000 filas)
+        ├── tray.rs       ← skeleton tray icon (activa con feature `tray`)
         ├── windows.rs    ← PowerShell, WPR, toast, cmdlines
         ├── network.rs    ← netstat + clasificación
         ├── temp_scan.rs  ← temporales y cachés
