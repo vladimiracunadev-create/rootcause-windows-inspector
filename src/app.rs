@@ -232,7 +232,12 @@ impl RootCauseApp {
         };
         match insp.export_snapshot(snap) {
             Ok(path) => {
-                self.status_line = format!("Exportado → {path}");
+                // También actualizar el backup JSON del historial como seguro de último recurso.
+                let backup_note = insp
+                    .export_history_backup()
+                    .map(|p| format!("  ·  historial → {p}"))
+                    .unwrap_or_default();
+                self.status_line = format!("Exportado → {path}{backup_note}");
                 self.status_is_error = false;
             }
             Err(e) => {

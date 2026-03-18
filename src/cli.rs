@@ -244,6 +244,10 @@ fn cmd_export() -> i32 {
         Ok(snap) => match insp.export_snapshot(&snap) {
             Ok(path) => {
                 println!("Exportado → {path}");
+                // Backup JSON del historial como seguro de último recurso.
+                if let Ok(bp) = insp.export_history_backup() {
+                    println!("Historial backup → {bp}");
+                }
                 0
             }
             Err(e) => {
