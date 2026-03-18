@@ -13,12 +13,20 @@ publish = false
 name = "rootcause"
 path = "src/main.rs"
 
+# ── Ediciones del producto ──────────────────────────────────────────────────────
+# Por defecto se compila con GUI completa.
+# Para la edición CLI-only (~4 MB, sin egui):
+#   cargo build --release --no-default-features
+[features]
+default = ["gui"]
+gui = ["dep:eframe", "dep:egui"]
+
 [dependencies]
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
-eframe = { version = "0.27", default-features = false, features = ["default_fonts", "glow"] }
-egui = "0.27"
+eframe = { version = "0.27", optional = true, default-features = false, features = ["default_fonts", "glow"] }
+egui = { version = "0.27", optional = true }
 regex = "1"
 rusqlite = { version = "0.31", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }

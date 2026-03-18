@@ -7,4 +7,5 @@ pub mod inspector;
 pub mod network;
 pub mod persistence;
 pub mod temp_scan;
+pub mod tray;
 pub mod windows;

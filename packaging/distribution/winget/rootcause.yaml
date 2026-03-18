@@ -1,0 +1,42 @@
+# Winget manifest — RootCause Windows Inspector
+# Subir a: https://github.com/microsoft/winget-pkgs/tree/master/manifests/v/VladimirAcuna/RootCause
+# Comando de instalación: winget install VladimirAcuna.RootCause
+
+PackageIdentifier: VladimirAcuna.RootCause
+PackageVersion: "0.6.0"
+PackageLocale: es-ES
+Publisher: Vladimir Acuña
+PublisherUrl: https://github.com/vladimiracunadev-create
+PublisherSupportUrl: https://github.com/vladimiracunadev-create/rootcause-landing/issues
+PackageName: RootCause Windows Inspector
+PackageUrl: https://vladimiracunadev-create.github.io/rootcause-landing/
+License: Apache-2.0
+LicenseUrl: https://www.apache.org/licenses/LICENSE-2.0
+Copyright: "Copyright 2025 Vladimir Acuña"
+ShortDescription: Monitor forense ligero para Windows
+Description: >
+  RootCause Windows Inspector detecta la causa raíz de lentitud en Windows:
+  procesos dominantes, archivos temporales, conexiones sospechosas, servicios
+  activos y análisis ETW/WPR. Disponible como interfaz gráfica y como CLI completa.
+  Sin telemetría. Sin dependencias externas. Licencia Apache 2.0.
+Moniker: rootcause
+Tags:
+  - diagnostico
+  - windows
+  - procesos
+  - rendimiento
+  - forense
+  - monitor
+  - cli
+  - rust
+Installers:
+  - Architecture: x64
+    InstallerType: inno
+    InstallerUrl: https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest/download/rootcause-windows-inspector-setup.exe
+    InstallerSha256: UPDATE_SHA256_ON_RELEASE
+    InstallerSwitches:
+      Silent: /SILENT
+      SilentWithProgress: /SP-
+    ProductCode: RootCauseWindowsInspector
+ManifestType: singleton
+ManifestVersion: "1.4.0"

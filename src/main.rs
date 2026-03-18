@@ -1,21 +1,25 @@
 //! Punto de entrada de la aplicación.
 //!
-//! Soporta dos modos de operación:
+//! Soporta dos modos de operación y dos ediciones de compilación:
 //!
+//! ## Modos de operación
 //! * **GUI** (por defecto): `rootcause` o `rootcause --gui`
 //! * **CLI**: `rootcause <comando>` — útil para scripts y automatización.
 //!
+//! ## Ediciones de compilación
+//! * **Completa** (feature `gui`, por defecto): incluye egui + interfaz gráfica (~18 MB)
+//! * **CLI-only** (`--no-default-features`): solo consola, sin egui (~4 MB)
+//!
 //! El modo CLI se despacha a `cli::run()` sin inicializar ningún contexto
-//! gráfico, por lo que funciona en sesiones de consola sin pantalla.
+//! gráfico, por lo que funciona en sesiones de consola sin pantalla y en
+//! Windows Server Core.
 
+#[cfg(feature = "gui")]
 mod app;
 mod cli;
 mod meta;
 mod models;
 mod services;
-
-use app::RootCauseApp;
-use eframe::egui;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -25,14 +29,27 @@ fn main() {
         std::process::exit(cli::run(&args[1..]));
     }
 
-    // Modo GUI (predeterminado).
-    if let Err(e) = launch_gui() {
-        eprintln!("Error al iniciar la interfaz gráfica: {e}");
-        std::process::exit(1);
+    // Modo GUI — solo disponible en la edición completa.
+    #[cfg(feature = "gui")]
+    {
+        if let Err(e) = launch_gui() {
+            eprintln!("Error al iniciar la interfaz gráfica: {e}");
+            std::process::exit(1);
+        }
+    }
+
+    // Edición CLI-only: si no hay argumentos, mostrar ayuda.
+    #[cfg(not(feature = "gui"))]
+    {
+        std::process::exit(cli::run(&["--help".to_owned()]));
     }
 }
 
+#[cfg(feature = "gui")]
 fn launch_gui() -> eframe::Result<()> {
+    use app::RootCauseApp;
+    use eframe::egui;
+
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("RootCause — Windows Inspector")
@@ -49,6 +66,7 @@ fn launch_gui() -> eframe::Result<()> {
     )
 }
 
+#[cfg(feature = "gui")]
 /// Construye un icono simple `RC` sin depender de decodificadores externos.
 ///
 /// Esto asegura una marca mínima visible incluso antes de integrar recursos
@@ -100,6 +118,7 @@ fn rootcause_icon() -> egui::IconData {
     }
 }
 
+#[cfg(feature = "gui")]
 fn draw_rect(rgba: &mut [u8], width: u32, x0: u32, y0: u32, w: u32, h: u32, color: [u8; 4]) {
     for y in y0..(y0 + h) {
         for x in x0..(x0 + w) {

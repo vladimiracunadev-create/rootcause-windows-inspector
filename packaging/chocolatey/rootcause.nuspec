@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>rootcause-windows-inspector</id>
+    <version>0.6.0</version>
+    <title>RootCause Windows Inspector</title>
+    <authors>Vladimir Acuña</authors>
+    <owners>vladimircunadev-create</owners>
+    <projectUrl>https://vladimiracunadev-create.github.io/rootcause-landing/</projectUrl>
+    <licenseUrl>https://www.apache.org/licenses/LICENSE-2.0</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>
+Monitor forense ligero para Windows. Detecta la causa raíz de lentitud —
+procesos dominantes, archivos temporales, conexiones sospechosas y análisis
+ETW/WPR — desde una interfaz gráfica clara o desde la consola de Windows.
+
+Características:
+- Análisis automático de procesos con scoring de severidad
+- CLI completa: rootcause status, snapshot, history, wpr, kill, block-ip
+- Atajos de teclado (F5, Ctrl+E, Ctrl+1..8)
+- Historial SQLite con comparación A/B
+- Notificaciones toast nativas de Windows
+- Cero telemetría · Sin dependencias externas · Apache 2.0
+    </description>
+    <summary>Monitor forense ligero para Windows — diagnóstico de causa raíz</summary>
+    <tags>windows diagnostico procesos rendimiento forense monitor cli rust</tags>
+    <copyright>Copyright 2025 Vladimir Acuña</copyright>
+    <releaseNotes>https://github.com/vladimiracunadev-create/rootcause-landing/releases</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
