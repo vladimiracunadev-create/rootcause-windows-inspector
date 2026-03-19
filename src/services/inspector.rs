@@ -455,7 +455,7 @@ impl InspectorService {
         self.audit_action(
             "precision-start",
             problem_hint,
-            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().ok().map(|s| s.as_str()),
             result.as_ref().err(),
         );
         result
@@ -476,7 +476,7 @@ impl InspectorService {
         self.audit_action(
             "precision-stop",
             &output_path.display().to_string(),
-            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().ok().map(|s| s.as_str()),
             result.as_ref().err(),
         );
         result
@@ -488,7 +488,7 @@ impl InspectorService {
         self.audit_action(
             "precision-cancel",
             "wpr",
-            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().ok().map(|s| s.as_str()),
             result.as_ref().err(),
         );
         result
@@ -607,7 +607,7 @@ impl InspectorService {
         self.audit_action(
             "terminate-process",
             &pid.to_string(),
-            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().ok().map(|s| s.as_str()),
             result.as_ref().err(),
         );
         result
@@ -626,7 +626,7 @@ impl InspectorService {
         self.audit_action(
             "block-ip",
             &ip,
-            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().ok().map(|s| s.as_str()),
             result.as_ref().err(),
         );
         result
@@ -651,7 +651,7 @@ impl InspectorService {
         self.audit_action(
             "stop-service",
             &lowered,
-            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().ok().map(|s| s.as_str()),
             result.as_ref().err(),
         );
         result
