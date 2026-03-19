@@ -3,7 +3,7 @@
 ; Primero genera target\release\rootcause.exe y luego compila este script.
 
 #define MyAppName "RootCause"
-#define MyAppVersion "0.5.0"
+#define MyAppVersion "0.7.0"
 #define MyAppPublisher "Vladimir Acuña Dev"
 #define MyAppExeName "rootcause.exe"
 #define MyAppURL "https://github.com/vladimiracunadev-create/rootcause-windows-inspector"

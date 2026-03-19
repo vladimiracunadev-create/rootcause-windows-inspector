@@ -25,7 +25,7 @@
 - ✅ corrección de patrones Rust que rompían CI bajo `-D warnings`
 - ✅ corrección de tests: escape de backslash en strings y orden de condiciones
 
-## v0.6 ✅ Entregado (versión actual)
+## v0.6 ✅ Entregado
 - ✅ sparklines de CPU / RAM / I/O con ring buffer (`VecDeque`) — sin crates extra
 - ✅ tab **Historial** con tabla SQLite y comparación A vs B con deltas
 - ✅ filtro de severidad por tab de procesos (Critical / Warning / Normal / todos)
@@ -42,7 +42,7 @@
 - ✅ landing page pública: `rootcause-landing` en GitHub Pages con releases públicos
 - ✅ hardening de seguridad: validación estricta de IP y nombre de servicio antes de invocar PowerShell (`is_valid_firewall_ip` en `windows.rs`), defensa en profundidad contra command injection
 
-## v0.7 ✅ Entregado
+## v0.7 ✅ Entregado (versión actual)
 - ✅ Feature flags Cargo.toml: edición GUI (`--features gui`, default) y CLI-only (`--no-default-features`, ~4 MB sin egui)
 - ✅ `#[cfg(feature = "gui")]` en `main.rs` — compilación limpia sin GUI
 - ✅ SQLite retención automática (últimas 1000 filas) — evita crecimiento indefinido de la BD
@@ -52,6 +52,12 @@
 - ✅ Extensión VS Code: status bar con CPU/RAM/severidad en tiempo real, alertas Critical, panel de diagnóstico, 3 comandos (`rootcause.refresh`, `rootcause.export`, `rootcause.openPanel`)
 - ✅ Skeleton documentado de tray icon (`src/services/tray.rs`) — arquitectura con menú contextual y cambio de color por severidad
 - ✅ Skeleton Windows Service (`src/bin/rootcause-service.rs`) — arquitectura con SCM, named pipe y loop de captura documentados
+- ✅ Configuración operativa en `rootcause-config.json` con defaults seguros para captura, retención, umbrales y acciones
+- ✅ Motor ligero de reglas/correlación con incidentes resumidos persistidos en SQLite y evidencia asociada
+- ✅ Auditoría de acciones locales (`kill`, `block-ip`, `stop-service`, ETW/WPR, IA opcional) sin depender de servicios externos
+- ✅ CLI ampliada con `status --json`, `history --json`, `incidents`, `config show/init`, `snapshot --output` y `ai explain-latest`
+- ✅ Adaptador IA opcional por API, desacoplado y apagado por defecto: si falla, RootCause sigue detectando, alertando y guardando evidencia
+- ✅ Release engineering endurecido: branding principal corregido y manifests Windows alineados con los artefactos reales del workflow `release-windows`
 
 ## v1.0 — Objetivo de distribución formal
 - Tab Autostart (HKCU\...\Run + carpeta Startup + tareas programadas)

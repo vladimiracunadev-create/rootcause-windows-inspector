@@ -366,7 +366,7 @@ npm install
 npx vsce package
 
 # Instalar en VS Code
-code --install-extension rootcause-inspector-0.1.0.vsix
+code --install-extension rootcause-inspector-0.7.0.vsix
 ```
 
 Comandos disponibles desde la paleta de comandos (`Ctrl+Shift+P`):

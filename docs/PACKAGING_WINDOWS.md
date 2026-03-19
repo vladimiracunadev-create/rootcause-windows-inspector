@@ -58,8 +58,8 @@ Requiere: `npm install -g @vscode/vsce` y `npm install` en `vscode-extension/`.
 ```powershell
 cd vscode-extension
 npm install
-npx vsce package   # genera rootcause-inspector-0.1.0.vsix
-code --install-extension rootcause-inspector-0.1.0.vsix
+npx vsce package   # genera rootcause-inspector-0.7.0.vsix
+code --install-extension rootcause-inspector-0.7.0.vsix
 ```
 
 ---

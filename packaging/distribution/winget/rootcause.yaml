@@ -3,7 +3,7 @@
 # Comando de instalación: winget install VladimirAcuna.RootCause
 
 PackageIdentifier: VladimirAcuna.RootCause
-PackageVersion: "0.6.0"
+PackageVersion: "0.7.0"
 PackageLocale: es-ES
 Publisher: Vladimir Acuña
 PublisherUrl: https://github.com/vladimiracunadev-create
@@ -32,7 +32,7 @@ Tags:
 Installers:
   - Architecture: x64
     InstallerType: inno
-    InstallerUrl: https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest/download/rootcause-windows-inspector-setup.exe
+    InstallerUrl: https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest/download/RootCause-Setup.exe
     InstallerSha256: UPDATE_SHA256_ON_RELEASE
     InstallerSwitches:
       Silent: /SILENT

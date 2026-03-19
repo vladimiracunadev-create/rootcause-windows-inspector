@@ -1,13 +1,12 @@
 {
-    "version": "0.6.0",
+    "version": "0.7.0",
     "description": "Monitor forense ligero para Windows. Detecta la causa raíz de lentitud — procesos, red, temporales, ETW/WPR — desde una sola ventana o desde la consola.",
     "homepage": "https://vladimiracunadev-create.github.io/rootcause-landing/",
     "license": "Apache-2.0",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest/download/rootcause-windows-x64.zip",
-            "hash": "UPDATE_SHA256_ON_RELEASE",
-            "extract_dir": "rootcause-windows-x64"
+            "url": "https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest/download/RootCause-Portable.zip",
+            "hash": "UPDATE_SHA256_ON_RELEASE"
         }
     },
     "bin": "rootcause.exe",
@@ -24,7 +23,7 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/vladimiracunadev-create/rootcause-landing/releases/download/v$version/rootcause-windows-x64.zip"
+                "url": "https://github.com/vladimiracunadev-create/rootcause-landing/releases/download/v$version/RootCause-Portable.zip"
             }
         }
     }

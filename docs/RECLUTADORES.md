@@ -224,5 +224,4 @@ La ruta de escalamiento se desarrolla con más detalle en `docs/ARQUITECTURA_ESC
 
 ## 11. Versión actual
 
-**v0.6.0** — CLI completa, atajos de teclado, tab Acerca, características del equipo, sparklines, historial SQLite, comparación A vs B, filtro de severidad, notificaciones toast, correlación process↔cmdline, landing page del producto, hardening de seguridad (validación de IPs y servicios antes de ejecutar scripts PowerShell).
-
+**v0.7.0** — ediciones GUI/CLI-only, módulo PowerShell, manifests Scoop/Winget/Chocolatey, extensión VS Code, configuración local segura, historial SQLite con incidentes y auditoría, correlación técnica ligera, alertas nativas, y adaptador IA opcional desacoplado por API.
