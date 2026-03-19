@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 const DEFAULT_CONFIG_FILE: &str = "rootcause-config.json";
 const DEFAULT_APP_DIR: &str = "RootCauseInspector";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RootCauseConfig {
     #[serde(default)]
     pub collection: CollectionConfig,
@@ -22,18 +22,6 @@ pub struct RootCauseConfig {
     pub remediation: RemediationConfig,
     #[serde(default)]
     pub ai: AiConfig,
-}
-
-impl Default for RootCauseConfig {
-    fn default() -> Self {
-        Self {
-            collection: CollectionConfig::default(),
-            thresholds: ThresholdsConfig::default(),
-            alerting: AlertingConfig::default(),
-            remediation: RemediationConfig::default(),
-            ai: AiConfig::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,21 +44,12 @@ impl Default for CollectionConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ThresholdsConfig {
     #[serde(default)]
     pub process: ProcessThresholds,
     #[serde(default)]
     pub temp: TempThresholds,
-}
-
-impl Default for ThresholdsConfig {
-    fn default() -> Self {
-        Self {
-            process: ProcessThresholds::default(),
-            temp: TempThresholds::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -23,10 +23,6 @@ impl AiAdvisor {
         Self { config }
     }
 
-    pub fn enabled(&self) -> bool {
-        self.config.enabled
-    }
-
     pub fn summarize_incident(&self, incident: &IncidentSummary) -> Result<AiIncidentAdvice> {
         if !self.config.enabled {
             bail!("La integración IA está desactivada en la configuración");
