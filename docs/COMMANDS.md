@@ -258,64 +258,66 @@ cargo build --release
 
 ## CLI del producto (rootcause.exe)
 
-El binario instalado funciona como herramienta de consola. Todos los comandos funcionan sin GUI.
+### Estado y snapshots
 
-### Ayuda y versión
-
-```
-rootcause --help
-rootcause --version
-```
-
-### Estado del sistema
-
-```
+```powershell
 rootcause status
-```
-Imprime severidad, CPU, RAM, I/O y alertas activas.
-
-### Snapshot JSON
-
-```
+rootcause status --json
 rootcause snapshot
-```
-Vuelca la instantánea completa a stdout en formato JSON.
-
-### Historial
-
-```
-rootcause history
-rootcause history 20
-```
-Muestra las últimas N filas del historial SQLite (default: 10).
-
-### Exportar
-
-```
+rootcause snapshot --output C:\diag\snapshot.json
 rootcause export
 ```
-Guarda snapshot a JSON en la carpeta Descargas o Documentos.
 
-### Captura ETL
+### Historial e incidentes
 
+```powershell
+rootcause history
+rootcause history 20
+rootcause history 20 --json
+rootcause incidents
+rootcause incidents 15 --json
 ```
-rootcause wpr start [--note "descripción"]
-rootcause wpr stop  [--note "descripción"]
+
+### Configuración operativa
+
+```powershell
+rootcause config show
+rootcause config show --json
+rootcause config init
+```
+
+### IA opcional por API
+
+```powershell
+rootcause ai explain-latest
+rootcause ai explain-latest --json
+```
+
+Notas:
+- RootCause funciona sin IA.
+- Para IA debes habilitar `ai.enabled = true` en `rootcause-config.json`.
+- Si la IA falla, no se interrumpe la detección ni la persistencia del incidente.
+
+### Acciones de remediación segura
+
+```powershell
+rootcause kill 1234
+rootcause block-ip 185.220.101.45
+rootcause stop-service bits
+```
+
+### Modo de precisión
+
+```powershell
+rootcause wpr start --note "Disco al 100% durante actualización"
+rootcause wpr stop --note "Disco al 100% durante actualización"
 rootcause wpr cancel
 rootcause wpr analyze
 ```
 
-### Acciones de intervención
+### GUI explícita
 
-```
-rootcause kill <PID>
-rootcause block-ip <IP>
-rootcause stop-service <nombre>
-```
-
-### Forzar modo GUI
-
-```
+```powershell
 rootcause --gui
 ```
 

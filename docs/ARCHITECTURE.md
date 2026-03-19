@@ -45,6 +45,7 @@ No se eligió una base web pesada ni Electron porque el propio monitor no debe c
 
 ```text
 src/
+├── config.rs
 ├── main.rs
 ├── app.rs
 ├── cli.rs
@@ -52,6 +53,8 @@ src/
 ├── models.rs
 └── services/
     ├── mod.rs
+    ├── ai.rs
+    ├── rules.rs
     ├── inspector.rs
     ├── network.rs
     ├── persistence.rs
@@ -76,9 +79,19 @@ Interfaz de línea de comandos completa.
 Responsabilidades:
 - `run(&[String]) -> i32` con dispatch de comandos,
 - `--help` con ASCII art del producto,
-- `--version`, `status`, `snapshot`, `history [N]`, `export`,
+- `--version`, `status [--json]`, `snapshot [--output PATH]`, `history [N] [--json]`, `incidents [N] [--json]`, `export`,
+- `config show/init`,
+- `ai explain-latest [--json]`,
 - `wpr start/stop/cancel/analyze [--note NOTE]`,
 - `kill <PID>`, `block-ip <IP>`, `stop-service <name>`.
+
+### `config.rs`
+Gestión de configuración operativa local.
+
+Responsabilidades:
+- cargar `rootcause-config.json` desde AppData,
+- exponer defaults seguros para umbrales, retención y acciones,
+- mantener IA opcional desactivada por defecto.
 
 ### `app.rs`
 Capa de interfaz.
@@ -108,7 +121,18 @@ Responsabilidades:
 - estado de precisión,
 - resumen ETL,
 - `SnapshotRow` para filas del historial SQLite,
+- `IncidentSummary` para correlación persistida,
+- `AuditRecord` para trazabilidad de acciones,
+- `AiIncidentAdvice` para enriquecimiento opcional,
 - `HardwareInfo` para datos estáticos del hardware (OS, CPU, RAM, arquitectura).
+
+### `services/rules.rs`
+Motor ligero de reglas y correlación.
+
+Responsabilidades:
+- clasificar procesos con umbrales configurables,
+- construir alertas a partir de procesos, red, temporales y servicios,
+- derivar incidentes resumidos con evidencia y acciones sugeridas.
 
 ### `services/inspector.rs`
 Orquestador principal.
@@ -117,9 +141,12 @@ Responsabilidades:
 - refrescar métricas,
 - calcular deltas,
 - ensamblar el snapshot completo,
+- aplicar reglas y correlación,
+- persistir snapshots, incidentes y auditoría,
 - `get_hardware_info()` — recopila datos de hardware una sola vez al iniciar,
 - exponer acciones de UI,
-- coordinar ETL + resumen.
+- coordinar ETL + resumen,
+- invocar IA opcional solo sobre incidentes ya persistidos.
 
 ### `services/network.rs`
 Parsea `netstat` y clasifica conexiones.
@@ -156,8 +183,19 @@ Persistencia local SQLite.
 
 Responsabilidades:
 - guardar snapshots,
+- guardar incidentes resumidos,
+- registrar auditoría de acciones y de IA,
 - `load_recent(limit)` — devuelve últimas N filas como `Vec<SnapshotRow>`,
 - parsea `alerts_json` para derivar `alerts_count` y `has_critical`.
+
+### `services/ai.rs`
+Adaptador opcional de IA.
+
+Responsabilidades:
+- recibir un incidente ya resumido,
+- invocar un endpoint compatible por API,
+- devolver resumen, causas probables, acciones y confianza,
+- fallar de forma aislada sin afectar la detección principal.
 
 ---
 
@@ -166,9 +204,17 @@ Responsabilidades:
 ### Observación liviana
 1. `app.rs` pide refresh,
 2. `inspector.rs` consulta procesos, red, temporales, eventos y servicios,
-3. arma `SystemSnapshot`,
-4. persiste un resumen en SQLite,
-5. devuelve datos a la UI.
+3. `rules.rs` clasifica y correlaciona señales,
+4. arma `SystemSnapshot`,
+5. persiste snapshot + incidente resumido en SQLite,
+6. devuelve datos a la UI.
+
+### Enriquecimiento IA opcional
+1. el motor ya detectó y persistió un incidente local,
+2. CLI o futuras vistas piden enriquecimiento,
+3. `services/ai.rs` envía un paquete resumido al proveedor configurado,
+4. si responde bien, se actualiza el incidente persistido,
+5. si falla, RootCause sigue funcionando y registra auditoría.
 
 ### Modo de precisión
 1. `app.rs` dispara captura WPR,
@@ -191,7 +237,7 @@ Para minimizar consumo y complejidad.
 Para aprovechar lo que Windows ya expone, en vez de introducir dependencias más pesadas desde el inicio.
 
 ### Persistencia pequeña
-SQLite guarda solo lo útil para comparar tendencias, no un universo de datos crudos.
+SQLite guarda solo lo útil para comparar tendencias, revisar incidentes y auditar acciones, no un universo de datos crudos.
 
 ### ETL como capa progresiva
 No se obliga al usuario a entrar a ETW desde el primer minuto. Primero se observa; luego, si hace falta, se sube de nivel.

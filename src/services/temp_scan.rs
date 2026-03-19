@@ -4,6 +4,7 @@
 //! pesan, sin convertir el monitor en otra carga pesada. Por eso el escaneo
 //! usa límites razonables de profundidad y conteo de archivos.
 
+use crate::config::TempThresholds;
 use crate::models::{Severity, TempEntry, TempOverview};
 use anyhow::Result;
 use std::fs;
@@ -13,7 +14,7 @@ use walkdir::WalkDir;
 const MAX_FILES_PER_ENTRY: usize = 20_000;
 
 /// Construye el resumen de temporales más relevante para la UI.
-pub fn scan_temp_overview() -> Result<TempOverview> {
+pub fn scan_temp_overview(thresholds: &TempThresholds) -> Result<TempOverview> {
     let roots = candidate_roots();
     let mut top_entries = Vec::new();
     let mut limitations = Vec::new();
@@ -24,7 +25,7 @@ pub fn scan_temp_overview() -> Result<TempOverview> {
             continue;
         }
 
-        match scan_root(root) {
+        match scan_root(root, thresholds) {
             Ok((entry_total, mut entries)) => {
                 total_bytes = total_bytes.saturating_add(entry_total);
                 top_entries.append(&mut entries);
@@ -70,7 +71,7 @@ pub fn candidate_roots() -> Vec<PathBuf> {
 }
 
 /// Escanea una raíz concreta y devuelve el total y sus elementos más pesados.
-fn scan_root(root: &Path) -> Result<(u64, Vec<TempEntry>)> {
+fn scan_root(root: &Path, thresholds: &TempThresholds) -> Result<(u64, Vec<TempEntry>)> {
     let mut total_bytes: u64 = 0;
     let mut rows = Vec::new();
 
@@ -87,7 +88,7 @@ fn scan_root(root: &Path) -> Result<(u64, Vec<TempEntry>)> {
             path: path.display().to_string(),
             size_mb: bytes_to_mb(size_bytes),
             file_count,
-            severity: classify_temp_size(size_bytes),
+            severity: classify_temp_size(size_bytes, thresholds),
             note: note_for_path(&path, size_bytes),
         });
     }
@@ -126,11 +127,14 @@ fn accumulate_path(path: &Path) -> (u64, u64) {
 }
 
 /// Traduce peso en severidad visual.
-pub fn classify_temp_size(bytes: u64) -> Severity {
-    match bytes {
-        0..=262_143_999 => Severity::Healthy,
-        262_144_000..=1_073_741_823 => Severity::Warning,
-        _ => Severity::Critical,
+pub fn classify_temp_size(bytes: u64, thresholds: &TempThresholds) -> Severity {
+    let size_mb = bytes_to_mb(bytes);
+    if size_mb >= thresholds.critical_mb {
+        Severity::Critical
+    } else if size_mb >= thresholds.warning_mb {
+        Severity::Warning
+    } else {
+        Severity::Healthy
     }
 }
 
@@ -161,10 +165,17 @@ mod tests {
 
     #[test]
     fn clasifica_severidad_de_temporales() {
-        assert_eq!(classify_temp_size(10 * 1024 * 1024), Severity::Healthy);
-        assert_eq!(classify_temp_size(600 * 1024 * 1024), Severity::Warning);
+        let thresholds = TempThresholds::default();
         assert_eq!(
-            classify_temp_size(2 * 1024 * 1024 * 1024),
+            classify_temp_size(10 * 1024 * 1024, &thresholds),
+            Severity::Healthy
+        );
+        assert_eq!(
+            classify_temp_size(600 * 1024 * 1024, &thresholds),
+            Severity::Warning
+        );
+        assert_eq!(
+            classify_temp_size(2 * 1024 * 1024 * 1024, &thresholds),
             Severity::Critical
         );
     }

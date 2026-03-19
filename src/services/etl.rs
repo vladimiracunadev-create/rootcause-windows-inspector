@@ -7,6 +7,7 @@
 use crate::models::{
     Severity, TraceAnalysisSummary, TraceFinding, TracePathSummary, TraceProcessSummary,
 };
+use crate::services::network;
 use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use regex::Regex;
@@ -15,6 +16,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 #[derive(Default)]
 struct WorkingEvent {
@@ -369,12 +371,12 @@ fn detect_process_name(field_name: &str, value: &str) -> Option<String> {
 }
 
 fn extract_public_ips(value: &str) -> Vec<String> {
-    let regex = Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").expect("regex válida");
+    let regex = public_ipv4_regex();
     regex
         .find_iter(value)
         .filter_map(|capture| {
             let ip = capture.as_str();
-            if is_public_ip(ip) {
+            if network::is_public_ip(ip) {
                 Some(ip.to_owned())
             } else {
                 None
@@ -383,26 +385,11 @@ fn extract_public_ips(value: &str) -> Vec<String> {
         .collect()
 }
 
-fn is_public_ip(ip: &str) -> bool {
-    let ip = ip.trim();
-    !(ip.starts_with("10.")
-        || ip.starts_with("127.")
-        || ip.starts_with("192.168.")
-        || ip.starts_with("169.254.")
-        || ip == "0.0.0.0"
-        || ip.is_empty()
-        || private_172(ip))
-}
-
-fn private_172(ip: &str) -> bool {
-    let Some(rest) = ip.strip_prefix("172.") else {
-        return false;
-    };
-    let second = rest
-        .split('.')
-        .next()
-        .and_then(|value| value.parse::<u8>().ok());
-    matches!(second, Some(value) if (16..=31).contains(&value))
+fn public_ipv4_regex() -> &'static Regex {
+    static IPV4_REGEX: OnceLock<Regex> = OnceLock::new();
+    IPV4_REGEX.get_or_init(|| {
+        Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").expect("regex IPv4 debe compilar")
+    })
 }
 
 fn categorize_path(path: &str) -> String {

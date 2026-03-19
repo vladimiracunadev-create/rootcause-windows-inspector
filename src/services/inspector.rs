@@ -1,14 +1,16 @@
 //! Servicio principal de inspección.
 //!
-//! Orquesta la captura de métricas, aplica heurísticas y entrega una
-//! instantánea lista para la UI. La idea es que el frontend no piense en cómo
-//! obtener datos, solo en cómo mostrarlos con claridad.
+//! Orquesta la captura de métricas, aplica reglas, persiste evidencia y expone
+//! acciones seguras para GUI y CLI.
 
+use crate::config::{ConfigManager, RootCauseConfig};
 use crate::models::{
-    Alert, ConnectionInsight, HardwareInfo, PrecisionStatus, ProcessInsight, ServiceState,
-    Severity, SnapshotRow, SystemOverview, SystemSnapshot, TempEntry, TraceAnalysisSummary,
+    AiIncidentAdvice, Alert, AuditRecord, HardwareInfo, IncidentSummary, PrecisionStatus,
+    ProcessInsight, Severity, SnapshotRow, SystemOverview, SystemSnapshot, TraceAnalysisSummary,
 };
-use crate::services::{etl, network, persistence::PersistenceStore, temp_scan, windows};
+use crate::services::{
+    ai::AiAdvisor, etl, network, persistence::PersistenceStore, rules, temp_scan, windows,
+};
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};
@@ -16,6 +18,8 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use sysinfo::{Networks, Pid, System, get_current_pid};
+
+const APP_NAME: &str = "RootCauseInspector";
 
 /// Estado incremental necesario para calcular deltas entre muestreos.
 #[derive(Default)]
@@ -33,6 +37,9 @@ pub struct InspectorService {
     stoppable_services: HashSet<String>,
     own_pid: u32,
     store: PersistenceStore,
+    config: RootCauseConfig,
+    config_path: PathBuf,
+    config_warning: Option<String>,
     precision_traces_dir: PathBuf,
     precision_analysis_dir: PathBuf,
     precision_last_trace_path: Option<PathBuf>,
@@ -74,7 +81,8 @@ impl InspectorService {
             .ok()
             .map(|pid| pid.as_u32())
             .unwrap_or_default();
-        let store = PersistenceStore::new("RootCauseInspector")?;
+        let store = PersistenceStore::new(APP_NAME)?;
+        let (config_manager, config_warning) = ConfigManager::load_or_default(APP_NAME);
 
         let base_precision_dir = dirs::document_dir()
             .or_else(dirs::download_dir)
@@ -111,6 +119,9 @@ impl InspectorService {
             stoppable_services,
             own_pid,
             store,
+            config: config_manager.config().clone(),
+            config_path: config_manager.path().to_path_buf(),
+            config_warning,
             precision_traces_dir,
             precision_analysis_dir,
             precision_last_trace_path,
@@ -127,12 +138,36 @@ impl InspectorService {
             .unwrap_or_else(|| format!("Historial listo en {}", self.store.db_path().display()))
     }
 
-    /// Carga las últimas N filas del historial SQLite para la pestaña Historial.
+    /// Ruta de la configuración operativa actual.
+    pub fn config_path(&self) -> &Path {
+        &self.config_path
+    }
+
+    /// Configuración actual cargada por el motor.
+    pub fn config(&self) -> &RootCauseConfig {
+        &self.config
+    }
+
+    pub fn write_default_config_if_missing(&self) -> Result<String> {
+        let path = ConfigManager::write_default_if_missing(APP_NAME)?;
+        Ok(path.display().to_string())
+    }
+
+    /// Carga las últimas N filas del historial SQLite.
     pub fn load_history(&self, limit: usize) -> Vec<SnapshotRow> {
         self.store.load_recent(limit).unwrap_or_default()
     }
 
-    /// Recopila información estática del hardware del equipo (se llama una sola vez al iniciar).
+    /// Carga los últimos N incidentes persistidos.
+    pub fn load_incidents(&self, limit: usize) -> Vec<IncidentSummary> {
+        self.store.load_recent_incidents(limit).unwrap_or_default()
+    }
+
+    pub fn latest_incident(&self) -> Option<IncidentSummary> {
+        self.store.latest_incident().ok().flatten()
+    }
+
+    /// Recopila información estática del hardware del equipo.
     pub fn get_hardware_info(&self) -> HardwareInfo {
         let cpu = self.system.cpus().first();
         HardwareInfo {
@@ -155,12 +190,15 @@ impl InspectorService {
         let collected_at = Utc::now();
         let mut process_names = HashMap::new();
         let mut process_paths = HashMap::new();
+        let mut active_pids = HashSet::new();
         let mut processes = Vec::new();
         let mut total_read_delta_bytes = 0_u64;
         let mut total_write_delta_bytes = 0_u64;
 
         for process in self.system.processes().values() {
             let pid = process.pid().as_u32();
+            active_pids.insert(pid);
+
             let name = os_str_to_string(process.name());
             let exe_path = process
                 .exe()
@@ -187,8 +225,15 @@ impl InspectorService {
             process_names.insert(pid, name.clone());
             process_paths.insert(pid, exe_path.clone());
 
-            let (severity, score, reasons, category) =
-                classify_process(&name, &exe_path, cpu_percent, memory_mb, write_delta);
+            let write_delta_mb = bytes_to_mb(write_delta);
+            let (severity, score, reasons, category) = rules::classify_process(
+                &name,
+                &exe_path,
+                cpu_percent,
+                memory_mb,
+                write_delta_mb,
+                &self.config.thresholds.process,
+            );
             let can_terminate = self.can_terminate_process(pid, &name, &exe_path);
 
             processes.push(ProcessInsight {
@@ -199,7 +244,7 @@ impl InspectorService {
                 cpu_percent,
                 memory_mb,
                 io_read_mb_delta: bytes_to_mb(read_delta),
-                io_write_mb_delta: bytes_to_mb(write_delta),
+                io_write_mb_delta: write_delta_mb,
                 status: format!("{:?}", process.status()),
                 category,
                 severity,
@@ -210,6 +255,9 @@ impl InspectorService {
             });
         }
 
+        self.process_baselines
+            .retain(|pid, _| active_pids.contains(pid));
+
         processes.sort_by(|a, b| {
             b.severity
                 .cmp(&a.severity)
@@ -218,7 +266,6 @@ impl InspectorService {
                 .then_with(|| b.cpu_percent.total_cmp(&a.cpu_percent))
         });
 
-        // Obtener cmdline para los primeros procesos Críticos o de alto I/O (máx 6).
         let critical_pids: Vec<u32> = processes
             .iter()
             .filter(|p| matches!(p.severity, Severity::Critical) || p.io_write_mb_delta > 20.0)
@@ -227,9 +274,9 @@ impl InspectorService {
             .collect();
         if !critical_pids.is_empty() {
             let cmdlines = windows::batch_process_cmdlines(&critical_pids);
-            for p in processes.iter_mut() {
-                if let Some(cmdline) = cmdlines.get(&p.pid) {
-                    p.command_line = Some(cmdline.clone());
+            for process in &mut processes {
+                if let Some(cmdline) = cmdlines.get(&process.pid) {
+                    process.command_line = Some(cmdline.clone());
                 }
             }
         }
@@ -238,7 +285,7 @@ impl InspectorService {
             Ok(output) => network::parse_netstat_output(&output, &process_names, &process_paths),
             Err(_) => Vec::new(),
         };
-        let temp = temp_scan::scan_temp_overview().unwrap_or_default();
+        let temp = temp_scan::scan_temp_overview(&self.config.thresholds.temp).unwrap_or_default();
         let events = windows::recent_system_events(18).unwrap_or_default();
         let services = windows::relevant_services().unwrap_or_default();
         let trace_analysis = self.load_last_trace_analysis().ok().flatten();
@@ -270,14 +317,27 @@ impl InspectorService {
             primary_reason: "Sin señales fuertes en esta muestra".to_owned(),
         };
 
-        let alerts = build_alerts(
+        let mut alerts = rules::build_alerts(
             &processes,
             &connections,
             &temp.top_entries,
             &services,
             &precision,
             &mut overview,
+            self.config.alerting.max_alerts,
         );
+
+        if let Some(warning) = self.config_warning.as_ref() {
+            alerts.push(Alert {
+                severity: Severity::Warning,
+                title: "Configuración con fallback".to_owned(),
+                detail: warning.clone(),
+                pid: None,
+                path: Some(self.config_path.display().to_string()),
+                hint: "Corrige el JSON o genera un archivo limpio con `rootcause config init`"
+                    .to_owned(),
+            });
+        }
 
         let mut snapshot = SystemSnapshot {
             collected_at,
@@ -292,9 +352,12 @@ impl InspectorService {
             trace_analysis,
         };
 
-        apply_trace_analysis_to_snapshot(&mut snapshot);
+        apply_trace_analysis_to_snapshot(&mut snapshot, self.config.alerting.max_alerts);
 
-        if let Err(error) = self.store.persist_snapshot(&snapshot) {
+        if let Err(error) = self
+            .store
+            .persist_snapshot(&snapshot, self.config.collection.history_limit)
+        {
             snapshot.alerts.push(Alert {
                 severity: Severity::Warning,
                 title: "Persistencia con advertencia".to_owned(),
@@ -304,6 +367,12 @@ impl InspectorService {
                 hint: "La app sigue funcionando; solo se pierde este punto del historial"
                     .to_owned(),
             });
+        }
+
+        if let Some(incident) = rules::derive_incident(&snapshot) {
+            let _ = self
+                .store
+                .persist_incident(&incident, self.config.collection.incident_limit);
         }
 
         Ok(snapshot)
@@ -375,12 +444,21 @@ impl InspectorService {
 
     /// Inicia una captura WPR desde la propia aplicación.
     pub fn start_precision_capture(&mut self, problem_hint: &str) -> Result<String> {
-        let message = windows::start_wpr_general_profile(&self.precision_traces_dir, problem_hint)?;
-        Ok(format!(
-            "{} | Carpeta de trabajo: {}",
-            message,
-            self.precision_traces_dir.display()
-        ))
+        let result = windows::start_wpr_general_profile(&self.precision_traces_dir, problem_hint)
+            .map(|message| {
+                format!(
+                    "{} | Carpeta de trabajo: {}",
+                    message,
+                    self.precision_traces_dir.display()
+                )
+            });
+        self.audit_action(
+            "precision-start",
+            problem_hint,
+            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().err(),
+        );
+        result
     }
 
     /// Detiene la captura WPR y guarda el ETL en la carpeta de trazas.
@@ -390,15 +468,30 @@ impl InspectorService {
             Utc::now().format("%Y%m%d-%H%M%S")
         );
         let output_path = self.precision_traces_dir.join(filename);
-        let message = windows::stop_wpr_capture(&output_path, problem_description)?;
-        self.precision_last_trace_path = Some(output_path.clone());
-        self.precision_last_analysis_path = None;
-        Ok(format!("{} | ETL: {}", message, output_path.display()))
+        let result = windows::stop_wpr_capture(&output_path, problem_description).map(|message| {
+            self.precision_last_trace_path = Some(output_path.clone());
+            self.precision_last_analysis_path = None;
+            format!("{} | ETL: {}", message, output_path.display())
+        });
+        self.audit_action(
+            "precision-stop",
+            &output_path.display().to_string(),
+            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().err(),
+        );
+        result
     }
 
     /// Cancela la captura WPR actual.
     pub fn cancel_precision_capture(&mut self) -> Result<String> {
-        windows::cancel_wpr_capture()
+        let result = windows::cancel_wpr_capture();
+        self.audit_action(
+            "precision-cancel",
+            "wpr",
+            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().err(),
+        );
+        result
     }
 
     /// Resume el último ETL disponible usando tracerpt y heurísticas locales.
@@ -426,12 +519,52 @@ impl InspectorService {
         let analysis =
             etl::summarize_exported_etl(&etl_path, &xml_path, &summary_path, output_dir)?;
         self.precision_last_analysis_path = Some(json_path);
-        Ok(format!("{} | {}", export_message, analysis.headline))
+        let message = format!("{} | {}", export_message, analysis.headline);
+        self.audit_action(
+            "precision-analyze",
+            &etl_path.display().to_string(),
+            Some(&message),
+            None,
+        );
+        Ok(message)
     }
 
-    /// Exporta el historial a JSON junto al SQLite (copia de seguridad de último recurso).
+    /// Ejecuta el adaptador IA opcional sobre el incidente más reciente.
+    pub fn explain_latest_incident_with_ai(&self) -> Result<AiIncidentAdvice> {
+        let incident = self
+            .latest_incident()
+            .ok_or_else(|| anyhow!("No hay incidentes persistidos para enriquecer"))?;
+        let advisor = AiAdvisor::new(self.config.ai.clone());
+        let result = advisor.summarize_incident(&incident);
+
+        match &result {
+            Ok(advice) => {
+                let _ = self.store.update_incident_ai(&incident.incident_id, advice);
+                self.audit_action(
+                    "ai-explain-latest",
+                    &incident.incident_id,
+                    Some(&advice.summary),
+                    None,
+                );
+            }
+            Err(error) => {
+                self.audit_action(
+                    "ai-explain-latest",
+                    &incident.incident_id,
+                    None,
+                    Some(error),
+                );
+            }
+        }
+
+        result
+    }
+
+    /// Exporta el historial a JSON junto al SQLite.
     pub fn export_history_backup(&self) -> Result<String> {
-        let path = self.store.export_history_backup(1000)?;
+        let path = self
+            .store
+            .export_history_backup(self.config.collection.history_limit)?;
         Ok(path.display().to_string())
     }
 
@@ -446,39 +579,82 @@ impl InspectorService {
 
     /// Finaliza un proceso si la política local lo permite.
     pub fn terminate_process(&self, pid: u32) -> Result<String> {
-        if pid == self.own_pid {
-            return Err(anyhow!("La aplicación no se permite finalizar a sí misma"));
+        if !self.config.remediation.manual_actions_enabled {
+            let error = anyhow!("Las acciones manuales están desactivadas por configuración");
+            self.audit_action("terminate-process", &pid.to_string(), None, Some(&error));
+            return Err(error);
         }
-        let process = self
-            .system
-            .process(Pid::from(pid as usize))
-            .ok_or_else(|| anyhow!("El proceso ya no existe"))?;
-        let name = os_str_to_string(process.name());
-        let exe_path = process
-            .exe()
-            .map(|path| path.display().to_string())
-            .unwrap_or_default();
-        if !self.can_terminate_process(pid, &name, &exe_path) {
-            return Err(anyhow!("Proceso protegido por política local"));
-        }
-        windows::terminate_process(pid)
+
+        let result = (|| {
+            if pid == self.own_pid {
+                return Err(anyhow!("La aplicación no se permite finalizar a sí misma"));
+            }
+            let process = self
+                .system
+                .process(Pid::from(pid as usize))
+                .ok_or_else(|| anyhow!("El proceso ya no existe"))?;
+            let name = os_str_to_string(process.name());
+            let exe_path = process
+                .exe()
+                .map(|path| path.display().to_string())
+                .unwrap_or_default();
+            if !self.can_terminate_process(pid, &name, &exe_path) {
+                return Err(anyhow!("Proceso protegido por política local"));
+            }
+            windows::terminate_process(pid)
+        })();
+
+        self.audit_action(
+            "terminate-process",
+            &pid.to_string(),
+            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().err(),
+        );
+        result
     }
 
     /// Bloquea una IP pública vía firewall de Windows.
     pub fn block_remote_ip(&self, ip_or_endpoint: &str) -> Result<String> {
+        if !self.config.remediation.manual_actions_enabled {
+            let error = anyhow!("Las acciones manuales están desactivadas por configuración");
+            self.audit_action("block-ip", ip_or_endpoint, None, Some(&error));
+            return Err(error);
+        }
+
         let ip = network::extract_ip(ip_or_endpoint).unwrap_or_else(|| ip_or_endpoint.to_owned());
-        windows::block_remote_ip(&ip)
+        let result = windows::block_remote_ip(&ip);
+        self.audit_action(
+            "block-ip",
+            &ip,
+            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().err(),
+        );
+        result
     }
 
     /// Detiene temporalmente un servicio permitido.
     pub fn stop_service(&self, service_name: &str) -> Result<String> {
-        let lowered = service_name.trim().to_ascii_lowercase();
-        if !self.stoppable_services.contains(&lowered) {
-            return Err(anyhow!(
-                "El servicio {service_name} no está permitido para detención rápida desde la UI"
-            ));
+        if !self.config.remediation.manual_actions_enabled {
+            let error = anyhow!("Las acciones manuales están desactivadas por configuración");
+            self.audit_action("stop-service", service_name, None, Some(&error));
+            return Err(error);
         }
-        windows::stop_service(&lowered)
+
+        let lowered = service_name.trim().to_ascii_lowercase();
+        let result = if !self.stoppable_services.contains(&lowered) {
+            Err(anyhow!(
+                "El servicio {service_name} no está permitido para detención rápida desde la UI"
+            ))
+        } else {
+            windows::stop_service(&lowered)
+        };
+        self.audit_action(
+            "stop-service",
+            &lowered,
+            result.as_ref().map(|s| s.as_str()),
+            result.as_ref().err(),
+        );
+        result
     }
 
     fn can_terminate_process(&self, pid: u32, name: &str, exe_path: &str) -> bool {
@@ -514,9 +690,29 @@ impl InspectorService {
         let analysis = serde_json::from_str::<TraceAnalysisSummary>(&text)?;
         Ok(Some(analysis))
     }
+
+    fn audit_action(
+        &self,
+        action: &str,
+        target: &str,
+        success_message: Option<&str>,
+        error: Option<&anyhow::Error>,
+    ) {
+        let record = AuditRecord {
+            occurred_at: Utc::now().to_rfc3339(),
+            action: action.to_owned(),
+            target: target.to_owned(),
+            success: error.is_none(),
+            detail: success_message
+                .map(str::to_owned)
+                .or_else(|| error.map(ToString::to_string))
+                .unwrap_or_default(),
+        };
+        let _ = self.store.record_audit(&record);
+    }
 }
 
-fn apply_trace_analysis_to_snapshot(snapshot: &mut SystemSnapshot) {
+fn apply_trace_analysis_to_snapshot(snapshot: &mut SystemSnapshot, max_alerts: usize) {
     let Some(analysis) = snapshot.trace_analysis.as_ref() else {
         return;
     };
@@ -540,217 +736,7 @@ fn apply_trace_analysis_to_snapshot(snapshot: &mut SystemSnapshot) {
             hint: format!("Evidencia: {}", finding.evidence),
         },
     );
-    snapshot.alerts.truncate(8);
-}
-
-/// Determina severidad y explicación para cada proceso.
-pub fn classify_process(
-    name: &str,
-    exe_path: &str,
-    cpu_percent: f32,
-    memory_mb: f32,
-    write_delta_bytes: u64,
-) -> (Severity, u8, Vec<String>, String) {
-    let mut score = 0_u8;
-    let mut reasons = Vec::new();
-    let lower_name = name.to_ascii_lowercase();
-    let lower_path = exe_path.to_ascii_lowercase();
-    let write_mb = bytes_to_mb(write_delta_bytes);
-
-    if cpu_percent >= 65.0 {
-        score = score.saturating_add(35);
-        reasons.push(format!("CPU alto ({cpu_percent:.1}%)"));
-    } else if cpu_percent >= 30.0 {
-        score = score.saturating_add(18);
-        reasons.push(format!("CPU sostenido ({cpu_percent:.1}%)"));
-    }
-
-    if memory_mb >= 2_500.0 {
-        score = score.saturating_add(28);
-        reasons.push(format!("Memoria elevada ({memory_mb:.0} MB)"));
-    } else if memory_mb >= 1_000.0 {
-        score = score.saturating_add(14);
-        reasons.push(format!("Memoria moderada-alta ({memory_mb:.0} MB)"));
-    }
-
-    if write_mb >= 200.0 {
-        score = score.saturating_add(40);
-        reasons.push(format!(
-            "Escritura intensa ({write_mb:.1} MB en el intervalo)"
-        ));
-    } else if write_mb >= 40.0 {
-        score = score.saturating_add(20);
-        reasons.push(format!("Escritura perceptible ({write_mb:.1} MB)"));
-    }
-
-    if lower_path.contains("\\temp\\") || lower_path.contains("\\appdata\\local\\temp\\") {
-        score = score.saturating_add(24);
-        reasons.push("Ejecutable lanzado desde carpeta temporal".to_owned());
-    }
-
-    if [
-        "update",
-        "installer",
-        "setup",
-        "msiexec",
-        "trustedinstaller",
-        "dism",
-    ]
-    .iter()
-    .any(|needle| lower_name.contains(needle))
-    {
-        score = score.saturating_add(12);
-        reasons.push("Patrón de actualización/instalación detectado".to_owned());
-    }
-
-    let severity = match score {
-        0..=24 => Severity::Healthy,
-        25..=54 => Severity::Warning,
-        _ => Severity::Critical,
-    };
-
-    if reasons.is_empty() {
-        reasons.push("Sin presión relevante en esta muestra".to_owned());
-    }
-
-    let category = if lower_path.contains("\\temp\\") {
-        "Temporal / instalador".to_owned()
-    } else if lower_path.contains("\\windows\\softwaredistribution")
-        || lower_name.contains("update")
-    {
-        "Actualización / mantenimiento".to_owned()
-    } else if lower_path.starts_with(r"c:\windows") {
-        "Sistema operativo".to_owned()
-    } else {
-        "Aplicación de usuario".to_owned()
-    };
-
-    (severity, score, reasons, category)
-}
-
-fn build_alerts(
-    processes: &[ProcessInsight],
-    connections: &[ConnectionInsight],
-    temp_entries: &[TempEntry],
-    services: &[ServiceState],
-    precision: &PrecisionStatus,
-    overview: &mut SystemOverview,
-) -> Vec<Alert> {
-    let mut alerts = Vec::new();
-
-    if let Some(process) = processes
-        .iter()
-        .find(|process| process.severity == Severity::Critical)
-    {
-        overview.primary_severity = Severity::Critical;
-        overview.primary_reason = format!(
-            "Proceso crítico detectado: {} (PID {})",
-            process.name, process.pid
-        );
-        alerts.push(Alert {
-            severity: Severity::Critical,
-            title: "Proceso dominante con presión alta".to_owned(),
-            detail: format!(
-                "{} usa {:.1}% CPU, {:.0} MB RAM y escribe {:.1} MB por intervalo.",
-                process.name, process.cpu_percent, process.memory_mb, process.io_write_mb_delta
-            ),
-            pid: Some(process.pid),
-            path: Some(process.exe_path.clone()),
-            hint: "Revísalo primero; si confirmas que no es esencial, puedes finalizarlo"
-                .to_owned(),
-        });
-    }
-
-    if let Some(connection) = connections
-        .iter()
-        .find(|item| item.severity == Severity::Critical)
-    {
-        if overview.primary_severity < Severity::Critical {
-            overview.primary_severity = Severity::Critical;
-            overview.primary_reason = format!(
-                "Conexión pública sospechosa: {} -> {}",
-                connection.process_name, connection.remote_address
-            );
-        }
-        alerts.push(Alert {
-            severity: Severity::Critical,
-            title: "Conexión remota a revisar".to_owned(),
-            detail: format!(
-                "{} (PID {}) mantiene conexión con {}.",
-                connection.process_name, connection.pid, connection.remote_address
-            ),
-            pid: Some(connection.pid),
-            path: Some(connection.exe_path.clone()),
-            hint: "Valida la ruta del ejecutable y bloquea la IP si no corresponde".to_owned(),
-        });
-    }
-
-    if let Some(temp_entry) = temp_entries
-        .iter()
-        .find(|entry| entry.severity == Severity::Critical)
-    {
-        if overview.primary_severity < Severity::Warning {
-            overview.primary_severity = Severity::Warning;
-            overview.primary_reason = format!("Crecimiento temporal alto en {}", temp_entry.path);
-        }
-        alerts.push(Alert {
-            severity: temp_entry.severity,
-            title: "Acumulación temporal relevante".to_owned(),
-            detail: format!(
-                "{} pesa {:.1} MB y contiene {} archivos.",
-                temp_entry.path, temp_entry.size_mb, temp_entry.file_count
-            ),
-            pid: None,
-            path: Some(temp_entry.path.clone()),
-            hint: temp_entry.note.clone(),
-        });
-    }
-
-    for service in services {
-        let lower_name = service.name.to_ascii_lowercase();
-        if (lower_name == "wuauserv" || lower_name == "bits" || lower_name == "dosvc")
-            && service.status.eq_ignore_ascii_case("Running")
-        {
-            alerts.push(Alert {
-                severity: Severity::Warning,
-                title: "Servicio de actualización activo".to_owned(),
-                detail: format!(
-                    "{} está {} y puede explicar actividad en segundo plano.",
-                    service.display_name, service.status
-                ),
-                pid: None,
-                path: None,
-                hint: "Correlaciónalo con SoftwareDistribution, Delivery Optimization y procesos de instalación/descarga".to_owned(),
-            });
-        }
-    }
-
-    if !precision.wpr_available {
-        alerts.push(Alert {
-            severity: Severity::Healthy,
-            title: "Modo de precisión disponible bajo instalación adicional".to_owned(),
-            detail: "La app puede operar sin WPR, pero para correlación fina conviene instalar Windows Performance Toolkit.".to_owned(),
-            pid: None,
-            path: None,
-            hint: "Úsalo cuando necesites saber con más exactitud qué archivo o actividad disparó la lentitud.".to_owned(),
-        });
-    }
-
-    if alerts.is_empty() {
-        overview.primary_severity = Severity::Healthy;
-        overview.primary_reason = "No se observaron conflictos claros en esta muestra".to_owned();
-        alerts.push(Alert {
-            severity: Severity::Healthy,
-            title: "Estado estable".to_owned(),
-            detail: "No aparecieron procesos o conexiones anómalas dominantes en esta captura."
-                .to_owned(),
-            pid: None,
-            path: None,
-            hint: "Mantén el monitoreo unos minutos cuando aparezca la lentitud real".to_owned(),
-        });
-    }
-
-    alerts
+    snapshot.alerts.truncate(max_alerts);
 }
 
 fn latest_matching_file<F>(dir: &Path, predicate: F) -> Option<PathBuf>
@@ -805,12 +791,14 @@ mod tests {
 
     #[test]
     fn proceso_temporal_con_escritura_fuerte_es_critico() {
-        let (severity, score, reasons, category) = classify_process(
+        let config = RootCauseConfig::default();
+        let (severity, score, reasons, category) = rules::classify_process(
             "weird-updater.exe",
             r"C:\Users\vbav\AppData\Local\Temp\weird-updater.exe",
             72.0,
             1800.0,
-            350 * 1024 * 1024,
+            350.0,
+            &config.thresholds.process,
         );
         assert_eq!(severity, Severity::Critical);
         assert!(score > 55);

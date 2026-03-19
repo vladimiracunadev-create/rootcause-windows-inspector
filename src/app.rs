@@ -157,6 +157,8 @@ impl RootCauseApp {
             Ok(svc) => {
                 app.hardware_info = svc.get_hardware_info();
                 app.status_line = svc.latest_history_line();
+                app.refresh_interval_secs = svc.config().collection.refresh_interval_secs;
+                app.notifications_enabled = svc.config().alerting.notify_on_critical;
                 app.inspector = Some(svc);
             }
             Err(e) => {
@@ -193,9 +195,11 @@ impl RootCauseApp {
                 self.metric_history.push_back(sample);
 
                 // Notificación toast si el equipo pasa a estado Crítico
+                let notification_cooldown_secs = insp.config().alerting.notification_cooldown_secs;
                 if self.notifications_enabled
                     && matches!(snap.overview.primary_severity, Severity::Critical)
-                    && self.last_critical_notification.elapsed() > Duration::from_secs(90)
+                    && self.last_critical_notification.elapsed()
+                        > Duration::from_secs(notification_cooldown_secs)
                 {
                     windows::show_toast_notification(
                         "RootCause — Alerta Crítica",

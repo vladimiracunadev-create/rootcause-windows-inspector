@@ -24,6 +24,7 @@ function getInterval(): number {
 function severityIcon(severity: string): string {
     switch (severity.toLowerCase()) {
         case 'critical': return '$(error)';
+        case 'warning':  return '$(warning)';
         case 'high':     return '$(warning)';
         case 'medium':   return '$(info)';
         default:         return '$(check)';

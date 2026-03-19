@@ -17,6 +17,7 @@
 #[cfg(feature = "gui")]
 mod app;
 mod cli;
+mod config;
 mod meta;
 mod models;
 mod services;

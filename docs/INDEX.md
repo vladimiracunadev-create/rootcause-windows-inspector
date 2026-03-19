@@ -14,6 +14,7 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 - [Análisis del repositorio](REPOSITORIO_ANALISIS.md)
 - [Mini manual de Rust para este proyecto](RUST_PARA_ROOTCAUSE.md)
 - [Arquitectura y escalabilidad](ARQUITECTURA_ESCALABILIDAD.md)
+- [Arquitectura evolutiva y plan realista](ARQUITECTURA_EVOLUTIVA.md)
 - [Arquitectura técnica resumida](ARCHITECTURE.md)
 - [Heurísticas](HEURISTICAS.md)
 
@@ -44,6 +45,7 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 
 ## 🗺️ Plan maestro y continuidad
 - [**Plan Maestro — prioridades, análisis, visión completa**](PLAN_MAESTRO.md) ← 📌 LEER PRIMERO en cada sesión nueva
+- [Arquitectura evolutiva y backlog técnico](ARQUITECTURA_EVOLUTIVA.md)
 
 ## Estrategia del producto
 - [Marca, naming y branding técnico de RootCause](MARCA_Y_BRANDING_ROOTCAUSE.md)

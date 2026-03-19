@@ -109,6 +109,53 @@ pub struct SnapshotRow {
     pub has_critical: bool,
 }
 
+/// Evidencia atómica asociada a un incidente resumido.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IncidentEvidence {
+    pub kind: String,
+    pub label: String,
+    pub value: String,
+}
+
+/// Resumen persistible de un incidente o degradación detectada.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IncidentSummary {
+    pub incident_id: String,
+    pub fingerprint: String,
+    pub collected_at: DateTime<Utc>,
+    pub severity: Severity,
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
+    pub probable_causes: Vec<String>,
+    pub recommended_actions: Vec<String>,
+    pub evidence: Vec<IncidentEvidence>,
+    pub ai_advice: Option<AiIncidentAdvice>,
+}
+
+/// Respuesta opcional de un adaptador IA desacoplado del motor principal.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AiIncidentAdvice {
+    pub provider: String,
+    pub model: String,
+    pub summary: String,
+    pub probable_causes: Vec<String>,
+    pub suggested_actions: Vec<String>,
+    pub confidence: String,
+    pub warnings: Vec<String>,
+    pub generated_at: String,
+}
+
+/// Registro de acciones ejecutadas desde la app o CLI.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AuditRecord {
+    pub occurred_at: String,
+    pub action: String,
+    pub target: String,
+    pub success: bool,
+    pub detail: String,
+}
+
 /// Elemento medible dentro de carpetas temporales o cachés de riesgo.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TempEntry {

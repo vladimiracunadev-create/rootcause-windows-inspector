@@ -1,12 +1,14 @@
 //! Persistencia histórica en SQLite.
 //!
-//! La base no intenta guardar todo el universo de datos, solo lo necesario para
-//! comparar tendencias y revisar qué proceso dominaba cuando apareció la lentitud.
+//! La base ahora guarda tres capas:
+//! 1. snapshots compactos para tendencia,
+//! 2. incidentes resumidos para correlación/evidencia,
+//! 3. auditoría de acciones manuales o automáticas.
 
-use crate::models::{SnapshotRow, SystemSnapshot};
+use crate::models::{AiIncidentAdvice, AuditRecord, IncidentSummary, SnapshotRow, SystemSnapshot};
 use anyhow::{Context, Result};
 use chrono::Utc;
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -36,7 +38,7 @@ impl PersistenceStore {
     }
 
     /// Guarda un resumen compacto de la instantánea actual.
-    pub fn persist_snapshot(&self, snapshot: &SystemSnapshot) -> Result<()> {
+    pub fn persist_snapshot(&self, snapshot: &SystemSnapshot, history_limit: usize) -> Result<()> {
         let connection = Connection::open(&self.db_path)?;
         let dominant_process = snapshot
             .processes
@@ -77,39 +79,72 @@ impl PersistenceStore {
             ],
         )?;
 
-        // Retención: mantener solo las últimas 1 000 filas para evitar crecimiento ilimitado.
-        connection.execute(
-            r#"
-            DELETE FROM snapshots
-            WHERE id NOT IN (
-                SELECT id FROM snapshots
-                ORDER BY id DESC
-                LIMIT 1000
-            )
-            "#,
-            [],
-        )?;
-
+        self.trim_snapshots(history_limit)?;
         Ok(())
     }
 
-    /// Exporta el historial reciente a un archivo JSON como copia de seguridad.
-    ///
-    /// El JSON se escribe junto al archivo SQLite con el nombre
-    /// `rootcause-history-backup.json`. Se usa como respaldo de último recurso:
-    /// si la base SQLite se corrompe se puede recuperar el historial de aquí.
-    pub fn export_history_backup(&self, limit: usize) -> Result<PathBuf> {
-        let rows = self.load_recent(limit)?;
-        let json =
-            serde_json::to_string_pretty(&rows).context("No se pudo serializar el historial")?;
-        let backup_path = self
-            .db_path
-            .parent()
-            .unwrap_or(std::path::Path::new("."))
-            .join("rootcause-history-backup.json");
-        fs::write(&backup_path, json)
-            .with_context(|| format!("No se pudo escribir {}", backup_path.display()))?;
-        Ok(backup_path)
+    /// Guarda un incidente resumido si no es un duplicado inmediato.
+    pub fn persist_incident(
+        &self,
+        incident: &IncidentSummary,
+        incident_limit: usize,
+    ) -> Result<bool> {
+        let connection = Connection::open(&self.db_path)?;
+        let last_fingerprint: Option<String> = connection
+            .query_row(
+                "SELECT fingerprint FROM incidents ORDER BY id DESC LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if last_fingerprint.as_deref() == Some(incident.fingerprint.as_str()) {
+            return Ok(false);
+        }
+
+        connection.execute(
+            r#"
+            INSERT INTO incidents (
+                incident_id,
+                fingerprint,
+                collected_at,
+                severity,
+                kind,
+                title,
+                summary,
+                payload_json
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            "#,
+            params![
+                &incident.incident_id,
+                &incident.fingerprint,
+                incident.collected_at.to_rfc3339(),
+                format!("{:?}", incident.severity),
+                &incident.kind,
+                &incident.title,
+                &incident.summary,
+                serde_json::to_string(incident)?,
+            ],
+        )?;
+
+        self.trim_incidents(incident_limit)?;
+        Ok(true)
+    }
+
+    /// Actualiza el enriquecimiento IA del incidente más reciente con ese ID.
+    pub fn update_incident_ai(&self, incident_id: &str, advice: &AiIncidentAdvice) -> Result<()> {
+        let Some(mut incident) = self.load_incident_by_id(incident_id)? else {
+            return Ok(());
+        };
+        incident.ai_advice = Some(advice.clone());
+
+        let connection = Connection::open(&self.db_path)?;
+        connection.execute(
+            "UPDATE incidents SET payload_json = ?2 WHERE incident_id = ?1",
+            params![incident_id, serde_json::to_string(&incident)?],
+        )?;
+        Ok(())
     }
 
     /// Devuelve las últimas N filas del historial para mostrar en la pestaña Historial.
@@ -159,6 +194,77 @@ impl PersistenceStore {
         Ok(rows_out)
     }
 
+    pub fn load_recent_incidents(&self, limit: usize) -> Result<Vec<IncidentSummary>> {
+        let connection = Connection::open(&self.db_path)?;
+        let mut statement = connection.prepare(
+            r#"
+            SELECT payload_json
+            FROM incidents
+            ORDER BY id DESC
+            LIMIT ?1
+            "#,
+        )?;
+
+        let rows = statement.query_map(params![limit as i64], |row| row.get::<_, String>(0))?;
+        let mut incidents = Vec::new();
+        for row in rows {
+            let payload = row?;
+            if let Ok(incident) = serde_json::from_str::<IncidentSummary>(&payload) {
+                incidents.push(incident);
+            }
+        }
+        Ok(incidents)
+    }
+
+    pub fn latest_incident(&self) -> Result<Option<IncidentSummary>> {
+        let connection = Connection::open(&self.db_path)?;
+        let payload = connection
+            .query_row(
+                "SELECT payload_json FROM incidents ORDER BY id DESC LIMIT 1",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        match payload {
+            Some(text) => Ok(serde_json::from_str::<IncidentSummary>(&text).ok()),
+            None => Ok(None),
+        }
+    }
+
+    /// Guarda un evento de auditoría.
+    pub fn record_audit(&self, record: &AuditRecord) -> Result<()> {
+        let connection = Connection::open(&self.db_path)?;
+        connection.execute(
+            r#"
+            INSERT INTO audit_log (occurred_at, action, target, success, detail)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            "#,
+            params![
+                &record.occurred_at,
+                &record.action,
+                &record.target,
+                record.success,
+                &record.detail,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Exporta el historial reciente a un archivo JSON como copia de seguridad.
+    pub fn export_history_backup(&self, limit: usize) -> Result<PathBuf> {
+        let rows = self.load_recent(limit)?;
+        let json =
+            serde_json::to_string_pretty(&rows).context("No se pudo serializar el historial")?;
+        let backup_path = self
+            .db_path
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .join("rootcause-history-backup.json");
+        fs::write(&backup_path, json)
+            .with_context(|| format!("No se pudo escribir {}", backup_path.display()))?;
+        Ok(backup_path)
+    }
+
     /// Devuelve una línea resumen fácil de mostrar en la UI.
     pub fn latest_summary_line(&self) -> Result<Option<String>> {
         let connection = Connection::open(&self.db_path)?;
@@ -186,6 +292,73 @@ impl PersistenceStore {
         Ok(None)
     }
 
+    /// Utilidad opcional para generar archivos de soporte fuera de SQLite.
+    pub fn export_path(&self) -> PathBuf {
+        let timestamp = Utc::now().format("%Y%m%d-%H%M%S");
+        dirs::download_dir()
+            .or_else(dirs::document_dir)
+            .unwrap_or_else(|| {
+                self.db_path
+                    .parent()
+                    .unwrap_or(Path::new("."))
+                    .to_path_buf()
+            })
+            .join(format!("rootcause-snapshot-{timestamp}.json"))
+    }
+
+    fn load_incident_by_id(&self, incident_id: &str) -> Result<Option<IncidentSummary>> {
+        let connection = Connection::open(&self.db_path)?;
+        let payload = connection
+            .query_row(
+                r#"
+                SELECT payload_json
+                FROM incidents
+                WHERE incident_id = ?1
+                ORDER BY id DESC
+                LIMIT 1
+                "#,
+                params![incident_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        match payload {
+            Some(text) => Ok(serde_json::from_str::<IncidentSummary>(&text).ok()),
+            None => Ok(None),
+        }
+    }
+
+    fn trim_snapshots(&self, keep: usize) -> Result<()> {
+        let connection = Connection::open(&self.db_path)?;
+        connection.execute(
+            r#"
+            DELETE FROM snapshots
+            WHERE id NOT IN (
+                SELECT id FROM snapshots
+                ORDER BY id DESC
+                LIMIT ?1
+            )
+            "#,
+            params![keep as i64],
+        )?;
+        Ok(())
+    }
+
+    fn trim_incidents(&self, keep: usize) -> Result<()> {
+        let connection = Connection::open(&self.db_path)?;
+        connection.execute(
+            r#"
+            DELETE FROM incidents
+            WHERE id NOT IN (
+                SELECT id FROM incidents
+                ORDER BY id DESC
+                LIMIT ?1
+            )
+            "#,
+            params![keep as i64],
+        )?;
+        Ok(())
+    }
+
     fn ensure_schema(&self) -> Result<()> {
         let connection = Connection::open(&self.db_path)?;
         connection.execute_batch(
@@ -205,22 +378,34 @@ impl PersistenceStore {
                 alerts_json TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS incidents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                incident_id TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                collected_at TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                title TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_incidents_incident_id
+            ON incidents(incident_id);
+
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                occurred_at TEXT NOT NULL,
+                action TEXT NOT NULL,
+                target TEXT NOT NULL,
+                success INTEGER NOT NULL,
+                detail TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             "#,
         )?;
         Ok(())
-    }
-
-    /// Utilidad opcional para generar archivos de soporte fuera de SQLite.
-    pub fn export_path(&self) -> PathBuf {
-        let timestamp = Utc::now().format("%Y%m%d-%H%M%S");
-        dirs::download_dir()
-            .or_else(dirs::document_dir)
-            .unwrap_or_else(|| {
-                self.db_path
-                    .parent()
-                    .unwrap_or(Path::new("."))
-                    .to_path_buf()
-            })
-            .join(format!("rootcause-snapshot-{timestamp}.json"))
     }
 }

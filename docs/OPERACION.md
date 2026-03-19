@@ -126,10 +126,24 @@ rootcause --version
 ### Estado y datos en tiempo real
 ```
 rootcause status          # estado del sistema (severidad, CPU, RAM, I/O, alertas)
+rootcause status --json   # lo mismo en JSON para integraciones
 rootcause snapshot        # snapshot completo en JSON a stdout
+rootcause snapshot --output C:\diag\snapshot.json
 rootcause history [N]     # últimas N filas del historial (default 10)
+rootcause history [N] --json
+rootcause incidents [N]   # incidentes persistidos con evidencia resumida
 rootcause export          # exporta snapshot a JSON en Descargas/Documentos
 ```
+
+### Configuración e IA opcional
+```
+rootcause config show
+rootcause config show --json
+rootcause config init
+rootcause ai explain-latest
+```
+
+La IA es opcional. Si no la habilitas en `rootcause-config.json`, RootCause sigue operando normal.
 
 ### Acciones de intervención
 ```
@@ -192,7 +206,7 @@ Muestra las últimas 60 muestras de CPU%, RAM% e I/O Write como mini-gráficos d
 Botones **Critical / Warning / Normal / Todos** encima de la tabla. Concentra la vista en lo que importa cuando hay muchos procesos activos.
 
 ### Notificaciones toast
-Si hay un proceso con severidad **Critical**, la app envía una notificación de Windows en segundo plano (no congela la UI). Cooldown de 90 segundos entre notificaciones del mismo tipo. Activar/desactivar con el checkbox 🔔 en el header.
+Si hay un proceso con severidad **Critical**, la app envía una notificación de Windows en segundo plano (no congela la UI). El cooldown ahora sale de configuración local. Activar/desactivar con el checkbox 🔔 en el header.
 
 ### Command line de proceso
 Los procesos Critical o con I/O > 20 MB muestran el command line completo del proceso en la tabla. Útil para distinguir instancias del mismo ejecutable lanzadas con parámetros distintos.
@@ -204,7 +218,7 @@ RootCause-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```
 
 ### Interfaz de línea de comandos (CLI)
-El binario funciona también como CLI. `rootcause --help` muestra todos los comandos disponibles. Ver sección 6 para referencia completa.
+El binario funciona también como CLI. `rootcause --help` muestra todos los comandos disponibles. Ahora incluye salida JSON para integraciones, consulta de incidentes persistidos, configuración local e IA opcional.
 
 ### Atajos de teclado
 `F5` para refrescar, `Ctrl+E` para exportar, `Ctrl+1…8` para cambiar de tab sin usar el ratón. Ver sección 7.

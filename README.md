@@ -144,6 +144,9 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 - Documentación profunda de arquitectura, requisitos, operación y CI
 - Modo de precisión WPR/ETW integrado en la interfaz
 - Historial SQLite (últimas 1000 filas) + backup automático a JSON
+- Configuración operativa en JSON (`rootcause-config.json`) con defaults seguros
+- Registro de incidentes resumidos + auditoría de acciones en SQLite
+- Adaptador IA opcional por API, desacoplado y apagado por defecto
 - Instalador silencioso compatible con despliegue corporativo (`/VERYSILENT /SUPPRESSMSGBOXES`)
 
 ### ❌ No incluye
@@ -214,6 +217,8 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 
 - Historial SQLite con últimas 60 capturas
 - Comparación A vs B con deltas de CPU / RAM / I/O / Alertas
+- Incidentes resumidos persistidos con causas probables y evidencia correlacionada
+- Auditoría local de acciones (`kill`, `block-ip`, `stop-service`, WPR, IA opcional)
 - Exportación JSON · Carpeta trazas ETL y análisis
 
 </details>
@@ -225,6 +230,19 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 - Detener temporalmente servicios (`BITS`, `DoSvc`, `SysMain`, `wuauserv`)
 - Iniciar / detener / cancelar captura WPR
 - Resumir el último ETL capturado
+- Acciones manuales gobernadas por configuración local y auditadas en SQLite
+
+</details>
+
+<details>
+<summary><strong>Configuración e IA opcional</strong></summary>
+
+- `rootcause config show` · `rootcause config init`
+- Umbrales de procesos y temporales en `rootcause-config.json`
+- `rootcause status --json` y `rootcause history --json` para integraciones
+- `rootcause incidents` para revisar degradaciones persistidas
+- `rootcause ai explain-latest` para enriquecer el último incidente solo si IA está habilitada
+- Si la IA falla o no está configurada, RootCause sigue funcionando normal
 
 </details>
 
@@ -285,14 +303,17 @@ rootcause-windows-inspector/
 └── src/
     ├── main.rs           ← entrada: despacha CLI o GUI según args + feature guards
     ├── cli.rs            ← CLI completa (--help, status, snapshot, wpr, kill…)
+    ├── config.rs         ← configuración operativa y defaults seguros
     ├── meta.rs           ← constantes del producto (versión, autor, links)
     ├── app.rs            ← UI completa (tabs, sparklines, historial, filtros)
-    ├── models.rs         ← structs compartidos + HardwareInfo
+    ├── models.rs         ← structs compartidos + incidentes + auditoría
     ├── bin/
     │   └── rootcause-service.rs  ← skeleton Windows Service
     └── services/
+        ├── ai.rs         ← adaptador IA opcional por API
         ├── inspector.rs  ← orquestador principal + get_hardware_info()
-        ├── persistence.rs← SQLite + backup JSON automático (últimas 1000 filas)
+        ├── persistence.rs← SQLite + snapshots + incidentes + audit trail
+        ├── rules.rs      ← rule engine ligero y correlación de incidentes
         ├── tray.rs       ← skeleton tray icon (activa con feature `tray`)
         ├── windows.rs    ← PowerShell, WPR, toast, cmdlines
         ├── network.rs    ← netstat + clasificación
@@ -309,9 +330,33 @@ rootcause-windows-inspector/
 | 🧑‍💻 Desarrollador | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/RUST_PARA_ROOTCAUSE.md`](docs/RUST_PARA_ROOTCAUSE.md) |
 | 👤 Usuario final | [`docs/MANUAL_PARA_NOVATOS.md`](docs/MANUAL_PARA_NOVATOS.md) · [`docs/OPERACION.md`](docs/OPERACION.md) |
 | 🏢 Reclutador | [`docs/RECLUTADORES.md`](docs/RECLUTADORES.md) · [`docs/REPOSITORIO_ANALISIS.md`](docs/REPOSITORIO_ANALISIS.md) |
-| 🔬 Arquitectura | [`docs/ARQUITECTURA_ESCALABILIDAD.md`](docs/ARQUITECTURA_ESCALABILIDAD.md) |
+| 🔬 Arquitectura | [`docs/ARQUITECTURA_ESCALABILIDAD.md`](docs/ARQUITECTURA_ESCALABILIDAD.md) · [`docs/ARQUITECTURA_EVOLUTIVA.md`](docs/ARQUITECTURA_EVOLUTIVA.md) |
 | 📋 Release | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 | 📑 Todo | [`docs/INDEX.md`](docs/INDEX.md) |
+
+---
+
+## 🤖 IA opcional por API
+
+RootCause no necesita IA para detectar lentitud, persistir evidencia, notificar ni operar con CLI/GUI.
+
+Activación mínima:
+
+```powershell
+rootcause config init
+$env:ROOTCAUSE_AI_API_KEY="tu_api_key"
+rootcause config show
+rootcause ai explain-latest
+```
+
+La configuración efectiva vive en `rootcause-config.json`. Para habilitar IA debes poner `ai.enabled = true` y definir `ai.endpoint`.
+
+Si el proveedor IA falla:
+
+- la captura sigue funcionando
+- las alertas no se pierden
+- el incidente ya persistido se conserva
+- el error queda auditado
 
 ---
 
