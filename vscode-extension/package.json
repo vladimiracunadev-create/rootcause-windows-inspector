@@ -2,14 +2,14 @@
   "name": "rootcause-inspector",
   "displayName": "RootCause Windows Inspector",
   "description": "Estado del sistema Windows en la barra de estado de VS Code. Muestra severidad, CPU, RAM e I/O en tiempo real.",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "publisher": "vladimiracunadev-create",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
-  "icon": "icons/rootcause.png",
+  "homepage": "https://vladimiracunadev-create.github.io/rootcause-landing/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vladimiracunadev-create/rootcause-landing"
+    "url": "https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
   },
   "activationEvents": ["onStartupFinished"],
   "main": "./out/extension.js",
@@ -59,7 +59,8 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package --out ../build/RootCause-VSCode-Extension.vsix"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

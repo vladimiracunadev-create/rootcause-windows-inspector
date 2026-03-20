@@ -1,6 +1,6 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.7.0 · **Actualizado:** 2026-03-18
+**Versión base:** v0.7.1 · **Actualizado:** 2026-03-19
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.

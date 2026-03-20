@@ -15,7 +15,7 @@ La CI deja evidencia automática de que, en un runner Windows limpio:
 - los tests unitarios existentes pasan,
 - el binario release compila,
 - el ejecutable y la documentación pueden publicarse como artefactos,
-- el ZIP portable y el instalador pueden construirse en el flujo de empaquetado.
+- el catálogo principal de artefactos puede construirse en el flujo de empaquetado.
 
 ---
 
@@ -49,14 +49,18 @@ Además sube como artefacto el `.exe` release y documentación útil para revisi
 Pensado para etiquetar releases o ejecutar manualmente:
 
 - corre los quality gates,
-- compila release,
-- genera ZIP portable,
+- compila la edición GUI principal,
+- genera portable GUI,
 - instala Inno Setup,
 - compila el instalador,
+- compila la edición CLI-only,
+- genera portable CLI-only,
+- publica el módulo PowerShell,
+- empaqueta la extensión VS Code,
 - genera hashes SHA-256,
 - publica el GitHub Release en el **repo privado** (copia interna),
 - **publica copia pública** en `rootcause-landing` (binarios descargables por cualquier persona),
-- sube `RootCause-Portable.zip`, `RootCause-Setup.exe` y `SHA256SUMS.txt` en ambos repos.
+- sube `RootCause-Setup.exe`, `RootCause-Portable.zip`, `RootCause-CLI-Portable.zip`, `RootCause.psm1`, `RootCause-VSCode-Extension.vsix` y `SHA256SUMS.txt` en ambos repos.
 
 #### Configurar LANDING_RELEASE_TOKEN
 

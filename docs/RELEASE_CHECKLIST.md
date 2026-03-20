@@ -51,8 +51,11 @@ Checklist profesional antes de distribuir artefactos.
 
 ## 4) Empaquetado
 
-- [ ] portable ZIP generado
+- [ ] portable ZIP principal generado
+- [ ] portable CLI-only generado
 - [ ] instalador Inno generado si aplica
+- [ ] módulo PowerShell publicado si aplica
+- [ ] extensión VS Code empaquetada si aplica
 - [ ] carpeta `build/` revisada
 - [ ] nombre de versión validado
 - [ ] publisher validado
@@ -81,15 +84,18 @@ Checklist profesional antes de distribuir artefactos.
 - [ ] `release-windows.yml` ejecutado y en verde
 - [ ] el release de GitHub tiene `body:` con instrucciones de instalación, no solo links de commits
 - [ ] se incluyen las secciones: instalación, verificación de hash, requisitos, funciones
-- [ ] los tres artefactos están adjuntos: ZIP, Setup.exe, SHA256SUMS.txt
+- [ ] los artefactos adjuntos coinciden con el catálogo actual: Setup, portable GUI, portable CLI, módulo PowerShell, VSIX y hashes
 - [ ] el tag apunta al commit correcto (verificar con `git log --oneline`)
 
 ---
 
 ## 8) Entrega final recomendada
 
-- [ ] ZIP portable
+- [ ] ZIP portable GUI
+- [ ] ZIP portable CLI-only
 - [ ] instalador Inno si corresponde
+- [ ] módulo PowerShell si corresponde
+- [ ] VSIX si corresponde
 - [ ] hashes
 - [ ] notas de versión
 - [ ] fecha de build

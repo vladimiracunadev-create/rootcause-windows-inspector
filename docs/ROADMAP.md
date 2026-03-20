@@ -57,7 +57,7 @@
 - ✅ Auditoría de acciones locales (`kill`, `block-ip`, `stop-service`, ETW/WPR, IA opcional) sin depender de servicios externos
 - ✅ CLI ampliada con `status --json`, `history --json`, `incidents`, `config show/init`, `snapshot --output` y `ai explain-latest`
 - ✅ Adaptador IA opcional por API, desacoplado y apagado por defecto: si falla, RootCause sigue detectando, alertando y guardando evidencia
-- ✅ Release engineering endurecido: branding principal corregido y manifests Windows alineados con los artefactos reales del workflow `release-windows`
+- ✅ Release engineering endurecido: branding principal corregido y workflow `release-windows` alineado con el catálogo real (GUI, CLI-only, PowerShell y VS Code)
 
 ## v1.0 — Objetivo de distribución formal
 - Tab Autostart (HKCU\...\Run + carpeta Startup + tareas programadas)

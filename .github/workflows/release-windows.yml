@@ -49,6 +49,27 @@ jobs:
         shell: pwsh
         run: .\scripts\package-inno.ps1
 
+      - name: Compilar edición CLI-only
+        shell: pwsh
+        run: cargo build --release --no-default-features --target-dir target/cli
+
+      - name: Empaquetar ZIP CLI-only
+        shell: pwsh
+        run: .\scripts\package-cli-portable.ps1
+
+      - name: Publicar módulo PowerShell
+        shell: pwsh
+        run: .\scripts\package-powershell-module.ps1
+
+      - name: Instalar Node.js para extensión VS Code
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Empaquetar extensión VS Code
+        shell: pwsh
+        run: .\scripts\package-vscode-extension.ps1
+
       - name: Generar hashes SHA-256
         shell: pwsh
         run: .\scripts\hash-artifacts.ps1
@@ -58,6 +79,9 @@ jobs:
         run: |
           $required = @(
             'build\RootCause-Portable.zip',
+            'build\RootCause-CLI-Portable.zip',
+            'build\RootCause.psm1',
+            'build\RootCause-VSCode-Extension.vsix',
             'build\installer\RootCause-Setup.exe',
             'build\SHA256SUMS.txt'
           )
@@ -76,6 +100,9 @@ jobs:
           name: rootcause-release-${{ github.run_number }}
           path: |
             build/RootCause-Portable.zip
+            build/RootCause-CLI-Portable.zip
+            build/RootCause.psm1
+            build/RootCause-VSCode-Extension.vsix
             build/installer/RootCause-Setup.exe
             build/SHA256SUMS.txt
           if-no-files-found: error
@@ -99,25 +126,33 @@ jobs:
 
             | Archivo | Descripción |
             |---|---|
-            | `RootCause-Portable.zip` | Versión portable — extraer y ejecutar, sin instalación |
-            | `RootCause-Setup.exe` | Instalador Inno Setup — instala en `Program Files` con acceso directo |
+            | `RootCause-Setup.exe` | Instalador principal GUI + CLI |
+            | `RootCause-Portable.zip` | Versión portable del build principal GUI + CLI |
+            | `RootCause-CLI-Portable.zip` | Versión portable CLI-only (~4 MB, sin GUI) |
+            | `RootCause.psm1` | Módulo PowerShell (requiere `rootcause.exe`) |
+            | `RootCause-VSCode-Extension.vsix` | Extensión VS Code (requiere `rootcause.exe`) |
             | `SHA256SUMS.txt` | Hashes SHA-256 para verificar integridad antes de ejecutar |
 
             ---
 
             ## Instalación rápida
 
-            ### Opción A — Portable (recomendado para pruebas)
+            ### Opción A — Instalador (recomendado para la mayoría)
+            1. Descarga `RootCause-Setup.exe`
+            2. Verifica el hash (ver abajo)
+            3. Ejecuta el instalador y sigue los pasos
+            4. Abre RootCause desde el acceso directo o usa `rootcause` desde consola
+
+            ### Opción B — Portable GUI
             1. Descarga `RootCause-Portable.zip`
             2. Verifica el hash (ver abajo)
             3. Extrae en cualquier carpeta
             4. Ejecuta `rootcause.exe` como administrador
 
-            ### Opción B — Instalador
-            1. Descarga `RootCause-Setup.exe`
-            2. Verifica el hash (ver abajo)
-            3. Ejecuta el instalador y sigue los pasos
-            4. Abre RootCause desde el acceso directo en el escritorio o menú inicio
+            ### Opción C — CLI-only / integraciones
+            - `RootCause-CLI-Portable.zip`: scripts, Server Core, CI
+            - `RootCause.psm1`: integración PowerShell; requiere `rootcause.exe`
+            - `RootCause-VSCode-Extension.vsix`: integración VS Code; requiere `rootcause.exe`
 
             ---
 
@@ -125,7 +160,10 @@ jobs:
 
             ```powershell
             Get-FileHash .\RootCause-Portable.zip -Algorithm SHA256
+            Get-FileHash .\RootCause-CLI-Portable.zip -Algorithm SHA256
             Get-FileHash .\RootCause-Setup.exe   -Algorithm SHA256
+            Get-FileHash .\RootCause.psm1        -Algorithm SHA256
+            Get-FileHash .\RootCause-VSCode-Extension.vsix -Algorithm SHA256
             # Compara con el contenido de SHA256SUMS.txt
             ```
 
@@ -146,6 +184,9 @@ jobs:
 
           files: |
             build/RootCause-Portable.zip
+            build/RootCause-CLI-Portable.zip
+            build/RootCause.psm1
+            build/RootCause-VSCode-Extension.vsix
             build/installer/RootCause-Setup.exe
             build/SHA256SUMS.txt
 
@@ -173,24 +214,32 @@ jobs:
 
           | Archivo | Qué es |
           |---|---|
-          | ``RootCause-Portable.zip`` | Versión portable — extraer y ejecutar, sin instalador |
-          | ``RootCause-Setup.exe`` | Instalador Windows — agrega rootcause al PATH |
+          | ``RootCause-Setup.exe`` | Instalador principal GUI + CLI |
+          | ``RootCause-Portable.zip`` | Portable del build principal GUI + CLI |
+          | ``RootCause-CLI-Portable.zip`` | Portable CLI-only (~4 MB) |
+          | ``RootCause.psm1`` | Módulo PowerShell (requiere ``rootcause.exe``) |
+          | ``RootCause-VSCode-Extension.vsix`` | Extensión VS Code (requiere ``rootcause.exe``) |
           | ``SHA256SUMS.txt`` | Hashes SHA-256 para verificar integridad |
 
           ---
 
           ## Instalación rápida
 
-          **Portable:**
+          **Instalador:**
+          1. Descarga ``RootCause-Setup.exe``
+          2. Ejecuta y sigue los pasos
+          3. ``rootcause`` queda disponible en el PATH del sistema
+
+          **Portable GUI:**
           1. Descarga ``RootCause-Portable.zip``
           2. Extrae en cualquier carpeta
           3. Ejecuta ``rootcause.exe`` (administrador recomendado)
           4. O desde consola: ``rootcause --help``
 
-          **Instalador:**
-          1. Descarga ``RootCause-Setup.exe``
-          2. Ejecuta y sigue los pasos
-          3. ``rootcause`` queda disponible en el PATH del sistema
+          **Integraciones y modo CLI-only:**
+          - ``RootCause-CLI-Portable.zip`` para Server Core, scripts y CI
+          - ``RootCause.psm1`` para automatización PowerShell
+          - ``RootCause-VSCode-Extension.vsix`` para usar RootCause desde VS Code
 
           ---
 
@@ -206,7 +255,10 @@ jobs:
 
           ```powershell
           Get-FileHash .\RootCause-Portable.zip -Algorithm SHA256
+          Get-FileHash .\RootCause-CLI-Portable.zip -Algorithm SHA256
           Get-FileHash .\RootCause-Setup.exe   -Algorithm SHA256
+          Get-FileHash .\RootCause.psm1        -Algorithm SHA256
+          Get-FileHash .\RootCause-VSCode-Extension.vsix -Algorithm SHA256
           ```
 
           Compara con ``SHA256SUMS.txt``.
@@ -224,5 +276,8 @@ jobs:
             --notes $notes `
             $prerelease `
             "build/RootCause-Portable.zip" `
+            "build/RootCause-CLI-Portable.zip" `
+            "build/RootCause.psm1" `
+            "build/RootCause-VSCode-Extension.vsix" `
             "build/installer/RootCause-Setup.exe" `
             "build/SHA256SUMS.txt"

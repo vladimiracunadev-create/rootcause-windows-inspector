@@ -95,10 +95,29 @@ cargo test --all-targets --all-features -- --nocapture
 .\scripts\package-portable.ps1
 ```
 
+### CLI-only ZIP
+
+```powershell
+cargo build --release --no-default-features --target-dir target/cli
+.\scripts\package-cli-portable.ps1
+```
+
 ### Instalador Inno Setup
 
 ```powershell
 .\scripts\package-inno.ps1
+```
+
+### Módulo PowerShell
+
+```powershell
+.\scripts\package-powershell-module.ps1
+```
+
+### Extensión VS Code
+
+```powershell
+.\scripts\package-vscode-extension.ps1
 ```
 
 ### Hash de artefactos
@@ -366,7 +385,7 @@ npm install
 npx vsce package
 
 # Instalar en VS Code
-code --install-extension rootcause-inspector-0.7.0.vsix
+code --install-extension RootCause-VSCode-Extension.vsix
 ```
 
 Comandos disponibles desde la paleta de comandos (`Ctrl+Shift+P`):

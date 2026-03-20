@@ -6,30 +6,40 @@ Este documento define la ruta profesional para generar artefactos de distribuci�
 
 ## 1) Objetivos de empaquetado
 
-- entregar un ZIP portable,
-- entregar un instalador `.exe` con Inno Setup,
+- entregar los artefactos del runtime principal,
+- entregar las integraciones publicables que ya existen,
 - dejar hashes verificables,
 - mantener trazabilidad entre fuente y artefacto.
 
 ---
 
-## 2) Artefactos posibles
+## 2) Catálogo de artefactos
 
-### Portable ZIP
+La referencia canónica del producto vive en [`CATALOGO_PRODUCTO.md`](CATALOGO_PRODUCTO.md).
+
+Para empaquetado conviene separar:
+
+- **núcleo**: GUI principal y CLI-only,
+- **adaptadores**: PowerShell y VS Code,
+- **perfil alternativo**: RootCause Demo.
+
+### Portable ZIP principal (`RootCause-Portable.zip`)
 Útil para:
 - pruebas rápidas,
 - distribución controlada,
 - validaciones internas,
 - revisión por reclutadores técnicos.
 
-### Instalador Inno Setup
+Este portable corresponde al build principal con GUI activa; no debe anunciarse como `CLI-only`.
+
+### Instalador Inno Setup (`RootCause-Setup.exe`)
 Útil para:
 - experiencia más profesional,
 - accesos directos,
 - desinstalación,
 - entrega más formal.
 
-### CLI-only binary (~4 MB)
+### CLI-only portable (`RootCause-CLI-Portable.zip`)
 Build sin egui ni eframe. Para:
 - sysadmins y scripts de automatización,
 - Windows Server Core (sin escritorio),
@@ -37,13 +47,13 @@ Build sin egui ni eframe. Para:
 - distribución por gestores de paquetes.
 
 ```powershell
-cargo build --release --no-default-features
-# Produce: target\release\rootcause.exe (~4 MB, sin GUI)
+cargo build --release --no-default-features --target-dir target/cli
+# Produce: target\cli\release\rootcause.exe (~4 MB, sin GUI)
 ```
 
-### Módulo PowerShell
+### Módulo PowerShell (`RootCause.psm1`)
 `packaging/powershell/RootCause.psm1` — 9 cmdlets que envuelven la CLI.
-Distribución: copiar el `.psm1` a cualquier directorio en `$PSModulePath`.
+No es standalone: requiere `rootcause.exe` en PATH o junto al módulo.
 
 ```powershell
 Import-Module .\packaging\powershell\RootCause.psm1
@@ -51,15 +61,15 @@ Get-RootCauseStatus
 Get-RootCauseProcesses | Where-Object Severity -eq "Critical"
 ```
 
-### VS Code Extension
+### VS Code Extension (`RootCause-VSCode-Extension.vsix`)
 `vscode-extension/` — extensión TypeScript empaquetable con `vsce package`.
-Requiere: `npm install -g @vscode/vsce` y `npm install` en `vscode-extension/`.
+No es standalone: requiere `rootcause.exe` disponible para consultar estado y exportar snapshots.
 
 ```powershell
 cd vscode-extension
 npm install
-npx vsce package   # genera rootcause-inspector-0.7.0.vsix
-code --install-extension rootcause-inspector-0.7.0.vsix
+npx @vscode/vsce package --out ..\build\RootCause-VSCode-Extension.vsix
+code --install-extension RootCause-VSCode-Extension.vsix
 ```
 
 ---
@@ -71,7 +81,11 @@ code --install-extension rootcause-inspector-0.7.0.vsix
 3. `build-release`
 4. `package-portable`
 5. `package-inno`
-6. `hash-artifacts`
+6. `cargo build --release --no-default-features --target-dir target/cli`
+7. `package-cli-portable`
+8. `package-powershell-module`
+9. `package-vscode-extension`
+10. `hash-artifacts`
 
 ---
 
@@ -83,10 +97,29 @@ code --install-extension rootcause-inspector-0.7.0.vsix
 .\scripts\package-portable.ps1
 ```
 
+### CLI-only portable
+
+```powershell
+cargo build --release --no-default-features --target-dir target/cli
+.\scripts\package-cli-portable.ps1
+```
+
 ### Instalador
 
 ```powershell
 .\scripts\package-inno.ps1
+```
+
+### Módulo PowerShell
+
+```powershell
+.\scripts\package-powershell-module.ps1
+```
+
+### VS Code Extension
+
+```powershell
+.\scripts\package-vscode-extension.ps1
 ```
 
 ### Hashes
@@ -106,6 +139,10 @@ code --install-extension rootcause-inspector-0.7.0.vsix
 - Inno Setup instalado
 - `ISCC.exe` en PATH o ruta conocida por el script
 
+### Para extensión VS Code
+- Node.js
+- `npm`
+
 ---
 
 ## 6) Política de binarios
@@ -120,11 +157,15 @@ code --install-extension rootcause-inspector-0.7.0.vsix
 El flujo `release-windows.yml` automatiza esta secuencia en `windows-latest`:
 
 1. quality gates,
-2. build release,
-3. ZIP portable,
+2. build release GUI,
+3. ZIP portable GUI,
 4. instalación de Inno Setup,
 5. compilación de instalador,
-6. generación de hashes.
+6. build CLI-only,
+7. ZIP CLI-only,
+8. módulo PowerShell,
+9. extensión VS Code,
+10. generación de hashes.
 
 Esto no elimina la necesidad de validar el instalador en una máquina Windows real antes de distribuirlo fuera de un entorno controlado.
 
@@ -188,7 +229,7 @@ choco install rootcause-windows-inspector
 
 ## Ruta recomendada para la demo pública
 
-Para distribución pública se recomienda usar `packaging/windows/RootCause-Demo.iss`, no el empaquetado interno de trabajo.
+Para distribución pública de evaluación separada del perfil principal se recomienda usar `packaging/windows/RootCause-Demo.iss`, no el empaquetado principal.
 
 Objetivos de este instalador:
 

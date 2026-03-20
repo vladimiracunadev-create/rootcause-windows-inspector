@@ -100,10 +100,22 @@ No hay un “máximo oficial” del software, pero para operación profesional c
 ### Portable ZIP
 - release compilado
 
+### CLI-only ZIP
+- release CLI-only compilado
+- `cargo build --release --no-default-features --target-dir target/cli`
+
 ### Inno Setup
 - release compilado
 - Inno Setup instalado
 - `ISCC.exe` disponible
+
+### PowerShell module
+- `rootcause.exe` disponible si se va a usar el módulo como integración
+
+### VS Code Extension
+- Node.js
+- `npm`
+- `rootcause.exe` disponible en PATH o configurable en `rootcause.executablePath`
 
 ### Hashing
 - PowerShell o utilitario equivalente para SHA-256

@@ -9,8 +9,8 @@ if (-not (Test-Path $buildDir)) {
 }
 
 $artifacts = Get-ChildItem $buildDir -Recurse -File | Where-Object {
-    $_.Extension -in '.exe', '.zip', '.msi', '.etl'
-}
+    $_.Extension -in '.exe', '.zip', '.msi', '.etl', '.psm1', '.vsix'
+} | Sort-Object FullName
 
 if (-not $artifacts) {
     throw 'No se encontraron artefactos para hashear.'

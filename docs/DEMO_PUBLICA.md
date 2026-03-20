@@ -1,6 +1,8 @@
 # RootCause Demo: distribución pública controlada
 
-Este documento define cómo publicar **RootCause Demo** como descarga pública mientras el repositorio permanece privado.
+Este documento define cómo publicar **RootCause Demo** como perfil público de evaluación mientras el repositorio principal permanece privado.
+
+> `RootCause Demo` no es otro motor del producto: es un **perfil de distribución** sobre la edición GUI principal, con branding y mensajes más explícitos para evaluación.
 
 ## Objetivo de la demo
 

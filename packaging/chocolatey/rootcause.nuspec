@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>rootcause-windows-inspector</id>
-    <version>0.7.0</version>
+    <version>0.7.1</version>
     <title>RootCause Windows Inspector</title>
     <authors>Vladimir Acuña</authors>
     <owners>vladimircunadev-create</owners>

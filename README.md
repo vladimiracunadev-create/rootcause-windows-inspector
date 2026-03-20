@@ -9,7 +9,7 @@
 ║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝      ║
 ║                                                                                   ║
 ║                     W I N D O W S   I N S P E C T O R                             ║
-║               Forensic diagnostics · Built in Rust · v0.7.0                       ║
+║               Forensic diagnostics · Built in Rust · v0.7.1                       ║
 ╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -17,7 +17,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
-[![Version](https://img.shields.io/badge/version-0.7.0-green.svg)](docs/ROADMAP.md)
+[![Version](https://img.shields.io/badge/version-0.7.1-green.svg)](docs/ROADMAP.md)
 
 🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-landing/)**
 
@@ -94,14 +94,17 @@ Para cuando la observación liviana no basta.
 
 ## 🗂️ Ediciones del producto
 
-| Edición | Tamaño | Instalación | Audiencia |
-|---|---|---|---|
-| **GUI .exe** (por defecto) | ~18 MB | Instalador / portable | Usuario final, sysadmin |
-| **CLI .exe** (sin egui) | ~4 MB | `--no-default-features` | Scripts, Server Core, CI |
-| **PowerShell module** | ~1 KB | `Import-Module RootCause` | Automatización enterprise |
-| **VS Code Extension** | TypeScript | `code --install-extension` | Desarrolladores |
-| **Tray icon** | (feature pendiente) | Bundle con GUI | Monitor proactivo |
-| **Windows Service** | (skeleton) | `sc.exe create` | Background 24/7 |
+| Modalidad | Tipo | Estado | Cómo se usa | ¿Sale en `release-windows`? |
+|---|---|---|---|---|
+| **GUI Desktop** | Núcleo principal | Producción | Instalador / portable | Sí |
+| **CLI-only** | Núcleo alternativo | Producción | `--no-default-features` | Sí |
+| **PowerShell module** | Adaptador | Producción | `Import-Module RootCause` | Sí |
+| **VS Code Extension** | Adaptador | Producción | `code --install-extension` | Sí |
+| **Tray icon** | Extensión del runtime | Skeleton | Feature `tray` futura | No |
+| **Windows Service** | Extensión del runtime | Skeleton | Feature `service` futura | No |
+| **RootCause Demo** | Perfil de distribución | Opcional | Instalador demo separado | No por defecto |
+
+`PowerShell module` y `VS Code Extension` reutilizan `rootcause.exe`; no son motores alternativos del producto.
 
 ```powershell
 # Edición CLI-only (~4 MB, sin interfaz gráfica)
@@ -110,6 +113,27 @@ cargo build --release --no-default-features
 # Edición GUI completa (~18 MB, por defecto)
 cargo build --release
 ```
+
+### Artefactos oficiales del release principal
+
+| Archivo | Contenido |
+|---|---|
+| `RootCause-Setup.exe` | Instalador principal de la app |
+| `RootCause-Portable.zip` | Portable del build principal GUI + CLI |
+| `RootCause-CLI-Portable.zip` | Portable de la edición CLI-only |
+| `RootCause.psm1` | Módulo PowerShell |
+| `RootCause-VSCode-Extension.vsix` | Extensión VS Code |
+| `SHA256SUMS.txt` | Hashes de integridad |
+
+Instalación rápida por modalidad:
+
+- `RootCause-Setup.exe`: instalar y luego usar GUI o `rootcause` desde consola.
+- `RootCause-Portable.zip`: extraer y ejecutar `rootcause.exe` (build principal con GUI + CLI).
+- `RootCause-CLI-Portable.zip`: extraer y ejecutar `rootcause.exe` desde consola.
+- `RootCause.psm1`: requiere `rootcause.exe` ya instalado o disponible en `PATH`.
+- `RootCause-VSCode-Extension.vsix`: requiere `rootcause.exe` ya instalado o configurable en `rootcause.executablePath`.
+
+Fuente de verdad del catálogo: [`docs/CATALOGO_PRODUCTO.md`](docs/CATALOGO_PRODUCTO.md).
 
 ---
 
@@ -362,7 +386,7 @@ Si el proveedor IA falla:
 
 ## 🔗 Distribución pública (demo)
 
-Para publicación pública se recomienda la variante **RootCause Demo** con instalador transparente:
+Si quieres una distribución pública de evaluación separada del perfil principal, usa **RootCause Demo** como perfil alternativo de distribución:
 
 - [`docs/DEMO_PUBLICA.md`](docs/DEMO_PUBLICA.md)
 - [`docs/GUIA_DE_USO_PREVIA.md`](docs/GUIA_DE_USO_PREVIA.md)

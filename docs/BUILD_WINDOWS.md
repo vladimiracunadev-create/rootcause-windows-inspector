@@ -211,6 +211,8 @@ cargo test
 .\scripts\build-release.ps1
 .\scripts\package-portable.ps1
 .\scripts\package-inno.ps1
+.\scripts\package-powershell-module.ps1
+.\scripts\package-vscode-extension.ps1
 .\scripts\hash-artifacts.ps1
 ```
 

@@ -13,6 +13,8 @@ $items = @(
     @{ Name = 'cargo-clippy'; Required = $false; Hint = 'Instala el componente clippy: rustup component add clippy.' },
     @{ Name = 'cl'; Required = $false; Hint = 'Instala Visual Studio Build Tools con Desktop development with C++.' },
     @{ Name = 'powershell'; Required = $true; Hint = 'PowerShell debe existir en Windows.' },
+    @{ Name = 'node'; Required = $false; Hint = 'Instala Node.js si empaquetarás la extensión VS Code.' },
+    @{ Name = 'npm'; Required = $false; Hint = 'Instala Node.js si empaquetarás la extensión VS Code.' },
     @{ Name = 'wpr'; Required = $false; Hint = 'Instala Windows Performance Toolkit si usarás modo de precisión.' },
     @{ Name = 'wpa'; Required = $false; Hint = 'Instala Windows Performance Analyzer para abrir ETL.' },
     @{ Name = 'tracerpt'; Required = $false; Hint = 'Instala o habilita tracerpt si usarás resumen ETL local.' },
