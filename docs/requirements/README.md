@@ -12,17 +12,17 @@ RootCause sigue orientado a observabilidad, diagnostico, rendimiento, salud del 
 
 ## Criterio de estado y priorizacion
 
-Ambos requerimientos quedan con estado `planned` y prioridad alta porque:
+Los requerimientos ya no estan en el mismo punto:
 
-- el repositorio ya tiene capacidades base de heuristicas, correlacion, incidentes, auditoria local e historial persistente;
-- el roadmap vigente de `v1.0` sigue centrado en distribucion, autostart, tray y operacion formal;
-- por coherencia con el estado real del producto, estas lineas se documentan como evolucion posterior a `v1.0`, no como capacidad ya implementada.
+- `REQ-SEC-001` pasa a `phase-1-implemented` porque el repositorio ya incorpora una V1 inicial de deteccion heuristica, correlacion basica, evidencia, severidad y exposicion en GUI/CLI.
+- `REQ-SEC-002` se mantiene en `planned` porque la resiliencia y autoproteccion del agente aun no cuentan con watchdog, integridad o supervisor formales.
+- Ambos mantienen prioridad alta porque la evolucion tecnica del producto sigue necesitando estas dos lineas para crecer con coherencia.
 
 ## Registro activo
 
 | ID | Nombre | Estado | Prioridad | Relacion con RootCause |
 |---|---|---|---|---|
-| [REQ-SEC-001](REQ-SEC-001-deteccion-comportamiento-anomalo.md) | Deteccion de comportamiento anomalo y posible actividad maliciosa | `planned` | Alta estrategica | Extiende la observabilidad del endpoint hacia senales compatibles con actividad no autorizada, sin reemplazar AV/EDR. |
+| [REQ-SEC-001](REQ-SEC-001-deteccion-comportamiento-anomalo.md) | Deteccion de comportamiento anomalo y posible actividad maliciosa | `phase-1-implemented` | Alta estrategica | Extiende la observabilidad del endpoint hacia senales compatibles con actividad no autorizada, sin reemplazar AV/EDR. |
 | [REQ-SEC-002](REQ-SEC-002-autoproteccion-y-resiliencia.md) | Autoproteccion y resiliencia del agente RootCause | `planned` | Alta | Refuerza continuidad operativa, integridad y alerta ante manipulacion del propio agente, sin prometer invulnerabilidad. |
 
 ## Mensajes obligatorios que este registro preserva
@@ -35,6 +35,7 @@ Ambos requerimientos quedan con estado `planned` y prioridad alta porque:
 
 - Punto de entrada principal: [README del repositorio](../../README.md)
 - Indice general de documentacion: [docs/INDEX.md](../INDEX.md)
+- Implementacion tecnica V1: [docs/MODULO_DETECCION_ANOMALIAS.md](../MODULO_DETECCION_ANOMALIAS.md)
 - Roadmap tecnico vivo: [docs/ROADMAP.md](../ROADMAP.md)
 - Referencia publica resumida: [landing/index.html](../../landing/index.html)
 - Guia de publicacion de la landing: [landing/README.md](../../landing/README.md)

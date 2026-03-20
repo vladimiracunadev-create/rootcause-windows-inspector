@@ -30,6 +30,35 @@ impl Severity {
     }
 }
 
+/// Severidad específica del módulo de anomalías y riesgo.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum RiskLevel {
+    #[default]
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl RiskLevel {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Low => "Bajo",
+            Self::Medium => "Medio",
+            Self::High => "Alto",
+            Self::Critical => "Critico",
+        }
+    }
+
+    pub fn to_severity(self) -> Severity {
+        match self {
+            Self::Low => Severity::Healthy,
+            Self::Medium => Severity::Warning,
+            Self::High | Self::Critical => Severity::Critical,
+        }
+    }
+}
+
 /// Resumen del estado global del equipo en una instantánea concreta.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SystemOverview {
@@ -117,6 +146,67 @@ pub struct IncidentEvidence {
     pub value: String,
 }
 
+/// Entrada observable de persistencia básica en Windows.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PersistenceEntry {
+    pub entry_kind: String,
+    pub location: String,
+    pub name: String,
+    pub command: String,
+    #[serde(default)]
+    pub target_path: Option<String>,
+    #[serde(default)]
+    pub exists_on_disk: bool,
+    #[serde(default)]
+    pub severity: RiskLevel,
+    #[serde(default)]
+    pub note: String,
+}
+
+/// Evento atómico del módulo de detección anómala.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AnomalyEvent {
+    pub event_id: String,
+    pub detected_at: DateTime<Utc>,
+    #[serde(default)]
+    pub severity: RiskLevel,
+    #[serde(default)]
+    pub score: u16,
+    #[serde(default)]
+    pub status: String,
+    pub kind: String,
+    pub title: String,
+    #[serde(default)]
+    pub process_name: Option<String>,
+    #[serde(default)]
+    pub pid: Option<u32>,
+    #[serde(default)]
+    pub parent_pid: Option<u32>,
+    #[serde(default)]
+    pub parent_name: Option<String>,
+    #[serde(default)]
+    pub user: Option<String>,
+    #[serde(default)]
+    pub exe_path: Option<String>,
+    #[serde(default)]
+    pub sha256: Option<String>,
+    #[serde(default)]
+    pub cpu_percent: Option<f32>,
+    #[serde(default)]
+    pub memory_mb: Option<f32>,
+    #[serde(default)]
+    pub io_write_mb_delta: Option<f32>,
+    #[serde(default)]
+    pub unique_public_remotes: Option<usize>,
+    #[serde(default)]
+    pub unique_private_remotes: Option<usize>,
+    pub summary: String,
+    pub root_cause_hypothesis: String,
+    pub recommended_action: String,
+    #[serde(default)]
+    pub evidence: Vec<IncidentEvidence>,
+}
+
 /// Resumen persistible de un incidente o degradación detectada.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IncidentSummary {
@@ -127,9 +217,22 @@ pub struct IncidentSummary {
     pub kind: String,
     pub title: String,
     pub summary: String,
+    #[serde(default)]
+    pub root_cause_hypothesis: String,
     pub probable_causes: Vec<String>,
     pub recommended_actions: Vec<String>,
     pub evidence: Vec<IncidentEvidence>,
+    #[serde(default)]
+    pub risk_level: Option<RiskLevel>,
+    #[serde(default)]
+    pub risk_score: u16,
+    #[serde(default)]
+    pub anomaly_count: usize,
+    #[serde(default)]
+    pub anomaly_types: Vec<String>,
+    #[serde(default)]
+    pub anomaly_events: Vec<AnomalyEvent>,
+    #[serde(default)]
     pub ai_advice: Option<AiIncidentAdvice>,
 }
 
@@ -284,6 +387,12 @@ pub struct SystemSnapshot {
     pub connections: Vec<ConnectionInsight>,
     pub events: Vec<EventRecord>,
     pub services: Vec<ServiceState>,
+    #[serde(default)]
+    pub persistence_entries: Vec<PersistenceEntry>,
+    #[serde(default)]
+    pub anomalies: Vec<AnomalyEvent>,
+    #[serde(default)]
+    pub incident: Option<IncidentSummary>,
     pub precision: PrecisionStatus,
     pub trace_analysis: Option<TraceAnalysisSummary>,
 }

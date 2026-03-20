@@ -5,7 +5,7 @@
 //! acciones administrativas puntuales, control del modo de precisión con WPR y
 //! exportación de ETL vía tracerpt.
 
-use crate::models::{EventRecord, ServiceState};
+use crate::models::{EventRecord, PersistenceEntry, ServiceState};
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -114,7 +114,7 @@ pub fn recent_system_events(limit: usize) -> Result<Vec<EventRecord>> {
 /// Devuelve servicios que ayudan a explicar actividad de update/instalación.
 pub fn relevant_services() -> Result<Vec<ServiceState>> {
     let script = r#"
-        Get-Service -Name wuauserv,bits,DoSvc,TrustedInstaller,SysMain -ErrorAction SilentlyContinue |
+        Get-Service -Name wuauserv,bits,DoSvc,TrustedInstaller,SysMain,WinDefend,WdNisSvc,MpsSvc,wscsvc,Sense -ErrorAction SilentlyContinue |
             Select-Object Name, DisplayName, Status, StartType |
             ConvertTo-Json -Depth 4
     "#;
@@ -135,6 +135,70 @@ pub fn relevant_services() -> Result<Vec<ServiceState>> {
         object => services.push(map_service(&object)),
     }
     Ok(services)
+}
+
+/// Enumeracion ligera de puntos de persistencia comunes en Windows.
+pub fn persistence_entries() -> Result<Vec<PersistenceEntry>> {
+    let script = r#"
+        $items = @()
+
+        $registryLocations = @(
+            @{ Path = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'; Kind = 'Registry Run (HKCU)' },
+            @{ Path = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce'; Kind = 'Registry RunOnce (HKCU)' },
+            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Run'; Kind = 'Registry Run (HKLM)' },
+            @{ Path = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce'; Kind = 'Registry RunOnce (HKLM)' }
+        )
+
+        foreach ($entry in $registryLocations) {
+            if (-not (Test-Path $entry.Path)) { continue }
+            $props = Get-ItemProperty -Path $entry.Path
+            foreach ($prop in $props.PSObject.Properties) {
+                if ($prop.Name -in @('PSPath', 'PSParentPath', 'PSChildName', 'PSDrive', 'PSProvider')) { continue }
+                $items += [pscustomobject]@{
+                    EntryKind = $entry.Kind
+                    Location = $entry.Path
+                    Name = $prop.Name
+                    Command = [string]$prop.Value
+                }
+            }
+        }
+
+        $startupFolders = @(
+            @{ Path = [Environment]::GetFolderPath('Startup'); Kind = 'Startup Folder (Current User)' },
+            @{ Path = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"; Kind = 'Startup Folder (All Users)' }
+        )
+
+        foreach ($entry in $startupFolders) {
+            if (-not $entry.Path -or -not (Test-Path $entry.Path)) { continue }
+            Get-ChildItem -Path $entry.Path -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                $items += [pscustomobject]@{
+                    EntryKind = $entry.Kind
+                    Location = $entry.Path
+                    Name = $_.Name
+                    Command = $_.FullName
+                }
+            }
+        }
+
+        $items | ConvertTo-Json -Depth 4
+    "#;
+
+    let json = powershell(script)?;
+    if json.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let value: Value = serde_json::from_str(&json)?;
+    let mut entries = Vec::new();
+    match value {
+        Value::Array(items) => {
+            for item in items {
+                entries.push(map_persistence_entry(&item));
+            }
+        }
+        object => entries.push(map_persistence_entry(&object)),
+    }
+    Ok(entries)
 }
 
 /// Finaliza un proceso usando taskkill para maximizar compatibilidad con Windows.
@@ -498,6 +562,81 @@ fn map_service(value: &Value) -> ServiceState {
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_owned(),
+    }
+}
+
+fn map_persistence_entry(value: &Value) -> PersistenceEntry {
+    let command = value
+        .get("Command")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    let target_path = extract_target_path(&command);
+    let exists_on_disk = target_path
+        .as_ref()
+        .map(|path| Path::new(path).exists())
+        .unwrap_or(false);
+
+    PersistenceEntry {
+        entry_kind: value
+            .get("EntryKind")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        location: value
+            .get("Location")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        name: value
+            .get("Name")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned(),
+        command,
+        target_path,
+        exists_on_disk,
+        note: "Persistencia observable desde Run/RunOnce o carpeta Startup".to_owned(),
+        ..Default::default()
+    }
+}
+
+fn extract_target_path(command: &str) -> Option<String> {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let candidate = if let Some(rest) = trimmed.strip_prefix('"') {
+        rest.split('"').next().unwrap_or_default().trim().to_owned()
+    } else if let Some(rest) = trimmed.strip_prefix("'") {
+        rest.split("'").next().unwrap_or_default().trim().to_owned()
+    } else {
+        let lower = trimmed.to_ascii_lowercase();
+        let extensions = [".exe", ".cmd", ".bat", ".ps1", ".vbs", ".js", ".hta", ".lnk"];
+        let mut extracted = None;
+        for extension in extensions {
+            if let Some(index) = lower.find(extension) {
+                extracted = Some(trimmed[..index + extension.len()].trim().to_owned());
+                break;
+            }
+        }
+        extracted.unwrap_or_else(|| {
+            trimmed
+                .split_whitespace()
+                .next()
+                .unwrap_or_default()
+                .trim_matches('"')
+                .trim_matches(char::from(39_u8))
+                .to_owned()
+        })
+    };
+
+    if candidate.is_empty() {
+        None
+    } else {
+        Some(candidate)
     }
 }
 

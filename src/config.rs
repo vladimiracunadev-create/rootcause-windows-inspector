@@ -17,6 +17,8 @@ pub struct RootCauseConfig {
     #[serde(default)]
     pub thresholds: ThresholdsConfig,
     #[serde(default)]
+    pub anomaly: AnomalyConfig,
+    #[serde(default)]
     pub alerting: AlertingConfig,
     #[serde(default)]
     pub remediation: RemediationConfig,
@@ -50,6 +52,71 @@ pub struct ThresholdsConfig {
     pub process: ProcessThresholds,
     #[serde(default)]
     pub temp: TempThresholds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnomalyConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_anomaly_cpu_sustained_percent")]
+    pub cpu_sustained_percent: f32,
+    #[serde(default = "default_anomaly_cpu_sustained_samples")]
+    pub cpu_sustained_samples: u8,
+    #[serde(default = "default_anomaly_memory_growth_mb")]
+    pub memory_growth_mb: f32,
+    #[serde(default = "default_anomaly_memory_growth_samples")]
+    pub memory_growth_samples: u8,
+    #[serde(default = "default_anomaly_aggressive_write_mb")]
+    pub aggressive_write_mb: f32,
+    #[serde(default = "default_anomaly_aggressive_write_samples")]
+    pub aggressive_write_samples: u8,
+    #[serde(default = "default_anomaly_public_destination_count")]
+    pub public_destination_count: usize,
+    #[serde(default = "default_anomaly_local_scan_destination_count")]
+    pub local_scan_destination_count: usize,
+    #[serde(default = "default_anomaly_respawn_window_secs")]
+    pub respawn_window_secs: u64,
+    #[serde(default = "default_anomaly_respawn_count")]
+    pub respawn_count: u8,
+    #[serde(default = "default_anomaly_repetitive_script_count")]
+    pub repetitive_script_count: u8,
+    #[serde(default = "default_suspicious_path_keywords")]
+    pub suspicious_path_keywords: Vec<String>,
+    #[serde(default = "default_trusted_process_names")]
+    pub trusted_process_names: Vec<String>,
+    #[serde(default = "default_trusted_path_prefixes")]
+    pub trusted_path_prefixes: Vec<String>,
+    #[serde(default = "default_suspicious_parent_names")]
+    pub suspicious_parent_names: Vec<String>,
+    #[serde(default = "default_security_service_names")]
+    pub security_service_names: Vec<String>,
+    #[serde(default = "default_true")]
+    pub watch_persistence: bool,
+}
+
+impl Default for AnomalyConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_true(),
+            cpu_sustained_percent: default_anomaly_cpu_sustained_percent(),
+            cpu_sustained_samples: default_anomaly_cpu_sustained_samples(),
+            memory_growth_mb: default_anomaly_memory_growth_mb(),
+            memory_growth_samples: default_anomaly_memory_growth_samples(),
+            aggressive_write_mb: default_anomaly_aggressive_write_mb(),
+            aggressive_write_samples: default_anomaly_aggressive_write_samples(),
+            public_destination_count: default_anomaly_public_destination_count(),
+            local_scan_destination_count: default_anomaly_local_scan_destination_count(),
+            respawn_window_secs: default_anomaly_respawn_window_secs(),
+            respawn_count: default_anomaly_respawn_count(),
+            repetitive_script_count: default_anomaly_repetitive_script_count(),
+            suspicious_path_keywords: default_suspicious_path_keywords(),
+            trusted_process_names: default_trusted_process_names(),
+            trusted_path_prefixes: default_trusted_path_prefixes(),
+            suspicious_parent_names: default_suspicious_parent_names(),
+            security_service_names: default_security_service_names(),
+            watch_persistence: default_true(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -279,6 +346,103 @@ fn default_process_io_critical() -> f32 {
     200.0
 }
 
+fn default_anomaly_cpu_sustained_percent() -> f32 {
+    55.0
+}
+
+fn default_anomaly_cpu_sustained_samples() -> u8 {
+    3
+}
+
+fn default_anomaly_memory_growth_mb() -> f32 {
+    250.0
+}
+
+fn default_anomaly_memory_growth_samples() -> u8 {
+    2
+}
+
+fn default_anomaly_aggressive_write_mb() -> f32 {
+    120.0
+}
+
+fn default_anomaly_aggressive_write_samples() -> u8 {
+    2
+}
+
+fn default_anomaly_public_destination_count() -> usize {
+    4
+}
+
+fn default_anomaly_local_scan_destination_count() -> usize {
+    8
+}
+
+fn default_anomaly_respawn_window_secs() -> u64 {
+    180
+}
+
+fn default_anomaly_respawn_count() -> u8 {
+    2
+}
+
+fn default_anomaly_repetitive_script_count() -> u8 {
+    3
+}
+
+fn default_suspicious_path_keywords() -> Vec<String> {
+    vec![
+        "\\temp\\".to_owned(),
+        "\\downloads\\".to_owned(),
+        "\\appdata\\".to_owned(),
+        "\\public\\".to_owned(),
+        "\\programdata\\".to_owned(),
+    ]
+}
+
+fn default_trusted_process_names() -> Vec<String> {
+    vec![
+        "system".to_owned(),
+        "svchost.exe".to_owned(),
+        "explorer.exe".to_owned(),
+        "dwm.exe".to_owned(),
+        "msmpeng.exe".to_owned(),
+    ]
+}
+
+fn default_trusted_path_prefixes() -> Vec<String> {
+    vec![
+        r"c:\windows".to_owned(),
+        r"c:\program files".to_owned(),
+        r"c:\program files (x86)".to_owned(),
+    ]
+}
+
+fn default_suspicious_parent_names() -> Vec<String> {
+    vec![
+        "powershell.exe".to_owned(),
+        "cmd.exe".to_owned(),
+        "wscript.exe".to_owned(),
+        "cscript.exe".to_owned(),
+        "mshta.exe".to_owned(),
+        "rundll32.exe".to_owned(),
+        "winword.exe".to_owned(),
+        "excel.exe".to_owned(),
+        "outlook.exe".to_owned(),
+        "chrome.exe".to_owned(),
+        "msedge.exe".to_owned(),
+    ]
+}
+
+fn default_security_service_names() -> Vec<String> {
+    vec![
+        "WinDefend".to_owned(),
+        "WdNisSvc".to_owned(),
+        "MpsSvc".to_owned(),
+        "wscsvc".to_owned(),
+    ]
+}
+
 fn default_temp_warning() -> f32 {
     250.0
 }
@@ -324,6 +488,9 @@ mod tests {
                 > cfg.thresholds.process.cpu_warning_percent
         );
         assert!(cfg.thresholds.temp.critical_mb > cfg.thresholds.temp.warning_mb);
+        assert!(cfg.anomaly.enabled);
+        assert!(cfg.anomaly.cpu_sustained_samples >= 2);
+        assert!(!cfg.anomaly.suspicious_path_keywords.is_empty());
         assert!(!cfg.ai.enabled);
     }
 }

@@ -3,6 +3,7 @@
 //! Aquí vive la lógica no visual: recolección, parseo, persistencia y acciones.
 
 pub mod ai;
+pub mod anomaly;
 pub mod etl;
 pub mod inspector;
 pub mod network;

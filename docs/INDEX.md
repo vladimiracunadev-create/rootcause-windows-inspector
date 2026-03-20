@@ -56,6 +56,7 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 - [Licencia y decisión de distribución](LICENCIA_Y_DECISION.md)
 
 ## Requerimientos estrategicos y trazabilidad
+- [Modulo de deteccion de comportamiento anomalo (V1)](MODULO_DETECCION_ANOMALIAS.md)
 - [Registro de requerimientos de seguridad y resiliencia](requirements/README.md)
 - [REQ-SEC-001 - Deteccion de comportamiento anomalo](requirements/REQ-SEC-001-deteccion-comportamiento-anomalo.md)
 - [REQ-SEC-002 - Autoproteccion y resiliencia](requirements/REQ-SEC-002-autoproteccion-y-resiliencia.md)

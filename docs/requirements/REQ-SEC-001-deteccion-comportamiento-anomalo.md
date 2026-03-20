@@ -10,13 +10,13 @@ Deteccion de comportamiento anomalo y posible actividad maliciosa.
 
 ## 3. Estado
 
-`planned`
+`phase-1-implemented`
 
 Justificacion del estado:
 
-- RootCause ya tiene base tecnica para correlacionar procesos, red, historial, reglas e incidentes.
-- El roadmap vigente sigue priorizando distribucion formal y consolidacion operativa antes de ampliar alcance de seguridad.
-- Por honestidad tecnica, este requerimiento se documenta como evolucion planificada y no como capacidad disponible hoy.
+- El repositorio ya incorpora una V1 inicial basada en heuristicas locales, correlacion basica, evidencia y severidad.
+- La implementacion actual cubre una primera capa util y demostrable, pero no completa la vision total del requerimiento.
+- Por honestidad tecnica, el estado se marca como fase 1 implementada y no como capacidad madura o equivalente a AV/EDR.
 
 ## 4. Prioridad
 

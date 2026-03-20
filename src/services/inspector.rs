@@ -9,7 +9,14 @@ use crate::models::{
     ProcessInsight, Severity, SnapshotRow, SystemOverview, SystemSnapshot, TraceAnalysisSummary,
 };
 use crate::services::{
-    ai::AiAdvisor, etl, network, persistence::PersistenceStore, rules, temp_scan, windows,
+    ai::AiAdvisor,
+    anomaly::{AnomalyTracker, DetectionInput},
+    etl,
+    network,
+    persistence::PersistenceStore,
+    rules,
+    temp_scan,
+    windows,
 };
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
@@ -40,6 +47,7 @@ pub struct InspectorService {
     config: RootCauseConfig,
     config_path: PathBuf,
     config_warning: Option<String>,
+    anomaly_tracker: AnomalyTracker,
     precision_traces_dir: PathBuf,
     precision_analysis_dir: PathBuf,
     precision_last_trace_path: Option<PathBuf>,
@@ -122,6 +130,7 @@ impl InspectorService {
             config: config_manager.config().clone(),
             config_path: config_manager.path().to_path_buf(),
             config_warning,
+            anomaly_tracker: AnomalyTracker::default(),
             precision_traces_dir,
             precision_analysis_dir,
             precision_last_trace_path,
@@ -266,14 +275,25 @@ impl InspectorService {
                 .then_with(|| b.cpu_percent.total_cmp(&a.cpu_percent))
         });
 
-        let critical_pids: Vec<u32> = processes
+        let cmdline_pids: Vec<u32> = processes
             .iter()
-            .filter(|p| matches!(p.severity, Severity::Critical) || p.io_write_mb_delta > 20.0)
-            .take(6)
+            .filter(|process| {
+                let lower_name = process.name.to_ascii_lowercase();
+                let lower_path = process.exe_path.to_ascii_lowercase();
+                matches!(process.severity, Severity::Critical)
+                    || process.io_write_mb_delta > 20.0
+                    || process.cpu_percent >= self.config.anomaly.cpu_sustained_percent * 0.7
+                    || lower_path.contains("\\temp\\")
+                    || lower_path.contains("\\downloads\\")
+                    || ["powershell", "cmd.exe", "wscript", "cscript", "mshta", "python"]
+                        .iter()
+                        .any(|item| lower_name.contains(item))
+            })
+            .take(12)
             .map(|p| p.pid)
             .collect();
-        if !critical_pids.is_empty() {
-            let cmdlines = windows::batch_process_cmdlines(&critical_pids);
+        if !cmdline_pids.is_empty() {
+            let cmdlines = windows::batch_process_cmdlines(&cmdline_pids);
             for process in &mut processes {
                 if let Some(cmdline) = cmdlines.get(&process.pid) {
                     process.command_line = Some(cmdline.clone());
@@ -288,6 +308,7 @@ impl InspectorService {
         let temp = temp_scan::scan_temp_overview(&self.config.thresholds.temp).unwrap_or_default();
         let events = windows::recent_system_events(18).unwrap_or_default();
         let services = windows::relevant_services().unwrap_or_default();
+        let persistence_entries = windows::persistence_entries().unwrap_or_default();
         let trace_analysis = self.load_last_trace_analysis().ok().flatten();
         let precision = self.precision_status();
 
@@ -317,11 +338,21 @@ impl InspectorService {
             primary_reason: "Sin señales fuertes en esta muestra".to_owned(),
         };
 
+        let anomalies = self.anomaly_tracker.analyze(DetectionInput {
+            collected_at,
+            processes: &processes,
+            connections: &connections,
+            services: &services,
+            persistence_entries: &persistence_entries,
+            config: &self.config.anomaly,
+        });
+
         let mut alerts = rules::build_alerts(
             &processes,
             &connections,
             &temp.top_entries,
             &services,
+            &anomalies,
             &precision,
             &mut overview,
             self.config.alerting.max_alerts,
@@ -348,11 +379,21 @@ impl InspectorService {
             connections,
             events,
             services,
+            persistence_entries,
+            anomalies,
+            incident: None,
             precision,
             trace_analysis,
         };
 
         apply_trace_analysis_to_snapshot(&mut snapshot, self.config.alerting.max_alerts);
+
+        if let Some(incident) = rules::derive_incident(&snapshot) {
+            snapshot.incident = Some(incident.clone());
+            let _ = self
+                .store
+                .persist_incident(&incident, self.config.collection.incident_limit);
+        }
 
         if let Err(error) = self
             .store
@@ -367,12 +408,6 @@ impl InspectorService {
                 hint: "La app sigue funcionando; solo se pierde este punto del historial"
                     .to_owned(),
             });
-        }
-
-        if let Some(incident) = rules::derive_incident(&snapshot) {
-            let _ = self
-                .store
-                .persist_incident(&incident, self.config.collection.incident_limit);
         }
 
         Ok(snapshot)

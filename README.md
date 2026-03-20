@@ -102,6 +102,14 @@ Estas lineas ya quedaron formalizadas como documentacion viva del producto, no c
 - [`REQ-SEC-002 - Autoproteccion y resiliencia del agente RootCause`](docs/requirements/REQ-SEC-002-autoproteccion-y-resiliencia.md): documenta una linea de trabajo para watchdog, reinicio automatico, verificacion de integridad, proteccion de configuracion, logging robusto y alertas ante manipulacion del propio agente.
 - [`Registro permanente de requerimientos`](docs/requirements/README.md): concentra estado, prioridad y trazabilidad con el roadmap tecnico.
 
+- [`Modulo de deteccion de comportamiento anomalo (V1)`](docs/MODULO_DETECCION_ANOMALIAS.md): describe la implementacion inicial ya integrada en el repositorio, con heuristicas locales, correlacion simple, incidentes resumidos, configuracion y salida visible en GUI/CLI.
+
+Implementacion actual del repo:
+
+- REQ-SEC-001 ya cuenta con una V1 inicial integrada para detectar CPU sostenido anormal, crecimiento de memoria, escritura agresiva, trafico saliente inusual, rutas sospechosas, persistencia basica, respawn rapido, scripts repetitivos y correlacion de senales.
+- La salida actual muestra severidad, score, proceso involucrado, hipotesis de causa, evidencia resumida y recomendacion sugerida.
+- REQ-SEC-002 sigue documentado como linea de evolucion separada; esta entrega no promete autoproteccion completa del agente.
+
 Posicionamiento honesto:
 
 - RootCause puede evolucionar para detectar señales compatibles con actividad maliciosa o no autorizada, sin reemplazar una solucion antivirus o EDR especializada.
@@ -284,6 +292,18 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 - `rootcause incidents` para revisar degradaciones persistidas
 - `rootcause ai explain-latest` para enriquecer el último incidente solo si IA está habilitada
 - Si la IA falla o no está configurada, RootCause sigue funcionando normal
+
+</details>
+
+<details>
+<summary><strong>Deteccion de comportamiento anomalo (V1)</strong></summary>
+
+- Heuristicas locales para CPU sostenido, crecimiento de memoria, escritura agresiva y trafico saliente inusual
+- Rutas sospechosas, baseline confiable configurable y relacion padre-hijo sospechosa
+- Persistencia basica en Run/RunOnce/Startup y servicios de seguridad relevantes
+- Correlacion simple de senales con score, severidad, hipotesis de causa y recomendacion sugerida
+- Exposicion del incidente dominante en GUI, CLI, export JSON e historial persistido
+- Posicionamiento honesto: complementa observabilidad y diagnostico; no reemplaza antivirus o EDR
 
 </details>
 

@@ -143,6 +143,15 @@ fn cmd_status(args: &[String]) -> i32 {
                 ov.io_read_mb_delta + ov.io_write_mb_delta
             );
             println!("│  Temp      : {:.1} MB total", ov.temp_total_mb);
+            println!("â”‚  Anomalias : {}", snap.anomalies.len());
+            if let Some(incident) = snap.incident.as_ref() {
+                if let Some(risk) = incident.risk_level {
+                    println!("â”‚  Riesgo    : {} ({})", risk.label(), incident.risk_score);
+                }
+                if !incident.root_cause_hypothesis.is_empty() {
+                    println!("â”‚  Hipotesis : {}", incident.root_cause_hypothesis);
+                }
+            }
             if !snap.alerts.is_empty() {
                 println!("├─────────────────────────────────────────────┤");
                 println!("│  Alertas   : {}", snap.alerts.len());
@@ -450,6 +459,27 @@ fn cmd_config(args: &[String]) -> i32 {
                     view.config.thresholds.process.io_write_warning_mb,
                     view.config.thresholds.process.io_write_critical_mb
                 );
+                println!(
+                    "Anomalias V1: CPU {:.0}% x{} | RAM +{:.0} MB x{} | Escritura {:.0} MB x{}",
+                    view.config.anomaly.cpu_sustained_percent,
+                    view.config.anomaly.cpu_sustained_samples,
+                    view.config.anomaly.memory_growth_mb,
+                    view.config.anomaly.memory_growth_samples,
+                    view.config.anomaly.aggressive_write_mb,
+                    view.config.anomaly.aggressive_write_samples
+                );
+                println!(
+                    "Red/persist.: pub {} | local {} | respawn {} en {}s | persistencia {}",
+                    view.config.anomaly.public_destination_count,
+                    view.config.anomaly.local_scan_destination_count,
+                    view.config.anomaly.respawn_count,
+                    view.config.anomaly.respawn_window_secs,
+                    if view.config.anomaly.watch_persistence {
+                        "observada"
+                    } else {
+                        "desactivada"
+                    }
+                );
                 0
             }
         }
@@ -492,11 +522,26 @@ fn print_incident(incident: &IncidentSummary) {
     );
     println!("  Tipo      : {}", incident.kind);
     println!("  Resumen   : {}", incident.summary);
+    if let Some(risk) = incident.risk_level {
+        println!("  Riesgo    : {} ({})", risk.label(), incident.risk_score);
+    }
+    if !incident.root_cause_hypothesis.is_empty() {
+        println!("  Hipotesis : {}", incident.root_cause_hypothesis);
+    }
+    if incident.anomaly_count > 0 {
+        println!("  Anomalias : {}", incident.anomaly_count);
+    }
+    if !incident.anomaly_types.is_empty() {
+        println!("  Tipos     : {}", incident.anomaly_types.join(" | "));
+    }
     if !incident.probable_causes.is_empty() {
         println!("  Causas    : {}", incident.probable_causes.join(" | "));
     }
     if !incident.recommended_actions.is_empty() {
         println!("  Acciones  : {}", incident.recommended_actions.join(" | "));
+    }
+    if let Some(event) = incident.anomaly_events.first() {
+        println!("  Evidencia : {}", event.summary);
     }
     if let Some(ai) = incident.ai_advice.as_ref() {
         println!("  IA        : {} ({})", ai.summary, ai.confidence);
@@ -566,6 +611,9 @@ struct StatusJson {
     network_rx_mb: f32,
     network_tx_mb: f32,
     alert_count: usize,
+    anomaly_count: usize,
+    highest_risk_level: Option<String>,
+    root_cause_hypothesis: String,
     primary_reason: String,
     dominant_process: String,
     config_path: String,
@@ -591,6 +639,16 @@ impl StatusJson {
             network_rx_mb: ov.network_rx_mb_delta,
             network_tx_mb: ov.network_tx_mb_delta,
             alert_count: snapshot.alerts.len(),
+            anomaly_count: snapshot.anomalies.len(),
+            highest_risk_level: snapshot
+                .incident
+                .as_ref()
+                .and_then(|incident| incident.risk_level.map(|risk| risk.label().to_owned())),
+            root_cause_hypothesis: snapshot
+                .incident
+                .as_ref()
+                .map(|incident| incident.root_cause_hypothesis.clone())
+                .unwrap_or_default(),
             primary_reason: ov.primary_reason.clone(),
             dominant_process: snapshot
                 .processes
@@ -598,9 +656,7 @@ impl StatusJson {
                 .map(|process| format!("{} ({})", process.name, process.pid))
                 .unwrap_or_else(|| "Sin datos".to_owned()),
             config_path: config_path.to_owned(),
-            incident_available: snapshot.overview.primary_severity
-                >= crate::models::Severity::Warning
-                || snapshot.trace_analysis.is_some(),
+            incident_available: snapshot.incident.is_some(),
         }
     }
 }

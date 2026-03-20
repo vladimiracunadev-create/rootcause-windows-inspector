@@ -6,8 +6,8 @@
 
 use crate::config::ProcessThresholds;
 use crate::models::{
-    Alert, ConnectionInsight, IncidentEvidence, IncidentSummary, PrecisionStatus, ProcessInsight,
-    ServiceState, Severity, SystemOverview, SystemSnapshot, TempEntry,
+    Alert, AnomalyEvent, ConnectionInsight, IncidentEvidence, IncidentSummary, PrecisionStatus,
+    ProcessInsight, ServiceState, Severity, SystemOverview, SystemSnapshot, TempEntry,
 };
 
 pub fn classify_process(
@@ -99,11 +99,27 @@ pub fn build_alerts(
     connections: &[ConnectionInsight],
     temp_entries: &[TempEntry],
     services: &[ServiceState],
+    anomalies: &[AnomalyEvent],
     precision: &PrecisionStatus,
     overview: &mut SystemOverview,
     max_alerts: usize,
 ) -> Vec<Alert> {
     let mut alerts = Vec::new();
+
+    if let Some(anomaly) = anomalies.first() {
+        overview.primary_severity = anomaly.severity.to_severity();
+        overview.primary_reason = anomaly.root_cause_hypothesis.clone();
+        for anomaly in anomalies.iter().take(3) {
+            alerts.push(Alert {
+                severity: anomaly.severity.to_severity(),
+                title: format!("{} [{}]", anomaly.title, anomaly.severity.label()),
+                detail: anomaly.summary.clone(),
+                pid: anomaly.pid,
+                path: anomaly.exe_path.clone(),
+                hint: anomaly.recommended_action.clone(),
+            });
+        }
+    }
 
     if let Some(process) = processes
         .iter()
@@ -222,6 +238,72 @@ pub fn build_alerts(
 }
 
 pub fn derive_incident(snapshot: &SystemSnapshot) -> Option<IncidentSummary> {
+    if let Some(top) = snapshot.anomalies.first() {
+        let probable_causes = dedupe_strings(
+            snapshot
+                .anomalies
+                .iter()
+                .take(5)
+                .map(|event| event.root_cause_hypothesis.clone())
+                .collect(),
+        );
+        let mut recommended_actions = snapshot
+            .anomalies
+            .iter()
+            .take(5)
+            .map(|event| event.recommended_action.clone())
+            .collect::<Vec<_>>();
+        recommended_actions.push("Exportar snapshot JSON para preservar evidencia tecnica".to_owned());
+        recommended_actions.push(
+            "Escanear con antivirus o EDR especializado si la actividad no corresponde al contexto esperado.".to_owned(),
+        );
+        recommended_actions.push(
+            "Correlacionar la alerta con historial reciente, servicios y persistencia local.".to_owned(),
+        );
+
+        let evidence = snapshot
+            .anomalies
+            .iter()
+            .take(3)
+            .flat_map(|event| event.evidence.iter().cloned())
+            .take(8)
+            .collect::<Vec<_>>();
+        let anomaly_types = dedupe_strings(
+            snapshot
+                .anomalies
+                .iter()
+                .map(|event| event.kind.clone())
+                .collect(),
+        );
+
+        return Some(IncidentSummary {
+            incident_id: format!("incident-{}", snapshot.collected_at.timestamp_millis()),
+            fingerprint: format!(
+                "{:?}|{}|{}|{}",
+                top.severity.to_severity(),
+                top.kind,
+                top.title,
+                snapshot.anomalies.len()
+            )
+            .to_ascii_lowercase(),
+            collected_at: snapshot.collected_at.to_owned(),
+            severity: top.severity.to_severity(),
+            kind: top.kind.clone(),
+            title: top.title.clone(),
+            summary: top.summary.clone(),
+            root_cause_hypothesis: top.root_cause_hypothesis.clone(),
+            probable_causes,
+            recommended_actions: dedupe_strings(recommended_actions),
+            evidence,
+            risk_level: Some(top.severity),
+            risk_score: top.score,
+            anomaly_count: snapshot.anomalies.len(),
+            anomaly_types,
+            anomaly_events: snapshot.anomalies.iter().take(5).cloned().collect(),
+            ai_advice: None,
+        });
+    }
+
     if snapshot.overview.primary_severity == Severity::Healthy && snapshot.trace_analysis.is_none()
     {
         return None;
@@ -246,9 +328,15 @@ pub fn derive_incident(snapshot: &SystemSnapshot) -> Option<IncidentSummary> {
         kind,
         title,
         summary,
+        root_cause_hypothesis: snapshot.overview.primary_reason.clone(),
         probable_causes,
         recommended_actions,
         evidence,
+        risk_level: None,
+        risk_score: 0,
+        anomaly_count: 0,
+        anomaly_types: Vec::new(),
+        anomaly_events: Vec::new(),
         ai_advice: None,
     })
 }
@@ -428,6 +516,8 @@ fn dedupe_strings(items: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{AnomalyEvent, RiskLevel};
+    use chrono::Utc;
 
     #[test]
     fn proceso_critico_produce_incidente() {
@@ -462,5 +552,33 @@ mod tests {
         assert_eq!(incident.kind, "process-pressure");
         assert_eq!(incident.severity, Severity::Critical);
         assert!(!incident.evidence.is_empty());
+    }
+
+    #[test]
+    fn anomalia_prioriza_incidente_de_riesgo() {
+        let snapshot = SystemSnapshot {
+            anomalies: vec![AnomalyEvent {
+                event_id: "anom-demo".to_owned(),
+                detected_at: Utc::now(),
+                severity: RiskLevel::High,
+                score: 78,
+                kind: "suspicious-execution-path".to_owned(),
+                title: "Ejecucion desde ruta sospechosa".to_owned(),
+                process_name: Some("powershell.exe".to_owned()),
+                pid: Some(4242),
+                summary: "Proceso ejecutado desde carpeta temporal.".to_owned(),
+                root_cause_hypothesis:
+                    "degradacion compatible con actividad persistente no autorizada".to_owned(),
+                recommended_action: "Revisar manualmente".to_owned(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let incident = derive_incident(&snapshot).expect("debe existir");
+        assert_eq!(incident.kind, "suspicious-execution-path");
+        assert_eq!(incident.risk_score, 78);
+        assert_eq!(incident.anomaly_count, 1);
+        assert_eq!(incident.risk_level, Some(RiskLevel::High));
     }
 }

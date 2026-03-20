@@ -829,6 +829,169 @@ fn draw_tab_overview(
     }
 
     // ── Top 3 procesos críticos (vista rápida) ─────────────────────────────────
+    if let Some(incident) = snap.incident.as_ref() {
+        ui.add_space(18.0);
+        section_header(ui, "Riesgo y causa raiz");
+        ui.add_space(8.0);
+        let incident_sev = incident
+            .risk_level
+            .map(|risk| risk.to_severity())
+            .unwrap_or(incident.severity);
+        let fg = sev_fg(incident_sev);
+        let bg = sev_bg(incident_sev);
+        egui::Frame::none()
+            .fill(bg)
+            .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(Margin::same(14.0))
+            .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    draw_sev_icon(ui, incident_sev, 18.0);
+                    ui.label(RichText::new(&incident.title).strong().color(fg).size(14.0));
+                    if let Some(risk) = incident.risk_level {
+                        alert_badge(ui, risk.label(), fg, BG_CARD);
+                    }
+                    if incident.risk_score > 0 {
+                        pill(ui, &format!("Score {}", incident.risk_score), TEXT_PRI, BG_CARD);
+                    }
+                    if incident.anomaly_count > 0 {
+                        pill(
+                            ui,
+                            &format!(
+                                "{} anomalia{}",
+                                incident.anomaly_count,
+                                if incident.anomaly_count == 1 { "" } else { "s" }
+                            ),
+                            TEXT_MUT,
+                            BG_CARD,
+                        );
+                    }
+                });
+                ui.add_space(6.0);
+                ui.label(RichText::new(&incident.summary).color(TEXT_SEC));
+                if !incident.root_cause_hypothesis.is_empty() {
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(format!("Hipotesis: {}", incident.root_cause_hypothesis))
+                            .color(TEXT_PRI)
+                            .size(12.0),
+                    );
+                }
+                if let Some(event) = incident.anomaly_events.first() {
+                    ui.add_space(6.0);
+                    ui.horizontal_wrapped(|ui| {
+                        if let Some(name) = event.process_name.as_ref() {
+                            ui.label(
+                                RichText::new(format!(
+                                    "Proceso: {}{}",
+                                    name,
+                                    event
+                                        .pid
+                                        .map(|pid| format!(" (PID {pid})"))
+                                        .unwrap_or_default()
+                                ))
+                                .monospace()
+                                .color(TEXT_SEC),
+                            );
+                        }
+                        if let Some(path) = event.exe_path.as_ref() {
+                            ui.label(
+                                RichText::new(trunc(path, 60))
+                                    .small()
+                                    .monospace()
+                                    .color(TEXT_MUT),
+                            )
+                            .on_hover_text(path);
+                        }
+                    });
+                }
+                if !incident.recommended_actions.is_empty() {
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new(format!(
+                            "Sugerencia: {}",
+                            incident.recommended_actions[0]
+                        ))
+                        .italics()
+                        .color(TEXT_MUT),
+                    );
+                }
+                if !incident.evidence.is_empty() {
+                    ui.add_space(8.0);
+                    for item in incident.evidence.iter().take(3) {
+                        ui.label(
+                            RichText::new(format!("{}: {}", item.label, trunc(&item.value, 80)))
+                                .small()
+                                .color(TEXT_MUT),
+                        );
+                    }
+                }
+            });
+    }
+
+    if !snap.anomalies.is_empty() {
+        ui.add_space(18.0);
+        section_header(ui, "Anomalias destacadas");
+        ui.add_space(8.0);
+        ui.horizontal_wrapped(|ui| {
+            for anomaly in snap.anomalies.iter().take(3) {
+                let sev = anomaly.severity.to_severity();
+                let fg = sev_fg(sev);
+                let bg = sev_bg(sev);
+                egui::Frame::none()
+                    .fill(bg)
+                    .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+                    .rounding(Rounding::same(8.0))
+                    .inner_margin(Margin::same(12.0))
+                    .show(ui, |ui| {
+                        ui.set_min_size(Vec2::new(260.0, 125.0));
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(RichText::new(&anomaly.title).strong().color(fg));
+                            alert_badge(ui, anomaly.severity.label(), fg, BG_CARD);
+                            pill(ui, &format!("Score {}", anomaly.score), TEXT_MUT, BG_CARD);
+                        });
+                        if let Some(name) = anomaly.process_name.as_ref() {
+                            ui.label(
+                                RichText::new(format!(
+                                    "{}{}",
+                                    name,
+                                    anomaly
+                                        .pid
+                                        .map(|pid| format!(" (PID {pid})"))
+                                        .unwrap_or_default()
+                                ))
+                                .size(11.5)
+                                .color(TEXT_SEC),
+                            );
+                        }
+                        ui.add_space(4.0);
+                        ui.label(
+                            RichText::new(trunc(&anomaly.summary, 90))
+                                .size(11.5)
+                                .color(TEXT_SEC),
+                        );
+                        ui.add_space(4.0);
+                        ui.label(
+                            RichText::new(format!(
+                                "Hipotesis: {}",
+                                trunc(&anomaly.root_cause_hypothesis, 88)
+                            ))
+                            .size(11.0)
+                            .color(TEXT_MUT),
+                        );
+                        ui.add_space(4.0);
+                        ui.label(
+                            RichText::new(trunc(&anomaly.recommended_action, 92))
+                                .italics()
+                                .size(11.0)
+                                .color(TEXT_MUT),
+                        );
+                    });
+                ui.add_space(8.0);
+            }
+        });
+    }
+
     let top_procs: Vec<&ProcessInsight> = snap
         .processes
         .iter()
@@ -2911,6 +3074,11 @@ fn compute_health_score(snap: &SystemSnapshot) -> u8 {
         .filter(|a| matches!(a.severity, Severity::Critical))
         .count();
     score -= crits as f32 * 7.0;
+    if let Some(incident) = snap.incident.as_ref() {
+        score -= (incident.risk_score.min(40) as f32) * 0.45;
+    } else if let Some(anomaly) = snap.anomalies.first() {
+        score -= (anomaly.score.min(35) as f32) * 0.35;
+    }
     score.clamp(0.0, 100.0) as u8
 }
 

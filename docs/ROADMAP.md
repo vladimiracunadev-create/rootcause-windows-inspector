@@ -70,7 +70,10 @@
 - Documentación madura de instalación y operación
 
 ## Lineas estrategicas documentadas (post-v1.0)
-- `REQ-SEC-001` — `planned` · prioridad alta estrategica: deteccion heuristica y correlacion de senales compatibles con actividad no autorizada o potencialmente maliciosa, sin posicionar RootCause como antivirus o EDR.
+- Implementacion actual en el repositorio: V1 inicial del modulo de deteccion de comportamiento anomalo con heuristicas locales, correlacion simple, evidencia tecnica, configuracion y exposicion en GUI/CLI.
+- Referencia tecnica: `docs/MODULO_DETECCION_ANOMALIAS.md`
+- Estado actualizado: `REQ-SEC-001` queda en `phase-1-implemented`; `REQ-SEC-002` se mantiene en `planned`.
+- `REQ-SEC-001` — `phase-1-implemented` · prioridad alta estrategica: deteccion heuristica y correlacion de senales compatibles con actividad no autorizada o potencialmente maliciosa, sin posicionar RootCause como antivirus o EDR.
 - `REQ-SEC-002` — `planned` · prioridad alta: resiliencia del agente mediante watchdog, reinicio, integridad, proteccion de configuracion y alertas ante manipulacion, sin prometer invulnerabilidad.
 - Registro permanente: `docs/requirements/README.md`
 
