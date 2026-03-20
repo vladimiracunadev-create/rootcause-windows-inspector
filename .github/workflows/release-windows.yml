@@ -3,7 +3,7 @@ name: release-windows
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -11,6 +11,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  LANDING_TOKEN_AVAILABLE: ${{ secrets.LANDING_RELEASE_TOKEN != '' }}
 
 jobs:
   release:
@@ -26,7 +27,7 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Generar Cargo.lock si aún no existe
+      - name: Generar Cargo.lock si aun no existe
         shell: pwsh
         run: |
           if (-not (Test-Path Cargo.lock)) {
@@ -49,7 +50,7 @@ jobs:
         shell: pwsh
         run: .\scripts\package-inno.ps1
 
-      - name: Compilar edición CLI-only
+      - name: Compilar edicion CLI-only
         shell: pwsh
         run: cargo build --release --no-default-features --target-dir target/cli
 
@@ -57,16 +58,16 @@ jobs:
         shell: pwsh
         run: .\scripts\package-cli-portable.ps1
 
-      - name: Publicar módulo PowerShell
+      - name: Publicar modulo PowerShell
         shell: pwsh
         run: .\scripts\package-powershell-module.ps1
 
-      - name: Instalar Node.js para extensión VS Code
+      - name: Instalar Node.js para extension VS Code
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
-      - name: Empaquetar extensión VS Code
+      - name: Empaquetar extension VS Code
         shell: pwsh
         run: .\scripts\package-vscode-extension.ps1
 
@@ -115,44 +116,44 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
-            ## RootCause — Windows Inspector ${{ github.ref_name }}
+            ## RootCause - Windows Inspector ${{ github.ref_name }}
 
-            Software de diagnóstico para Windows escrito en Rust.
-            Detecta procesos problemáticos, archivos temporales, conexiones sospechosas y actividad de actualización en segundo plano.
+            Software de diagnostico para Windows escrito en Rust.
+            Detecta procesos problematicos, archivos temporales, conexiones sospechosas y actividad de actualizacion en segundo plano.
 
             ---
 
-            ## Qué hay en este release
+            ## Que hay en este release
 
-            | Archivo | Descripción |
+            | Archivo | Descripcion |
             |---|---|
             | `RootCause-Setup.exe` | Instalador principal GUI + CLI |
-            | `RootCause-Portable.zip` | Versión portable del build principal GUI + CLI |
-            | `RootCause-CLI-Portable.zip` | Versión portable CLI-only (~4 MB, sin GUI) |
-            | `RootCause.psm1` | Módulo PowerShell (requiere `rootcause.exe`) |
-            | `RootCause-VSCode-Extension.vsix` | Extensión VS Code (requiere `rootcause.exe`) |
+            | `RootCause-Portable.zip` | Version portable del build principal GUI + CLI |
+            | `RootCause-CLI-Portable.zip` | Version portable CLI-only (~4 MB, sin GUI) |
+            | `RootCause.psm1` | Modulo PowerShell (requiere `rootcause.exe`) |
+            | `RootCause-VSCode-Extension.vsix` | Extension VS Code (requiere `rootcause.exe`) |
             | `SHA256SUMS.txt` | Hashes SHA-256 para verificar integridad antes de ejecutar |
 
             ---
 
-            ## Instalación rápida
+            ## Instalacion rapida
 
-            ### Opción A — Instalador (recomendado para la mayoría)
+            ### Opcion A - Instalador (recomendado para la mayoria)
             1. Descarga `RootCause-Setup.exe`
             2. Verifica el hash (ver abajo)
             3. Ejecuta el instalador y sigue los pasos
             4. Abre RootCause desde el acceso directo o usa `rootcause` desde consola
 
-            ### Opción B — Portable GUI
+            ### Opcion B - Portable GUI
             1. Descarga `RootCause-Portable.zip`
             2. Verifica el hash (ver abajo)
             3. Extrae en cualquier carpeta
             4. Ejecuta `rootcause.exe` como administrador
 
-            ### Opción C — CLI-only / integraciones
+            ### Opcion C - CLI-only / integraciones
             - `RootCause-CLI-Portable.zip`: scripts, Server Core, CI
-            - `RootCause.psm1`: integración PowerShell; requiere `rootcause.exe`
-            - `RootCause-VSCode-Extension.vsix`: integración VS Code; requiere `rootcause.exe`
+            - `RootCause.psm1`: integracion PowerShell; requiere `rootcause.exe`
+            - `RootCause-VSCode-Extension.vsix`: integracion VS Code; requiere `rootcause.exe`
 
             ---
 
@@ -169,18 +170,18 @@ jobs:
 
             ---
 
-            ## Requisitos mínimos
+            ## Requisitos minimos
 
             - Windows 10 o Windows 11 (64-bit)
             - Algunas funciones requieren privilegios de administrador
-            - Para el **modo de precisión ETW/WPR**: instalar [Windows Performance Toolkit](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/)
+            - Para el **modo de precision ETW/WPR**: instalar [Windows Performance Toolkit](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/)
 
             ---
 
-            ## ⚠ Nota de seguridad
+            ## Nota de seguridad
 
-            Este binario **no tiene firma digital** en esta versión.
-            Windows puede mostrar una advertencia de SmartScreen — es esperado.
+            Este binario **no tiene firma digital** en esta version.
+            Windows puede mostrar una advertencia de SmartScreen; es esperado.
 
           files: |
             build/RootCause-Portable.zip
@@ -190,40 +191,39 @@ jobs:
             build/installer/RootCause-Setup.exe
             build/SHA256SUMS.txt
 
-      # ── Publicar copia pública en rootcause-landing ──────────────────────────────
-      # Requiere un PAT (Personal Access Token) con scope "repo" para rootcause-landing,
-      # guardado como secreto LANDING_RELEASE_TOKEN en la configuración de ESTE repo privado.
-      # Ver docs/CI_GITHUB.md sección "Configurar LANDING_RELEASE_TOKEN".
-      - name: Publicar release público en rootcause-landing
+      # Publicar copia publica en rootcause-landing
+      # Requiere un PAT con scope "repo" para rootcause-landing,
+      # guardado como secreto LANDING_RELEASE_TOKEN en este repo privado.
+      # Ver docs/CI_GITHUB.md seccion "Configurar LANDING_RELEASE_TOKEN".
+      - name: Publicar release publico en rootcause-landing
         if: github.ref_type == 'tag' && env.LANDING_TOKEN_AVAILABLE == 'true'
         env:
           GH_TOKEN: ${{ secrets.LANDING_RELEASE_TOKEN }}
-          LANDING_TOKEN_AVAILABLE: ${{ secrets.LANDING_RELEASE_TOKEN != '' }}
         shell: pwsh
         run: |
-          $tag     = "${{ github.ref_name }}"
-          $title   = "RootCause Windows Inspector $tag"
-          $notes   = @"
+          $tag = "${{ github.ref_name }}"
+          $title = "RootCause Windows Inspector $tag"
+          $notes = @"
           ## RootCause Windows Inspector $tag
 
-          Monitor forense ligero para Windows. Detecta qué proceso, servicio o conexión está degradando tu equipo.
+          Monitor forense ligero para Windows. Detecta que proceso, servicio o conexion esta degradando tu equipo.
 
           ---
 
           ## Archivos en este release
 
-          | Archivo | Qué es |
+          | Archivo | Que es |
           |---|---|
           | ``RootCause-Setup.exe`` | Instalador principal GUI + CLI |
           | ``RootCause-Portable.zip`` | Portable del build principal GUI + CLI |
           | ``RootCause-CLI-Portable.zip`` | Portable CLI-only (~4 MB) |
-          | ``RootCause.psm1`` | Módulo PowerShell (requiere ``rootcause.exe``) |
-          | ``RootCause-VSCode-Extension.vsix`` | Extensión VS Code (requiere ``rootcause.exe``) |
+          | ``RootCause.psm1`` | Modulo PowerShell (requiere ``rootcause.exe``) |
+          | ``RootCause-VSCode-Extension.vsix`` | Extension VS Code (requiere ``rootcause.exe``) |
           | ``SHA256SUMS.txt`` | Hashes SHA-256 para verificar integridad |
 
           ---
 
-          ## Instalación rápida
+          ## Instalacion rapida
 
           **Instalador:**
           1. Descarga ``RootCause-Setup.exe``
@@ -238,7 +238,7 @@ jobs:
 
           **Integraciones y modo CLI-only:**
           - ``RootCause-CLI-Portable.zip`` para Server Core, scripts y CI
-          - ``RootCause.psm1`` para automatización PowerShell
+          - ``RootCause.psm1`` para automatizacion PowerShell
           - ``RootCause-VSCode-Extension.vsix`` para usar RootCause desde VS Code
 
           ---
@@ -265,19 +265,32 @@ jobs:
 
           ---
 
-          🌐 Landing: https://vladimiracunadev-create.github.io/rootcause-landing/
+          Landing: https://vladimiracunadev-create.github.io/rootcause-landing/
           "@
 
-          $prerelease = if ("$tag" -match '-') { "--prerelease" } else { "" }
+          $args = @(
+            'release',
+            'create',
+            $tag,
+            '--repo',
+            'vladimiracunadev-create/rootcause-landing',
+            '--title',
+            $title,
+            '--notes',
+            $notes
+          )
 
-          gh release create $tag `
-            --repo "vladimiracunadev-create/rootcause-landing" `
-            --title $title `
-            --notes $notes `
-            $prerelease `
-            "build/RootCause-Portable.zip" `
-            "build/RootCause-CLI-Portable.zip" `
-            "build/RootCause.psm1" `
-            "build/RootCause-VSCode-Extension.vsix" `
-            "build/installer/RootCause-Setup.exe" `
-            "build/SHA256SUMS.txt"
+          if ($tag -match '-') {
+            $args += '--prerelease'
+          }
+
+          $args += @(
+            'build/RootCause-Portable.zip',
+            'build/RootCause-CLI-Portable.zip',
+            'build/RootCause.psm1',
+            'build/RootCause-VSCode-Extension.vsix',
+            'build/installer/RootCause-Setup.exe',
+            'build/SHA256SUMS.txt'
+          )
+
+          & gh @args

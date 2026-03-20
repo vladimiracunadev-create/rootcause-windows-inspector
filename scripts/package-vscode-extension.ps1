@@ -19,7 +19,7 @@ if (Test-Path $artifact) {
 Push-Location $extensionDir
 try {
     npm install --no-fund --no-audit
-    npx @vscode/vsce package --out $artifact
+    npx --yes @vscode/vsce package --out $artifact
 }
 finally {
     Pop-Location
