@@ -907,7 +907,7 @@ fn draw_tab_overview(
                             egui::Label::new(
                                 RichText::new(path).small().monospace().color(TEXT_MUT),
                             )
-                            .wrap(),
+                            .wrap(true),
                         );
                     }
                 });
@@ -960,7 +960,7 @@ fn draw_tab_overview(
                     }
                 });
                 ui.add_space(6.0);
-                ui.add(egui::Label::new(RichText::new(&incident.summary).color(TEXT_SEC)).wrap());
+                ui.add(egui::Label::new(RichText::new(&incident.summary).color(TEXT_SEC)).wrap(true));
                 if !incident.root_cause_hypothesis.is_empty() {
                     ui.add_space(4.0);
                     ui.add(
@@ -969,7 +969,7 @@ fn draw_tab_overview(
                                 .color(TEXT_PRI)
                                 .size(12.0),
                         )
-                        .wrap(),
+                        .wrap(true),
                     );
                 }
                 if let Some(event) = incident.anomaly_events.first() {
@@ -990,7 +990,7 @@ fn draw_tab_overview(
                                         .monospace()
                                         .color(TEXT_SEC),
                                     )
-                                    .wrap(),
+                                    .wrap(true),
                                 );
                             }
                             if let Some(path) = event.exe_path.as_ref() {
@@ -998,7 +998,7 @@ fn draw_tab_overview(
                                     egui::Label::new(
                                         RichText::new(path).small().monospace().color(TEXT_MUT),
                                     )
-                                    .wrap(),
+                                    .wrap(true),
                                 )
                                 .on_hover_text(path);
                             }
@@ -1027,7 +1027,7 @@ fn draw_tab_overview(
                                             .monospace()
                                             .color(TEXT_MUT),
                                     )
-                                    .wrap(),
+                                    .wrap(true),
                                 )
                                 .on_hover_text(path);
                             }
@@ -1045,7 +1045,7 @@ fn draw_tab_overview(
                             .italics()
                             .color(TEXT_MUT),
                         )
-                        .wrap(),
+                        .wrap(true),
                     );
                 }
                 if !incident.evidence.is_empty() {
@@ -1061,7 +1061,7 @@ fn draw_tab_overview(
                                 .small()
                                 .color(TEXT_MUT),
                             )
-                            .wrap(),
+                            .wrap(true),
                         );
                     }
                 }
@@ -2883,7 +2883,7 @@ fn overview_card(
             ui.label(RichText::new(title).size(10.0).color(TEXT_MUT).strong());
             ui.add_space(4.0);
             ui.label(RichText::new(value).size(17.0).strong().color(TEXT_PRI));
-            ui.add(egui::Label::new(RichText::new(subtitle).size(10.5).color(TEXT_MUT)).wrap());
+            ui.add(egui::Label::new(RichText::new(subtitle).size(10.5).color(TEXT_MUT)).wrap(true));
             ui.add_space(6.0);
             pbar(ui, fraction.clamp(0.0, 1.0), fg, ui.available_width() - 2.0);
         });
@@ -2963,12 +2963,12 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
                         .size(11.5)
                         .color(TEXT_SEC),
                     )
-                    .wrap(),
+                    .wrap(true),
                 );
             }
             ui.add_space(4.0);
             ui.add(
-                egui::Label::new(RichText::new(&anomaly.summary).size(11.5).color(TEXT_SEC)).wrap(),
+                egui::Label::new(RichText::new(&anomaly.summary).size(11.5).color(TEXT_SEC)).wrap(true),
             );
             ui.add_space(4.0);
             ui.add(
@@ -2977,7 +2977,7 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
                         .size(11.0)
                         .color(TEXT_MUT),
                 )
-                .wrap(),
+                .wrap(true),
             );
             ui.add_space(4.0);
             ui.add(
@@ -2987,7 +2987,7 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
                         .size(11.0)
                         .color(TEXT_MUT),
                 )
-                .wrap(),
+                .wrap(true),
             );
         });
 }
