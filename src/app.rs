@@ -965,12 +965,9 @@ fn draw_tab_overview(
                     ui.add_space(4.0);
                     ui.add(
                         egui::Label::new(
-                            RichText::new(format!(
-                                "Hipotesis: {}",
-                                incident.root_cause_hypothesis
-                            ))
-                            .color(TEXT_PRI)
-                            .size(12.0),
+                            RichText::new(format!("Hipotesis: {}", incident.root_cause_hypothesis))
+                                .color(TEXT_PRI)
+                                .size(12.0),
                         )
                         .wrap(),
                     );
