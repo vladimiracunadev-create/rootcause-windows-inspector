@@ -2,7 +2,7 @@
 ; Requiere que target\release\rootcause.exe exista antes de compilar este script.
 
 #define MyAppName "RootCause Demo"
-#define MyAppVersion "0.8.0"
+#define MyAppVersion "0.8.1"
 #define MyAppPublisher "Vladimir Acuña Dev"
 #define MyAppExeName "rootcause.exe"
 #define MyAppURL "https://github.com/vladimiracunadev-create/rootcause-windows-inspector"

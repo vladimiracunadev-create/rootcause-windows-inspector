@@ -2,7 +2,7 @@
   "name": "rootcause-inspector",
   "displayName": "RootCause Windows Inspector",
   "description": "Estado del sistema Windows en la barra de estado de VS Code. Muestra severidad, CPU, RAM e I/O en tiempo real.",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "publisher": "vladimiracunadev-create",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
