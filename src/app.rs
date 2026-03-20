@@ -960,7 +960,9 @@ fn draw_tab_overview(
                     }
                 });
                 ui.add_space(6.0);
-                ui.add(egui::Label::new(RichText::new(&incident.summary).color(TEXT_SEC)).wrap(true));
+                ui.add(
+                    egui::Label::new(RichText::new(&incident.summary).color(TEXT_SEC)).wrap(true),
+                );
                 if !incident.root_cause_hypothesis.is_empty() {
                     ui.add_space(4.0);
                     ui.add(
@@ -2968,7 +2970,8 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
             }
             ui.add_space(4.0);
             ui.add(
-                egui::Label::new(RichText::new(&anomaly.summary).size(11.5).color(TEXT_SEC)).wrap(true),
+                egui::Label::new(RichText::new(&anomaly.summary).size(11.5).color(TEXT_SEC))
+                    .wrap(true),
             );
             ui.add_space(4.0);
             ui.add(
