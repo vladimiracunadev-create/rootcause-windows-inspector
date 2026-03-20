@@ -852,7 +852,12 @@ fn draw_tab_overview(
                         alert_badge(ui, risk.label(), fg, BG_CARD);
                     }
                     if incident.risk_score > 0 {
-                        pill(ui, &format!("Score {}", incident.risk_score), TEXT_PRI, BG_CARD);
+                        pill(
+                            ui,
+                            &format!("Score {}", incident.risk_score),
+                            TEXT_PRI,
+                            BG_CARD,
+                        );
                     }
                     if incident.anomaly_count > 0 {
                         pill(
@@ -908,12 +913,9 @@ fn draw_tab_overview(
                 if !incident.recommended_actions.is_empty() {
                     ui.add_space(6.0);
                     ui.label(
-                        RichText::new(format!(
-                            "Sugerencia: {}",
-                            incident.recommended_actions[0]
-                        ))
-                        .italics()
-                        .color(TEXT_MUT),
+                        RichText::new(format!("Sugerencia: {}", incident.recommended_actions[0]))
+                            .italics()
+                            .color(TEXT_MUT),
                     );
                 }
                 if !incident.evidence.is_empty() {

@@ -9,8 +9,8 @@
 
 use crate::config::AnomalyConfig;
 use crate::models::{
-    AnomalyEvent, ConnectionInsight, IncidentEvidence, PersistenceEntry, ProcessInsight,
-    RiskLevel, ServiceState,
+    AnomalyEvent, ConnectionInsight, IncidentEvidence, PersistenceEntry, ProcessInsight, RiskLevel,
+    ServiceState,
 };
 use crate::services::network;
 use chrono::{DateTime, Duration, Utc};
@@ -124,15 +124,19 @@ impl AnomalyTracker {
             return Vec::new();
         }
 
-        let process_map: HashMap<u32, &ProcessInsight> =
-            input.processes.iter().map(|process| (process.pid, process)).collect();
+        let process_map: HashMap<u32, &ProcessInsight> = input
+            .processes
+            .iter()
+            .map(|process| (process.pid, process))
+            .collect();
         let network_summary = summarize_network(input.connections);
         let mut anomalies = Vec::new();
 
         for process in input.processes {
             let now = input.collected_at;
             let lower_path = process.exe_path.to_ascii_lowercase();
-            let suspicious_path = path_is_suspicious(&lower_path, &process.command_line, input.config);
+            let suspicious_path =
+                path_is_suspicious(&lower_path, &process.command_line, input.config);
             let network = network_summary
                 .get(&process.pid)
                 .cloned()
@@ -276,11 +280,12 @@ impl AnomalyTracker {
             }
 
             if suspicious_path {
-                let score = if lower_path.contains("\\temp\\") || lower_path.contains("\\downloads\\") {
-                    78
-                } else {
-                    62
-                };
+                let score =
+                    if lower_path.contains("\\temp\\") || lower_path.contains("\\downloads\\") {
+                        78
+                    } else {
+                        62
+                    };
                 anomalies.push(build_process_event(
                     now,
                     "suspicious-execution-path",
@@ -435,12 +440,9 @@ impl AnomalyTracker {
             );
         }
 
-        anomalies.extend(
-            input
-                .services
-                .iter()
-                .filter_map(|service| security_service_event(input.collected_at, service, input.config)),
-        );
+        anomalies.extend(input.services.iter().filter_map(|service| {
+            security_service_event(input.collected_at, service, input.config)
+        }));
 
         let correlated = correlate_anomalies(input.collected_at, &anomalies);
         anomalies.extend(correlated);
@@ -479,12 +481,18 @@ fn summarize_network(connections: &[ConnectionInsight]) -> HashMap<u32, ProcessN
         let remote_ip = network::extract_ip(&connection.remote_address)
             .unwrap_or_else(|| connection.remote_address.clone());
         if connection.is_public_remote {
-            public_map.entry(connection.pid).or_default().insert(remote_ip);
+            public_map
+                .entry(connection.pid)
+                .or_default()
+                .insert(remote_ip);
         } else if !remote_ip.is_empty()
             && remote_ip != "*"
             && !remote_ip.eq_ignore_ascii_case("0.0.0.0")
         {
-            private_map.entry(connection.pid).or_default().insert(remote_ip);
+            private_map
+                .entry(connection.pid)
+                .or_default()
+                .insert(remote_ip);
         }
     }
 
@@ -708,7 +716,10 @@ fn security_service_event(
     })
 }
 
-fn correlate_anomalies(detected_at: DateTime<Utc>, anomalies: &[AnomalyEvent]) -> Vec<AnomalyEvent> {
+fn correlate_anomalies(
+    detected_at: DateTime<Utc>,
+    anomalies: &[AnomalyEvent],
+) -> Vec<AnomalyEvent> {
     let mut groups: HashMap<String, Vec<&AnomalyEvent>> = HashMap::new();
     for anomaly in anomalies {
         let key = anomaly
@@ -846,15 +857,32 @@ fn normalize_exe_key(process: &ProcessInsight) -> String {
 fn looks_like_script_engine(name: &str, command_line: Option<&str>) -> bool {
     let lower_name = name.to_ascii_lowercase();
     let lower_cmd = command_line.unwrap_or_default().to_ascii_lowercase();
-    ["powershell", "cmd.exe", "wscript", "cscript", "mshta", "python"]
-        .iter()
-        .any(|needle| lower_name.contains(needle) || lower_cmd.contains(needle))
+    [
+        "powershell",
+        "cmd.exe",
+        "wscript",
+        "cscript",
+        "mshta",
+        "python",
+    ]
+    .iter()
+    .any(|needle| lower_name.contains(needle) || lower_cmd.contains(needle))
 }
 
 fn looks_like_script_command(command: &str) -> bool {
-    [".ps1", ".bat", ".cmd", ".vbs", ".js", "powershell", "wscript", "cscript", "mshta"]
-        .iter()
-        .any(|needle| command.contains(needle))
+    [
+        ".ps1",
+        ".bat",
+        ".cmd",
+        ".vbs",
+        ".js",
+        "powershell",
+        "wscript",
+        "cscript",
+        "mshta",
+    ]
+    .iter()
+    .any(|needle| command.contains(needle))
 }
 
 fn normalize_script_signature(process: &ProcessInsight) -> Option<String> {
@@ -899,9 +927,15 @@ fn suspicious_parent_child(
         .iter()
         .any(|item| item.eq_ignore_ascii_case(&parent_name));
     let child_is_interpreter = looks_like_script_engine(&child_name, child.command_line.as_deref());
-    let child_is_lolbin = ["powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe"]
-        .iter()
-        .any(|item| child_name.contains(item));
+    let child_is_lolbin = [
+        "powershell.exe",
+        "cmd.exe",
+        "wscript.exe",
+        "cscript.exe",
+        "mshta.exe",
+    ]
+    .iter()
+    .any(|item| child_name.contains(item));
 
     (parent_is_interpreter && (child_is_interpreter || child_is_lolbin))
         || ((parent_name.contains("winword")

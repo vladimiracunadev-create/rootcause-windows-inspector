@@ -614,7 +614,9 @@ fn extract_target_path(command: &str) -> Option<String> {
         rest.split("'").next().unwrap_or_default().trim().to_owned()
     } else {
         let lower = trimmed.to_ascii_lowercase();
-        let extensions = [".exe", ".cmd", ".bat", ".ps1", ".vbs", ".js", ".hta", ".lnk"];
+        let extensions = [
+            ".exe", ".cmd", ".bat", ".ps1", ".vbs", ".js", ".hta", ".lnk",
+        ];
         let mut extracted = None;
         for extension in extensions {
             if let Some(index) = lower.find(extension) {

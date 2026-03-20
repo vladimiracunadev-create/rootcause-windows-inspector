@@ -146,7 +146,11 @@ fn cmd_status(args: &[String]) -> i32 {
             println!("â”‚  Anomalias : {}", snap.anomalies.len());
             if let Some(incident) = snap.incident.as_ref() {
                 if let Some(risk) = incident.risk_level {
-                    println!("â”‚  Riesgo    : {} ({})", risk.label(), incident.risk_score);
+                    println!(
+                        "â”‚  Riesgo    : {} ({})",
+                        risk.label(),
+                        incident.risk_score
+                    );
                 }
                 if !incident.root_cause_hypothesis.is_empty() {
                     println!("â”‚  Hipotesis : {}", incident.root_cause_hypothesis);

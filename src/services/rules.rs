@@ -253,12 +253,14 @@ pub fn derive_incident(snapshot: &SystemSnapshot) -> Option<IncidentSummary> {
             .take(5)
             .map(|event| event.recommended_action.clone())
             .collect::<Vec<_>>();
-        recommended_actions.push("Exportar snapshot JSON para preservar evidencia tecnica".to_owned());
+        recommended_actions
+            .push("Exportar snapshot JSON para preservar evidencia tecnica".to_owned());
         recommended_actions.push(
             "Escanear con antivirus o EDR especializado si la actividad no corresponde al contexto esperado.".to_owned(),
         );
         recommended_actions.push(
-            "Correlacionar la alerta con historial reciente, servicios y persistencia local.".to_owned(),
+            "Correlacionar la alerta con historial reciente, servicios y persistencia local."
+                .to_owned(),
         );
 
         let evidence = snapshot

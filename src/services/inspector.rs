@@ -11,12 +11,9 @@ use crate::models::{
 use crate::services::{
     ai::AiAdvisor,
     anomaly::{AnomalyTracker, DetectionInput},
-    etl,
-    network,
+    etl, network,
     persistence::PersistenceStore,
-    rules,
-    temp_scan,
-    windows,
+    rules, temp_scan, windows,
 };
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
@@ -285,9 +282,16 @@ impl InspectorService {
                     || process.cpu_percent >= self.config.anomaly.cpu_sustained_percent * 0.7
                     || lower_path.contains("\\temp\\")
                     || lower_path.contains("\\downloads\\")
-                    || ["powershell", "cmd.exe", "wscript", "cscript", "mshta", "python"]
-                        .iter()
-                        .any(|item| lower_name.contains(item))
+                    || [
+                        "powershell",
+                        "cmd.exe",
+                        "wscript",
+                        "cscript",
+                        "mshta",
+                        "python",
+                    ]
+                    .iter()
+                    .any(|item| lower_name.contains(item))
             })
             .take(12)
             .map(|p| p.pid)
