@@ -96,9 +96,7 @@ impl AnomalyTracker {
         if !looks_like_script_engine(&process.name, process.command_line.as_deref()) {
             return None;
         }
-        let Some(signature) = normalize_script_signature(process) else {
-            return None;
-        };
+        let signature = normalize_script_signature(process)?;
         let window = Duration::seconds(config.respawn_window_secs as i64);
         let state = self.script_history.entry(signature).or_insert(ScriptState {
             last_seen: now,
@@ -180,102 +178,123 @@ impl AnomalyTracker {
             if high_cpu_streak >= input.config.cpu_sustained_samples {
                 let score = (42 + high_cpu_streak as u16 * 8).min(88);
                 anomalies.push(build_process_event(
-                    now,
-                    "sustained-high-cpu",
-                    "CPU sostenido anormal",
-                    score,
                     process,
-                    parent,
-                    format!(
-                        "{} mantiene {:.1}% de CPU durante {} muestras consecutivas.",
-                        process.name, process.cpu_percent, high_cpu_streak
-                    ),
-                    "lentitud asociada a proceso no habitual con alto consumo sostenido".to_owned(),
-                    "Observar, validar command line y finalizar manualmente solo si el proceso no corresponde.",
-                    vec![
-                        metric_evidence("cpu", "CPU", format!("{:.1}%", process.cpu_percent)),
-                        metric_evidence(
-                            "samples",
-                            "Muestras sostenidas",
-                            high_cpu_streak.to_string(),
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "sustained-high-cpu",
+                        title: "CPU sostenido anormal",
+                        score,
+                        parent,
+                        summary: format!(
+                            "{} mantiene {:.1}% de CPU durante {} muestras consecutivas.",
+                            process.name, process.cpu_percent, high_cpu_streak
                         ),
-                    ],
-                    &network,
+                        root_cause_hypothesis:
+                            "lentitud asociada a proceso no habitual con alto consumo sostenido"
+                                .to_owned(),
+                        recommended_action:
+                            "Observar, validar command line y finalizar manualmente solo si el proceso no corresponde.",
+                        evidence: vec![
+                            metric_evidence("cpu", "CPU", format!("{:.1}%", process.cpu_percent)),
+                            metric_evidence(
+                                "samples",
+                                "Muestras sostenidas",
+                                high_cpu_streak.to_string(),
+                            ),
+                        ],
+                        network: &network,
+                    },
                 ));
             }
 
             if memory_growth_streak >= input.config.memory_growth_samples {
                 let score = (46 + memory_growth_streak as u16 * 8).min(86);
                 anomalies.push(build_process_event(
-                    now,
-                    "memory-growth",
-                    "Crecimiento anomalo de memoria",
-                    score,
                     process,
-                    parent,
-                    format!(
-                        "{} incrementa memoria hasta {:.0} MB con crecimiento repetido.",
-                        process.name, process.memory_mb
-                    ),
-                    "degradacion compatible con proceso persistente o script abusivo con crecimiento de memoria".to_owned(),
-                    "Revisar manualmente el proceso, preservar evidencia y escalar escaneo si no pertenece a la carga normal.",
-                    vec![
-                        metric_evidence("memory", "Memoria", format!("{:.0} MB", process.memory_mb)),
-                        metric_evidence(
-                            "growth",
-                            "Crecimiento",
-                            format!("{memory_growth:.1} MB"),
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "memory-growth",
+                        title: "Crecimiento anomalo de memoria",
+                        score,
+                        parent,
+                        summary: format!(
+                            "{} incrementa memoria hasta {:.0} MB con crecimiento repetido.",
+                            process.name, process.memory_mb
                         ),
-                    ],
-                    &network,
+                        root_cause_hypothesis:
+                            "degradacion compatible con proceso persistente o script abusivo con crecimiento de memoria".to_owned(),
+                        recommended_action:
+                            "Revisar manualmente el proceso, preservar evidencia y escalar escaneo si no pertenece a la carga normal.",
+                        evidence: vec![
+                            metric_evidence(
+                                "memory",
+                                "Memoria",
+                                format!("{:.0} MB", process.memory_mb),
+                            ),
+                            metric_evidence(
+                                "growth",
+                                "Crecimiento",
+                                format!("{memory_growth:.1} MB"),
+                            ),
+                        ],
+                        network: &network,
+                    },
                 ));
             }
 
             if aggressive_write_streak >= input.config.aggressive_write_samples {
                 let score = (50 + aggressive_write_streak as u16 * 8).min(92);
                 anomalies.push(build_process_event(
-                    now,
-                    "aggressive-disk-write",
-                    "Escritura agresiva en disco",
-                    score,
                     process,
-                    parent,
-                    format!(
-                        "{} escribe {:.1} MB por intervalo en forma sostenida.",
-                        process.name, process.io_write_mb_delta
-                    ),
-                    "degradacion compatible con escritura masiva no autorizada o proceso de alto impacto en disco".to_owned(),
-                    "Revisar si corresponde a backup, actualizacion o cifrado no esperado; generar informe tecnico si persiste.",
-                    vec![metric_evidence(
-                        "disk-write",
-                        "Escritura",
-                        format!("{:.1} MB", process.io_write_mb_delta),
-                    )],
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "aggressive-disk-write",
+                        title: "Escritura agresiva en disco",
+                        score,
+                        parent,
+                        summary: format!(
+                            "{} escribe {:.1} MB por intervalo en forma sostenida.",
+                            process.name, process.io_write_mb_delta
+                        ),
+                        root_cause_hypothesis:
+                            "degradacion compatible con escritura masiva no autorizada o proceso de alto impacto en disco".to_owned(),
+                        recommended_action:
+                            "Revisar si corresponde a backup, actualizacion o cifrado no esperado; generar informe tecnico si persiste.",
+                        evidence: vec![metric_evidence(
+                            "disk-write",
+                            "Escritura",
+                            format!("{:.1} MB", process.io_write_mb_delta),
+                        )],
+                        network: &network,
+                    },
                 ));
             }
 
             if network.public_unique_destinations >= input.config.public_destination_count {
                 let score = (56 + network.public_unique_destinations as u16 * 4).min(90);
                 anomalies.push(build_process_event(
-                    now,
-                    "multi-destination-outbound",
-                    "Conexiones salientes inusuales",
-                    score,
                     process,
-                    parent,
-                    format!(
-                        "{} se conecta a {} destinos publicos en la misma ventana.",
-                        process.name, network.public_unique_destinations
-                    ),
-                    "picos de red asociados a proceso fuera de linea base".to_owned(),
-                    "Validar origen del proceso, revisar destinos remotos y considerar bloqueo o escaneo externo si no corresponde.",
-                    vec![metric_evidence(
-                        "public-remotes",
-                        "Destinos publicos",
-                        network.public_unique_destinations.to_string(),
-                    )],
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "multi-destination-outbound",
+                        title: "Conexiones salientes inusuales",
+                        score,
+                        parent,
+                        summary: format!(
+                            "{} se conecta a {} destinos publicos en la misma ventana.",
+                            process.name, network.public_unique_destinations
+                        ),
+                        root_cause_hypothesis:
+                            "picos de red asociados a proceso fuera de linea base".to_owned(),
+                        recommended_action:
+                            "Validar origen del proceso, revisar destinos remotos y considerar bloqueo o escaneo externo si no corresponde.",
+                        evidence: vec![metric_evidence(
+                            "public-remotes",
+                            "Destinos publicos",
+                            network.public_unique_destinations.to_string(),
+                        )],
+                        network: &network,
+                    },
                 ));
             }
 
@@ -287,20 +306,24 @@ impl AnomalyTracker {
                         62
                     };
                 anomalies.push(build_process_event(
-                    now,
-                    "suspicious-execution-path",
-                    "Ejecucion desde ruta sospechosa",
-                    score,
                     process,
-                    parent,
-                    format!(
-                        "{} se ejecuta desde una ruta atipica: {}.",
-                        process.name, process.exe_path
-                    ),
-                    "actividad potencialmente no autorizada asociada a ejecucion fuera de rutas confiables".to_owned(),
-                    "Revisar manualmente la ruta, validar el origen del binario y evitar ejecucion futura si no corresponde.",
-                    vec![metric_evidence("path", "Ruta", process.exe_path.clone())],
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "suspicious-execution-path",
+                        title: "Ejecucion desde ruta sospechosa",
+                        score,
+                        parent,
+                        summary: format!(
+                            "{} se ejecuta desde una ruta atipica: {}.",
+                            process.name, process.exe_path
+                        ),
+                        root_cause_hypothesis:
+                            "actividad potencialmente no autorizada asociada a ejecucion fuera de rutas confiables".to_owned(),
+                        recommended_action:
+                            "Revisar manualmente la ruta, validar el origen del binario y evitar ejecucion futura si no corresponde.",
+                        evidence: vec![metric_evidence("path", "Ruta", process.exe_path.clone())],
+                        network: &network,
+                    },
                 ));
             }
 
@@ -308,20 +331,25 @@ impl AnomalyTracker {
                 && should_flag_untrusted_process(process, &network, suspicious_path)
             {
                 anomalies.push(build_process_event(
-                    now,
-                    "outside-trusted-baseline",
-                    "Proceso fuera de linea confiable",
-                    60,
                     process,
-                    parent,
-                    format!(
-                        "{} no coincide con la linea base confiable local y presenta actividad relevante.",
-                        process.name
-                    ),
-                    "riesgo medio-alto por ejecucion no habitual con impacto operativo".to_owned(),
-                    "Revisar manualmente, contrastar con software autorizado y escanear con antivirus/EDR si hay dudas.",
-                    vec![metric_evidence("path", "Ruta", process.exe_path.clone())],
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "outside-trusted-baseline",
+                        title: "Proceso fuera de linea confiable",
+                        score: 60,
+                        parent,
+                        summary: format!(
+                            "{} no coincide con la linea base confiable local y presenta actividad relevante.",
+                            process.name
+                        ),
+                        root_cause_hypothesis:
+                            "riesgo medio-alto por ejecucion no habitual con impacto operativo"
+                                .to_owned(),
+                        recommended_action:
+                            "Revisar manualmente, contrastar con software autorizado y escanear con antivirus/EDR si hay dudas.",
+                        evidence: vec![metric_evidence("path", "Ruta", process.exe_path.clone())],
+                        network: &network,
+                    },
                 ));
             }
 
@@ -329,104 +357,129 @@ impl AnomalyTracker {
                 && suspicious_parent_child(parent_process, process, input.config)
             {
                 anomalies.push(build_process_event(
-                    now,
-                    "suspicious-parent-child",
-                    "Relacion padre-hijo sospechosa",
-                    72,
                     process,
-                    Some(parent_process),
-                    format!(
-                        "{} fue lanzado por {}.",
-                        process.name, parent_process.name
-                    ),
-                    "actividad compatible con ejecucion encadenada fuera del patron normal".to_owned(),
-                    "Revisar manualmente el proceso padre, command line y origen del archivo adjunto o launcher asociado.",
-                    vec![
-                        metric_evidence("parent", "Padre", parent_process.name.clone()),
-                        metric_evidence("child", "Hijo", process.name.clone()),
-                    ],
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "suspicious-parent-child",
+                        title: "Relacion padre-hijo sospechosa",
+                        score: 72,
+                        parent: Some(parent_process),
+                        summary: format!(
+                            "{} fue lanzado por {}.",
+                            process.name, parent_process.name
+                        ),
+                        root_cause_hypothesis:
+                            "actividad compatible con ejecucion encadenada fuera del patron normal"
+                                .to_owned(),
+                        recommended_action:
+                            "Revisar manualmente el proceso padre, command line y origen del archivo adjunto o launcher asociado.",
+                        evidence: vec![
+                            metric_evidence("parent", "Padre", parent_process.name.clone()),
+                            metric_evidence("child", "Hijo", process.name.clone()),
+                        ],
+                        network: &network,
+                    },
                 ));
             }
 
             if let Some(score) = self.detect_respawn(process, now, input.config) {
                 anomalies.push(build_process_event(
-                    now,
-                    "rapid-respawn",
-                    "Reaparicion rapida de proceso",
-                    score.min(92),
                     process,
-                    parent,
-                    format!(
-                        "{} reaparecio repetidamente en una ventana corta.",
-                        process.name
-                    ),
-                    "degradacion compatible con proceso que se reinicia automaticamente o mecanismo de persistencia".to_owned(),
-                    "Revisar persistencia, servicio asociado y tareas programadas antes de finalizar el proceso.",
-                    vec![metric_evidence("pid", "PID actual", process.pid.to_string())],
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "rapid-respawn",
+                        title: "Reaparicion rapida de proceso",
+                        score: score.min(92),
+                        parent,
+                        summary: format!(
+                            "{} reaparecio repetidamente en una ventana corta.",
+                            process.name
+                        ),
+                        root_cause_hypothesis:
+                            "degradacion compatible con proceso que se reinicia automaticamente o mecanismo de persistencia".to_owned(),
+                        recommended_action:
+                            "Revisar persistencia, servicio asociado y tareas programadas antes de finalizar el proceso.",
+                        evidence: vec![metric_evidence(
+                            "pid",
+                            "PID actual",
+                            process.pid.to_string(),
+                        )],
+                        network: &network,
+                    },
                 ));
             }
 
             if let Some(score) = self.detect_repetitive_script(process, now, input.config) {
                 anomalies.push(build_process_event(
-                    now,
-                    "repetitive-script-execution",
-                    "Ejecucion repetitiva de scripts o comandos",
-                    score.min(88),
                     process,
-                    parent,
-                    format!(
-                        "{} repite una invocacion de script fuera del patron esperado.",
-                        process.name
-                    ),
-                    "actividad compatible con automatizacion agresiva, script abusivo o intento de persistencia".to_owned(),
-                    "Revisar command line, scheduler, carpeta Startup y origen del script antes de intervenir.",
-                    command_line_evidence(process),
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "repetitive-script-execution",
+                        title: "Ejecucion repetitiva de scripts o comandos",
+                        score: score.min(88),
+                        parent,
+                        summary: format!(
+                            "{} repite una invocacion de script fuera del patron esperado.",
+                            process.name
+                        ),
+                        root_cause_hypothesis:
+                            "actividad compatible con automatizacion agresiva, script abusivo o intento de persistencia".to_owned(),
+                        recommended_action:
+                            "Revisar command line, scheduler, carpeta Startup y origen del script antes de intervenir.",
+                        evidence: command_line_evidence(process),
+                        network: &network,
+                    },
                 ));
             }
 
             if let Some(score) = security_control_score(process) {
                 anomalies.push(build_process_event(
-                    now,
-                    "security-control-alteration",
-                    "Intento de alterar seguridad local",
-                    score,
                     process,
-                    parent,
-                    format!(
-                        "{} ejecuta comandos compatibles con cambios sobre controles de seguridad.",
-                        process.name
-                    ),
-                    "alteracion compatible con desactivacion o debilitamiento de defensas locales".to_owned(),
-                    "Revisar urgentemente el comando, validar usuario/contexto y escanear el endpoint con herramientas dedicadas.",
-                    command_line_evidence(process),
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "security-control-alteration",
+                        title: "Intento de alterar seguridad local",
+                        score,
+                        parent,
+                        summary: format!(
+                            "{} ejecuta comandos compatibles con cambios sobre controles de seguridad.",
+                            process.name
+                        ),
+                        root_cause_hypothesis:
+                            "alteracion compatible con desactivacion o debilitamiento de defensas locales".to_owned(),
+                        recommended_action:
+                            "Revisar urgentemente el comando, validar usuario/contexto y escanear el endpoint con herramientas dedicadas.",
+                        evidence: command_line_evidence(process),
+                        network: &network,
+                    },
                 ));
             }
 
             if network.private_unique_destinations >= input.config.local_scan_destination_count {
                 let score = (52 + network.private_unique_destinations as u16 * 3).min(88);
                 anomalies.push(build_process_event(
-                    now,
-                    "local-network-scan",
-                    "Patron de exploracion agresiva en red local",
-                    score,
                     process,
-                    parent,
-                    format!(
-                        "{} contacta {} destinos privados distintos en poco tiempo.",
-                        process.name, network.private_unique_destinations
-                    ),
-                    "actividad compatible con propagacion basica o exploracion interna no habitual".to_owned(),
-                    "Validar si corresponde a software de inventario o administracion; si no, aislar red y revisar el host.",
-                    vec![metric_evidence(
-                        "private-remotes",
-                        "Destinos privados",
-                        network.private_unique_destinations.to_string(),
-                    )],
-                    &network,
+                    ProcessEventSpec {
+                        detected_at: now,
+                        kind: "local-network-scan",
+                        title: "Patron de exploracion agresiva en red local",
+                        score,
+                        parent,
+                        summary: format!(
+                            "{} contacta {} destinos privados distintos en poco tiempo.",
+                            process.name, network.private_unique_destinations
+                        ),
+                        root_cause_hypothesis:
+                            "actividad compatible con propagacion basica o exploracion interna no habitual".to_owned(),
+                        recommended_action:
+                            "Validar si corresponde a software de inventario o administracion; si no, aislar red y revisar el host.",
+                        evidence: vec![metric_evidence(
+                            "private-remotes",
+                            "Destinos privados",
+                            network.private_unique_destinations.to_string(),
+                        )],
+                        network: &network,
+                    },
                 ));
             }
         }
@@ -471,6 +524,19 @@ impl AnomalyTracker {
 struct ProcessNetworkSummary {
     public_unique_destinations: usize,
     private_unique_destinations: usize,
+}
+
+struct ProcessEventSpec<'a> {
+    detected_at: DateTime<Utc>,
+    kind: &'a str,
+    title: &'a str,
+    score: u16,
+    parent: Option<&'a ProcessInsight>,
+    summary: String,
+    root_cause_hypothesis: String,
+    recommended_action: &'a str,
+    evidence: Vec<IncidentEvidence>,
+    network: &'a ProcessNetworkSummary,
 }
 
 fn summarize_network(connections: &[ConnectionInsight]) -> HashMap<u32, ProcessNetworkSummary> {
@@ -526,19 +592,19 @@ fn metric_evidence(kind: &str, label: &str, value: String) -> IncidentEvidence {
     }
 }
 
-fn build_process_event(
-    detected_at: DateTime<Utc>,
-    kind: &str,
-    title: &str,
-    score: u16,
-    process: &ProcessInsight,
-    parent: Option<&ProcessInsight>,
-    summary: String,
-    root_cause_hypothesis: String,
-    recommended_action: &str,
-    mut evidence: Vec<IncidentEvidence>,
-    network: &ProcessNetworkSummary,
-) -> AnomalyEvent {
+fn build_process_event(process: &ProcessInsight, spec: ProcessEventSpec<'_>) -> AnomalyEvent {
+    let ProcessEventSpec {
+        detected_at,
+        kind,
+        title,
+        score,
+        parent,
+        summary,
+        root_cause_hypothesis,
+        recommended_action,
+        mut evidence,
+        network,
+    } = spec;
     if let Some(cmdline) = process.command_line.as_ref() {
         evidence.push(metric_evidence(
             "command-line",
@@ -997,32 +1063,37 @@ mod tests {
     fn correlation_event_is_generated_for_same_process_context() {
         let now = Utc::now();
         let process = sample_process(4242, "powershell.exe");
+        let network = ProcessNetworkSummary::default();
         let events = vec![
             build_process_event(
-                now,
-                "suspicious-execution-path",
-                "Ruta sospechosa",
-                72,
                 &process,
-                None,
-                "demo".to_owned(),
-                "demo".to_owned(),
-                "demo",
-                vec![],
-                &ProcessNetworkSummary::default(),
+                ProcessEventSpec {
+                    detected_at: now,
+                    kind: "suspicious-execution-path",
+                    title: "Ruta sospechosa",
+                    score: 72,
+                    parent: None,
+                    summary: "demo".to_owned(),
+                    root_cause_hypothesis: "demo".to_owned(),
+                    recommended_action: "demo",
+                    evidence: vec![],
+                    network: &network,
+                },
             ),
             build_process_event(
-                now,
-                "multi-destination-outbound",
-                "Red sospechosa",
-                68,
                 &process,
-                None,
-                "demo".to_owned(),
-                "demo".to_owned(),
-                "demo",
-                vec![],
-                &ProcessNetworkSummary::default(),
+                ProcessEventSpec {
+                    detected_at: now,
+                    kind: "multi-destination-outbound",
+                    title: "Red sospechosa",
+                    score: 68,
+                    parent: None,
+                    summary: "demo".to_owned(),
+                    root_cause_hypothesis: "demo".to_owned(),
+                    recommended_action: "demo",
+                    evidence: vec![],
+                    network: &network,
+                },
             ),
         ];
 

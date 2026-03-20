@@ -352,12 +352,14 @@ impl InspectorService {
         });
 
         let mut alerts = rules::build_alerts(
-            &processes,
-            &connections,
-            &temp.top_entries,
-            &services,
-            &anomalies,
-            &precision,
+            rules::AlertBuildInputs {
+                processes: &processes,
+                connections: &connections,
+                temp_entries: &temp.top_entries,
+                services: &services,
+                anomalies: &anomalies,
+                precision: &precision,
+            },
             &mut overview,
             self.config.alerting.max_alerts,
         );

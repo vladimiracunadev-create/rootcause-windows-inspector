@@ -10,6 +10,15 @@ use crate::models::{
     ProcessInsight, ServiceState, Severity, SystemOverview, SystemSnapshot, TempEntry,
 };
 
+pub struct AlertBuildInputs<'a> {
+    pub processes: &'a [ProcessInsight],
+    pub connections: &'a [ConnectionInsight],
+    pub temp_entries: &'a [TempEntry],
+    pub services: &'a [ServiceState],
+    pub anomalies: &'a [AnomalyEvent],
+    pub precision: &'a PrecisionStatus,
+}
+
 pub fn classify_process(
     name: &str,
     exe_path: &str,
@@ -95,15 +104,18 @@ pub fn classify_process(
 }
 
 pub fn build_alerts(
-    processes: &[ProcessInsight],
-    connections: &[ConnectionInsight],
-    temp_entries: &[TempEntry],
-    services: &[ServiceState],
-    anomalies: &[AnomalyEvent],
-    precision: &PrecisionStatus,
+    inputs: AlertBuildInputs<'_>,
     overview: &mut SystemOverview,
     max_alerts: usize,
 ) -> Vec<Alert> {
+    let AlertBuildInputs {
+        processes,
+        connections,
+        temp_entries,
+        services,
+        anomalies,
+        precision,
+    } = inputs;
     let mut alerts = Vec::new();
 
     if let Some(anomaly) = anomalies.first() {
