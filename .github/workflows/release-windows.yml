@@ -121,6 +121,13 @@ jobs:
             Software de diagnostico para Windows escrito en Rust.
             Detecta procesos problematicos, archivos temporales, conexiones sospechosas y actividad de actualizacion en segundo plano.
 
+            ## Novedades de esta version
+
+            - Deteccion heuristica V1 de comportamiento anomalo y posible actividad maliciosa.
+            - Correlacion simple de senales para incidentes con severidad, evidencia y posible hipotesis de causa raiz.
+            - Cobertura inicial sobre rutas sospechosas, consumo anomalo, persistencia basica, reaparicion de procesos y actividad saliente inusual.
+            - RootCause complementa observabilidad y diagnostico del endpoint, pero no reemplaza un antivirus o EDR dedicado.
+
             ---
 
             ## Que hay en este release
@@ -207,6 +214,12 @@ jobs:
           ## RootCause Windows Inspector $tag
 
           Monitor forense ligero para Windows. Detecta que proceso, servicio o conexion esta degradando tu equipo.
+
+          ## Novedades de esta version
+
+          - Nueva deteccion heuristica de actividad anomala compatible con problemas de seguridad.
+          - Nueva correlacion basica de senales para priorizar severidad, evidencia y recomendaciones.
+          - RootCause no sustituye antivirus ni EDR especializados; complementa observabilidad y diagnostico local.
 
           ---
 
