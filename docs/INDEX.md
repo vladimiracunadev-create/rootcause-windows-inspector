@@ -55,12 +55,18 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 - [Documento para reclutadores](RECLUTADORES.md)
 - [Licencia y decisión de distribución](LICENCIA_Y_DECISION.md)
 
+## Requerimientos estrategicos y trazabilidad
+- [Registro de requerimientos de seguridad y resiliencia](requirements/README.md)
+- [REQ-SEC-001 - Deteccion de comportamiento anomalo](requirements/REQ-SEC-001-deteccion-comportamiento-anomalo.md)
+- [REQ-SEC-002 - Autoproteccion y resiliencia](requirements/REQ-SEC-002-autoproteccion-y-resiliencia.md)
+
 ## Identidad visual y packaging
 - [Marca, naming y branding técnico de RootCause](MARCA_Y_BRANDING_ROOTCAUSE.md)
 - [Empaquetado Windows](PACKAGING_WINDOWS.md)
 
 ## Seguridad
 - [SECURITY.md](../SECURITY.md)
+- [Registro de requerimientos de seguridad y resiliencia](requirements/README.md)
 
 ## Publicación pública y experiencia demo
 

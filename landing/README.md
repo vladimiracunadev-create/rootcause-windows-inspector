@@ -80,3 +80,19 @@ v0.6.0  →  v0.7.0   (o la versión que corresponda)
 ```
 
 Luego `git push` y GitHub Actions despliega automáticamente.
+
+---
+
+## Bloque publico de seguridad y resiliencia
+
+La landing debe mantener un bloque breve y estrategico sobre dos lineas documentadas del producto:
+
+- deteccion de actividad anomala compatible con problemas de seguridad;
+- resiliencia del propio agente ante detencion, manipulacion o corrupcion.
+
+Reglas de redaccion para ese bloque:
+
+- no publicar heuristicas internas detalladas ni material que facilite evasion;
+- no vender RootCause como antivirus, proteccion total o EDR completo;
+- aclarar que se trata de evolucion del producto y no de una promesa de deteccion perfecta;
+- mantener el tono serio, tecnico y honesto.

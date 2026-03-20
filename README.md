@@ -92,6 +92,23 @@ Para cuando la observación liviana no basta.
 
 ---
 
+## Seguridad, resiliencia y evolucion
+
+RootCause evoluciona no solo para diagnosticar degradacion y fallos, sino tambien para detectar señales anómalas compatibles con actividad no autorizada y fortalecer la resiliencia del propio agente.
+
+Estas lineas ya quedaron formalizadas como documentacion viva del producto, no como notas sueltas:
+
+- [`REQ-SEC-001 - Deteccion de comportamiento anomalo y posible actividad maliciosa`](docs/requirements/REQ-SEC-001-deteccion-comportamiento-anomalo.md): define una evolucion basada en heuristicas, correlacion de señales, evidencia tecnica y sugerencias de mitigacion para procesos sospechosos, consumo anomalo, conexiones salientes inusuales, persistencia y rutas de ejecucion sospechosas.
+- [`REQ-SEC-002 - Autoproteccion y resiliencia del agente RootCause`](docs/requirements/REQ-SEC-002-autoproteccion-y-resiliencia.md): documenta una linea de trabajo para watchdog, reinicio automatico, verificacion de integridad, proteccion de configuracion, logging robusto y alertas ante manipulacion del propio agente.
+- [`Registro permanente de requerimientos`](docs/requirements/README.md): concentra estado, prioridad y trazabilidad con el roadmap tecnico.
+
+Posicionamiento honesto:
+
+- RootCause puede evolucionar para detectar señales compatibles con actividad maliciosa o no autorizada, sin reemplazar una solucion antivirus o EDR especializada.
+- RootCause tambien debe contemplar la resiliencia de su propio agente, porque una herramienta de diagnostico puede convertirse en objetivo de manipulacion en escenarios reales.
+
+---
+
 ## 🗂️ Ediciones del producto
 
 | Modalidad | Tipo | Estado | Cómo se usa | ¿Sale en `release-windows`? |
@@ -355,6 +372,7 @@ rootcause-windows-inspector/
 | 👤 Usuario final | [`docs/MANUAL_PARA_NOVATOS.md`](docs/MANUAL_PARA_NOVATOS.md) · [`docs/OPERACION.md`](docs/OPERACION.md) |
 | 🏢 Reclutador | [`docs/RECLUTADORES.md`](docs/RECLUTADORES.md) · [`docs/REPOSITORIO_ANALISIS.md`](docs/REPOSITORIO_ANALISIS.md) |
 | 🔬 Arquitectura | [`docs/ARQUITECTURA_ESCALABILIDAD.md`](docs/ARQUITECTURA_ESCALABILIDAD.md) · [`docs/ARQUITECTURA_EVOLUTIVA.md`](docs/ARQUITECTURA_EVOLUTIVA.md) |
+| 🛡️ Evolucion y resiliencia | [`docs/requirements/README.md`](docs/requirements/README.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 | 📋 Release | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) |
 | 📑 Todo | [`docs/INDEX.md`](docs/INDEX.md) |
 

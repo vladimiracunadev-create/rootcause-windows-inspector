@@ -58,6 +58,7 @@
 - ✅ CLI ampliada con `status --json`, `history --json`, `incidents`, `config show/init`, `snapshot --output` y `ai explain-latest`
 - ✅ Adaptador IA opcional por API, desacoplado y apagado por defecto: si falla, RootCause sigue detectando, alertando y guardando evidencia
 - ✅ Release engineering endurecido: branding principal corregido y workflow `release-windows` alineado con el catálogo real (GUI, CLI-only, PowerShell y VS Code)
+- ✅ Documentación estratégica formalizada para REQ-SEC-001 y REQ-SEC-002 con trazabilidad en README, índice documental y landing pública
 
 ## v1.0 — Objetivo de distribución formal
 - Tab Autostart (HKCU\...\Run + carpeta Startup + tareas programadas)
@@ -67,6 +68,11 @@
 - Scoop / Winget publicados con primer release público
 - Firma digital (CodeSigning cert — elimina SmartScreen)
 - Documentación madura de instalación y operación
+
+## Lineas estrategicas documentadas (post-v1.0)
+- `REQ-SEC-001` — `planned` · prioridad alta estrategica: deteccion heuristica y correlacion de senales compatibles con actividad no autorizada o potencialmente maliciosa, sin posicionar RootCause como antivirus o EDR.
+- `REQ-SEC-002` — `planned` · prioridad alta: resiliencia del agente mediante watchdog, reinicio, integridad, proteccion de configuracion y alertas ante manipulacion, sin prometer invulnerabilidad.
+- Registro permanente: `docs/requirements/README.md`
 
 ## v2.0+ — Largo plazo
 - Windows Service activo (captura 24/7, named pipe, diagnóstico de problemas nocturnos)
