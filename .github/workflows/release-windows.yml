@@ -126,7 +126,9 @@ jobs:
             - Deteccion heuristica V1 de comportamiento anomalo y posible actividad maliciosa.
             - Correlacion simple de senales para incidentes con severidad, evidencia y posible hipotesis de causa raiz.
             - Cobertura inicial sobre rutas sospechosas, consumo anomalo, persistencia basica, reaparicion de procesos y actividad saliente inusual.
-            - Ajuste responsive del tab Resumen para evitar desbordes horizontales y mantener legible el bloque critico en entornos estrechos.
+            - Nueva linea base de resiliencia del agente: heartbeat local, deteccion de cierre abrupto previo e integridad basica de configuracion.
+            - Estado del agente visible en GUI, snapshot exportado, `status --json` y `config show`.
+            - Recomendacion de backoff ante reinicios o cierres abruptos repetidos para evitar bucles de recuperacion torpes.
             - RootCause complementa observabilidad y diagnostico del endpoint, pero no reemplaza un antivirus o EDR dedicado.
 
             ---
@@ -220,7 +222,9 @@ jobs:
 
           - Nueva deteccion heuristica de actividad anomala compatible con problemas de seguridad.
           - Nueva correlacion basica de senales para priorizar severidad, evidencia y recomendaciones.
-          - Mejora del tab Resumen para apilar verticalmente la vista critica cuando el ancho disponible es menor.
+          - Nueva linea base de resiliencia del agente con heartbeat local, deteccion de cierre abrupto previo e integridad basica de configuracion.
+          - Estado del agente visible en GUI, snapshot exportado, `status --json` y `config show`.
+          - Recomendacion de backoff ante reinicios o cierres abruptos repetidos para evitar bucles de recuperacion torpes.
           - RootCause no sustituye antivirus ni EDR especializados; complementa observabilidad y diagnostico local.
 
           ---
