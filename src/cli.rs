@@ -484,6 +484,18 @@ fn cmd_config(args: &[String]) -> i32 {
                         "desactivada"
                     }
                 );
+                println!(
+                    "Resiliencia : heartbeat {}s | stale {}s | ventana {}s | max reinicios {} | config {}",
+                    view.config.resilience.heartbeat_interval_secs,
+                    view.config.resilience.stale_after_secs,
+                    view.config.resilience.restart_window_secs,
+                    view.config.resilience.max_restarts_in_window,
+                    if view.config.resilience.watch_config_integrity {
+                        "vigilada"
+                    } else {
+                        "sin vigilancia"
+                    }
+                );
                 0
             }
         }
@@ -606,6 +618,12 @@ fn print_json<T: Serialize>(value: &T) -> i32 {
 #[derive(Serialize)]
 struct StatusJson {
     severity: String,
+    agent_status: String,
+    agent_summary: String,
+    last_heartbeat_at: String,
+    config_integrity_changed: bool,
+    unexpected_shutdown_detected: bool,
+    watchdog_backoff_active: bool,
     cpu_percent: f32,
     ram_percent: f32,
     ram_used_gb: f32,
@@ -634,6 +652,12 @@ impl StatusJson {
         };
         Self {
             severity: format!("{:?}", ov.primary_severity),
+            agent_status: snapshot.agent_health.status.label().to_owned(),
+            agent_summary: snapshot.agent_health.summary.clone(),
+            last_heartbeat_at: snapshot.agent_health.last_heartbeat_at.clone(),
+            config_integrity_changed: snapshot.agent_health.config_changed,
+            unexpected_shutdown_detected: snapshot.agent_health.unexpected_shutdown_detected,
+            watchdog_backoff_active: snapshot.agent_health.watchdog_backoff_active,
             cpu_percent: ov.cpu_usage_percent,
             ram_percent,
             ram_used_gb: ov.memory_used_gb,

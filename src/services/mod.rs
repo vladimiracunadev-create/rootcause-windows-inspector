@@ -8,6 +8,7 @@ pub mod etl;
 pub mod inspector;
 pub mod network;
 pub mod persistence;
+pub mod resilience;
 pub mod rules;
 pub mod temp_scan;
 pub mod tray;

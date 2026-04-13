@@ -15,7 +15,7 @@ RootCause sigue orientado a observabilidad, diagnostico, rendimiento, salud del 
 Los requerimientos ya no estan en el mismo punto:
 
 - `REQ-SEC-001` pasa a `phase-1-implemented` porque el repositorio ya incorpora una V1 inicial de deteccion heuristica, correlacion basica, evidencia, severidad y exposicion en GUI/CLI.
-- `REQ-SEC-002` se mantiene en `planned` porque la resiliencia y autoproteccion del agente aun no cuentan con watchdog, integridad o supervisor formales.
+- `REQ-SEC-002` pasa a `phase-2-initial` porque el repositorio ya incorpora heartbeat local, deteccion de cierre abrupto previo, evidencia de integridad de configuracion, backoff recomendado y visibilidad del estado del agente, aunque todavia no existe un supervisor persistente tipo servicio.
 - Ambos mantienen prioridad alta porque la evolucion tecnica del producto sigue necesitando estas dos lineas para crecer con coherencia.
 
 ## Registro activo
@@ -23,7 +23,7 @@ Los requerimientos ya no estan en el mismo punto:
 | ID | Nombre | Estado | Prioridad | Relacion con RootCause |
 |---|---|---|---|---|
 | [REQ-SEC-001](REQ-SEC-001-deteccion-comportamiento-anomalo.md) | Deteccion de comportamiento anomalo y posible actividad maliciosa | `phase-1-implemented` | Alta estrategica | Extiende la observabilidad del endpoint hacia senales compatibles con actividad no autorizada, sin reemplazar AV/EDR. |
-| [REQ-SEC-002](REQ-SEC-002-autoproteccion-y-resiliencia.md) | Autoproteccion y resiliencia del agente RootCause | `planned` | Alta | Refuerza continuidad operativa, integridad y alerta ante manipulacion del propio agente, sin prometer invulnerabilidad. |
+| [REQ-SEC-002](REQ-SEC-002-autoproteccion-y-resiliencia.md) | Autoproteccion y resiliencia del agente RootCause | `phase-2-initial` | Alta | Refuerza continuidad operativa, integridad y alerta ante manipulacion del propio agente, sin prometer invulnerabilidad. |
 
 ## Mensajes obligatorios que este registro preserva
 

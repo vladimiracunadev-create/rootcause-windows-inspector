@@ -1,5 +1,5 @@
 {
-    "version": "0.8.1",
+    "version": "0.9.0",
     "description": "Monitor forense ligero para Windows. Detecta la causa raíz de lentitud — procesos, red, temporales, ETW/WPR — desde una sola ventana o desde la consola.",
     "homepage": "https://vladimiracunadev-create.github.io/rootcause-landing/",
     "license": "Apache-2.0",

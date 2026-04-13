@@ -59,6 +59,25 @@ impl RiskLevel {
     }
 }
 
+/// Estado operativo del propio agente RootCause.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum AgentStatus {
+    #[default]
+    Healthy,
+    Degraded,
+    Recovered,
+}
+
+impl AgentStatus {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Healthy => "Saludable",
+            Self::Degraded => "Degradado",
+            Self::Recovered => "Recuperado",
+        }
+    }
+}
+
 /// Resumen del estado global del equipo en una instantánea concreta.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SystemOverview {
@@ -259,6 +278,33 @@ pub struct AuditRecord {
     pub detail: String,
 }
 
+/// Estado resumido de resiliencia del propio agente.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AgentHealth {
+    #[serde(default)]
+    pub status: AgentStatus,
+    #[serde(default)]
+    pub summary: String,
+    #[serde(default)]
+    pub last_start_at: String,
+    #[serde(default)]
+    pub last_heartbeat_at: String,
+    #[serde(default)]
+    pub last_clean_shutdown_at: Option<String>,
+    #[serde(default)]
+    pub config_fingerprint: String,
+    #[serde(default)]
+    pub config_changed: bool,
+    #[serde(default)]
+    pub unexpected_shutdown_detected: bool,
+    #[serde(default)]
+    pub watchdog_backoff_active: bool,
+    #[serde(default)]
+    pub consecutive_unexpected_stops: u32,
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
 /// Elemento medible dentro de carpetas temporales o cachés de riesgo.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TempEntry {
@@ -382,6 +428,8 @@ pub struct SystemSnapshot {
     pub collected_at: DateTime<Utc>,
     pub overview: SystemOverview,
     pub alerts: Vec<Alert>,
+    #[serde(default)]
+    pub agent_health: AgentHealth,
     pub processes: Vec<ProcessInsight>,
     pub temp: TempOverview,
     pub connections: Vec<ConnectionInsight>,

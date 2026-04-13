@@ -6,8 +6,8 @@
 
 use crate::meta;
 use crate::models::{
-    AnomalyEvent, HardwareInfo, ProcessInsight, ServiceState, Severity, SnapshotRow,
-    SystemSnapshot, TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
+    AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, ProcessInsight, ServiceState, Severity,
+    SnapshotRow, SystemSnapshot, TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
 };
 use crate::services::inspector::InspectorService;
 use crate::services::windows;
@@ -444,7 +444,7 @@ impl eframe::App for RootCauseApp {
                 if self.active_tab == Tab::About {
                     egui::ScrollArea::vertical()
                         .auto_shrink([false; 2])
-                        .show(ui, |ui| draw_tab_about(ui, &self.hardware_info));
+                        .show(ui, |ui| draw_tab_about(ui, &self.hardware_info, self.snapshot.as_ref()));
                     return;
                 }
 
@@ -2448,7 +2448,7 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
 
 // ── Tab: Acerca ────────────────────────────────────────────────────────────────
 
-fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo) {
+fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&SystemSnapshot>) {
     ui.add_space(28.0);
 
     ui.vertical_centered(|ui| {
@@ -2484,6 +2484,16 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo) {
 
                 ui.add_space(16.0);
                 ui.label(RichText::new(meta::DESCRIPTION).size(13.0).color(TEXT_SEC));
+
+                if let Some(snap) = snapshot {
+                    ui.add_space(18.0);
+                    ui.add(egui::Separator::default());
+                    ui.add_space(14.0);
+
+                    section_header(ui, "▸  Salud del agente");
+                    ui.add_space(10.0);
+                    draw_agent_health_block(ui, &snap.agent_health);
+                }
 
                 ui.add_space(18.0);
                 ui.add(egui::Separator::default());
@@ -2667,6 +2677,36 @@ fn about_row(ui: &mut egui::Ui, label: &str, value: &str, color: Color32) {
         ui.label(RichText::new(value).size(12.0).color(color));
     });
     ui.add_space(3.0);
+}
+
+fn draw_agent_health_block(ui: &mut egui::Ui, health: &AgentHealth) {
+    let (fg, bg) = match health.status {
+        AgentStatus::Healthy => (C_OK_FG, C_OK_BG),
+        AgentStatus::Recovered => (C_WN_FG, C_WN_BG),
+        AgentStatus::Degraded => (C_CR_FG, C_CR_BG),
+    };
+
+    ui.horizontal(|ui| {
+        pill(ui, health.status.label(), fg, bg);
+        if health.watchdog_backoff_active {
+            pill(ui, "Backoff sugerido", C_WN_FG, C_WN_BG);
+        }
+        if health.config_changed {
+            pill(ui, "Config cambiada", C_BL_FG, C_BL_BG);
+        }
+    });
+    ui.add_space(6.0);
+    ui.label(RichText::new(&health.summary).size(12.0).color(TEXT_SEC));
+    ui.add_space(8.0);
+    about_row(ui, "Ultimo inicio", &health.last_start_at, TEXT_SEC);
+    about_row(ui, "Ultimo heartbeat", &health.last_heartbeat_at, TEXT_SEC);
+    if let Some(last_shutdown) = health.last_clean_shutdown_at.as_ref() {
+        about_row(ui, "Ultimo cierre limpio", last_shutdown, TEXT_SEC);
+    }
+    about_row(ui, "Huella config", &health.config_fingerprint, TEXT_MUT);
+    for note in health.notes.iter().take(3) {
+        ui.label(RichText::new(format!("• {note}")).size(11.5).color(TEXT_MUT));
+    }
 }
 
 /// Fila de enlace clickable en el panel Acerca.

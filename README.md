@@ -9,7 +9,7 @@
 ║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝      ║
 ║                                                                                   ║
 ║                     W I N D O W S   I N S P E C T O R                             ║
-║               Forensic diagnostics · Built in Rust · v0.8.1                       ║
+║               Forensic diagnostics · Built in Rust · v0.9.0                       ║
 ╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -17,7 +17,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
-[![Version](https://img.shields.io/badge/version-0.8.1-green.svg)](docs/ROADMAP.md)
+[![Version](https://img.shields.io/badge/version-0.9.0-green.svg)](docs/ROADMAP.md)
 
 🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-landing/)**
 
@@ -99,7 +99,7 @@ RootCause evoluciona no solo para diagnosticar degradacion y fallos, sino tambie
 Estas lineas ya quedaron formalizadas como documentacion viva del producto, no como notas sueltas:
 
 - [`REQ-SEC-001 - Deteccion de comportamiento anomalo y posible actividad maliciosa`](docs/requirements/REQ-SEC-001-deteccion-comportamiento-anomalo.md): define una evolucion basada en heuristicas, correlacion de señales, evidencia tecnica y sugerencias de mitigacion para procesos sospechosos, consumo anomalo, conexiones salientes inusuales, persistencia y rutas de ejecucion sospechosas.
-- [`REQ-SEC-002 - Autoproteccion y resiliencia del agente RootCause`](docs/requirements/REQ-SEC-002-autoproteccion-y-resiliencia.md): documenta una linea de trabajo para watchdog, reinicio automatico, verificacion de integridad, proteccion de configuracion, logging robusto y alertas ante manipulacion del propio agente.
+- [`REQ-SEC-002 - Autoproteccion y resiliencia del agente RootCause`](docs/requirements/REQ-SEC-002-autoproteccion-y-resiliencia.md): ya cuenta con una base inicial de heartbeat local, deteccion de cierre abrupto, evidencia de integridad de configuracion, backoff recomendado y exposicion visible en GUI/CLI.
 - [`Registro permanente de requerimientos`](docs/requirements/README.md): concentra estado, prioridad y trazabilidad con el roadmap tecnico.
 
 - [`Modulo de deteccion de comportamiento anomalo (V1)`](docs/MODULO_DETECCION_ANOMALIAS.md): describe la implementacion inicial ya integrada en el repositorio, con heuristicas locales, correlacion simple, incidentes resumidos, configuracion y salida visible en GUI/CLI.
@@ -108,7 +108,7 @@ Implementacion actual del repo:
 
 - REQ-SEC-001 ya cuenta con una V1 inicial integrada para detectar CPU sostenido anormal, crecimiento de memoria, escritura agresiva, trafico saliente inusual, rutas sospechosas, persistencia basica, respawn rapido, scripts repetitivos y correlacion de senales.
 - La salida actual muestra severidad, score, proceso involucrado, hipotesis de causa, evidencia resumida y recomendacion sugerida.
-- REQ-SEC-002 sigue documentado como linea de evolucion separada; esta entrega no promete autoproteccion completa del agente.
+- REQ-SEC-002 pasa a una implementacion inicial y honesta: heartbeat local, recuperacion tras cierre abrupto, vigilancia basica de configuracion y estado del agente visible; aun no promete invulnerabilidad ni un supervisor persistente de nivel servicio.
 
 Posicionamiento honesto:
 
@@ -194,6 +194,7 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 - Modo de precisión WPR/ETW integrado en la interfaz
 - Historial SQLite (últimas 1000 filas) + backup automático a JSON
 - Configuración operativa en JSON (`rootcause-config.json`) con defaults seguros
+- Salud del agente con heartbeat local, detección de cierre abrupto previo e integridad básica de configuración
 - Registro de incidentes resumidos + auditoría de acciones en SQLite
 - Adaptador IA opcional por API, desacoplado y apagado por defecto
 - Instalador silencioso compatible con despliegue corporativo (`/VERYSILENT /SUPPRESSMSGBOXES`)

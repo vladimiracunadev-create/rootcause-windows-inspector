@@ -10,13 +10,14 @@ Autoproteccion y resiliencia del agente RootCause.
 
 ## 3. Estado
 
-`planned`
+`phase-2-initial`
 
 Justificacion del estado:
 
 - El repositorio ya contempla tray y Windows Service como lineas de evolucion del runtime.
 - RootCause guarda historial, evidencia y auditoria local, por lo que la continuidad del agente importa cada vez mas.
-- Aun no existe una capa formal de watchdog, integridad y respuesta a manipulacion; por eso se documenta como trabajo planificado y no como promesa presente.
+- La version actual ya incorpora heartbeat local, deteccion de cierre abrupto previo, visibilidad de salud del agente en GUI/CLI, backoff recomendado y evidencia de integridad de configuracion.
+- Aun no existe un supervisor persistente separado tipo servicio ni autoproteccion de nivel sistema; por eso el estado se mantiene como implementacion inicial y no como promesa total.
 
 ## 4. Prioridad
 
@@ -142,6 +143,14 @@ No exige rehacer la arquitectura completa, pero si introducir piezas nuevas o re
 - Introducir supervisor simple con politica de backoff.
 - Detectar detenciones inesperadas y reintentos acotados.
 - Registrar cada recuperacion y su resultado.
+
+### Estado implementado hoy
+
+- heartbeat local persistido en archivo de estado del agente;
+- deteccion de cierre abrupto previo en el siguiente arranque;
+- registro de eventos `agent-start`, `agent-stop`, `agent-recovery` y `config-integrity-change` en auditoria local;
+- exposicion visible del estado del agente en GUI, `status --json` y `config show`;
+- recomendacion de backoff cuando se observan reinicios/cierres abruptos repetidos dentro de una ventana acotada.
 
 ### Fase 3 - Integridad y proteccion de configuracion
 

@@ -62,7 +62,7 @@
         <text x="16" y="21" text-anchor="middle" font-family="monospace" font-weight="900" font-size="14" fill="#58a6ff">RC</text>
       </svg>
       <span class="font-bold text-rc-text" style="font-size:.95rem">RootCause</span>
-      <span class="pill" style="background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44">v0.6.0</span>
+      <span class="pill" style="background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44">v0.9.0</span>
     </div>
     <div class="hidden md:flex items-center gap-6 text-sm text-rc-muted">
       <a href="#features"      class="hover:text-rc-text transition-colors">Funciones</a>
@@ -103,7 +103,7 @@
       <a href="#download"
          class="px-7 py-3 rounded-lg font-semibold text-white transition-all"
          style="background:#1f6feb;border:1px solid #388bfd">
-        ⬇ Descargar v0.6.0
+        ⬇ Descargar v0.9.0
       </a>
       <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
          target="_blank"
@@ -124,7 +124,7 @@
 <pre><span style="color:#58a6ff">PS C:\&gt;</span> <span style="color:#e6edf3">rootcause status</span>
 
 <span style="color:#3fb950">╔════════════════════════════════════════════╗
-║  RootCause Windows Inspector  v0.6.0       ║
+║  RootCause Windows Inspector  v0.9.0       ║
 ╚════════════════════════════════════════════╝</span>
 
 <span style="color:#d29922">  Severidad    </span><span style="color:#e6edf3">⚠  Warning</span>
@@ -304,22 +304,22 @@
 
     <div class="grid md:grid-cols-2 gap-6">
       <div class="rounded-xl p-7 border border-rc-border" style="background:#161b22">
-        <p class="section-label mb-3">Próxima capacidad</p>
+        <p class="section-label mb-3">Implementado</p>
         <h3 class="font-bold text-rc-text text-lg mb-3">Detección avanzada de actividad anómala</h3>
         <p class="text-rc-muted text-sm" style="line-height:1.8">
-          Evolución prevista para correlacionar procesos, consumo de recursos, conexiones salientes, persistencia y
+          V1 ya integrada para correlacionar procesos, consumo de recursos, conexiones salientes, persistencia y
           rutas de ejecución sospechosas. El objetivo es destacar comportamientos que merecen revisión de seguridad
           sin sustituir una solución antivirus o EDR especializada.
         </p>
       </div>
 
       <div class="rounded-xl p-7 border border-rc-border" style="background:#161b22">
-        <p class="section-label mb-3">Próxima capacidad</p>
+        <p class="section-label mb-3">Implementación inicial</p>
         <h3 class="font-bold text-rc-text text-lg mb-3">Resiliencia del agente RootCause</h3>
         <p class="text-rc-muted text-sm" style="line-height:1.8">
-          Línea de trabajo para watchdog, reinicio controlado, verificación de integridad, protección de configuración
-          y alertas ante manipulación. Busca continuidad operativa y trazabilidad, sin prometer invulnerabilidad frente
-          a atacantes con privilegios altos.
+          Heartbeat local, detección de cierre abrupto previo, evidencia de integridad de configuración y
+          recuperación visible en GUI/CLI. Busca continuidad operativa y trazabilidad, sin prometer invulnerabilidad
+          ni reemplazar un supervisor persistente de nivel servicio.
         </p>
       </div>
     </div>
@@ -566,7 +566,7 @@
 <section id="download" class="py-20 px-6 border-t border-rc-border">
   <div class="max-w-3xl mx-auto text-center">
     <p class="section-label mb-2">Descarga</p>
-    <h2 class="text-3xl font-bold text-rc-text mb-4">RootCause v0.6.0</h2>
+    <h2 class="text-3xl font-bold text-rc-text mb-4">RootCause v0.9.0</h2>
     <p class="text-rc-muted mb-10">Disponible como instalador, ZIP portable o compilable desde fuente.</p>
 
     <div class="grid sm:grid-cols-2 gap-4 mb-10">

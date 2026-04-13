@@ -224,4 +224,4 @@ La ruta de escalamiento se desarrolla con más detalle en `docs/ARQUITECTURA_ESC
 
 ## 11. Versión actual
 
-**v0.8.1** — ediciones GUI/CLI-only, módulo PowerShell, manifests Scoop/Winget/Chocolatey, extensión VS Code, configuración local segura, historial SQLite con incidentes y auditoría, correlación técnica ligera, alertas nativas, detección heurística de comportamiento anómalo y posible actividad maliciosa (V1), ajuste responsive del tab Resumen para entornos estrechos, adaptador IA opcional desacoplado por API, y catálogo de artefactos/publicación alineado entre repo, release y landing.
+**v0.9.0** — ediciones GUI/CLI-only, módulo PowerShell, manifests Scoop/Winget/Chocolatey, extensión VS Code, configuración local segura, historial SQLite con incidentes y auditoría, correlación técnica ligera, alertas nativas, detección heurística de comportamiento anómalo y posible actividad maliciosa (V1), salud del agente con heartbeat local, detección de cierre abrupto previo, integridad básica de configuración, backoff recomendado y catálogo de artefactos/publicación alineado entre repo, release y landing.

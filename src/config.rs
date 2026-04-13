@@ -23,6 +23,8 @@ pub struct RootCauseConfig {
     #[serde(default)]
     pub remediation: RemediationConfig,
     #[serde(default)]
+    pub resilience: ResilienceConfig,
+    #[serde(default)]
     pub ai: AiConfig,
 }
 
@@ -198,6 +200,35 @@ impl Default for RemediationConfig {
         Self {
             manual_actions_enabled: default_true(),
             automatic_actions_enabled: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResilienceConfig {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_heartbeat_interval_secs")]
+    pub heartbeat_interval_secs: u64,
+    #[serde(default = "default_stale_after_secs")]
+    pub stale_after_secs: u64,
+    #[serde(default = "default_restart_window_secs")]
+    pub restart_window_secs: u64,
+    #[serde(default = "default_max_restarts_in_window")]
+    pub max_restarts_in_window: u8,
+    #[serde(default = "default_true")]
+    pub watch_config_integrity: bool,
+}
+
+impl Default for ResilienceConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_true(),
+            heartbeat_interval_secs: default_heartbeat_interval_secs(),
+            stale_after_secs: default_stale_after_secs(),
+            restart_window_secs: default_restart_window_secs(),
+            max_restarts_in_window: default_max_restarts_in_window(),
+            watch_config_integrity: default_true(),
         }
     }
 }
@@ -459,6 +490,22 @@ fn default_notification_cooldown_secs() -> u64 {
     90
 }
 
+fn default_heartbeat_interval_secs() -> u64 {
+    15
+}
+
+fn default_stale_after_secs() -> u64 {
+    90
+}
+
+fn default_restart_window_secs() -> u64 {
+    600
+}
+
+fn default_max_restarts_in_window() -> u8 {
+    3
+}
+
 fn default_ai_timeout_secs() -> u64 {
     25
 }
@@ -491,6 +538,8 @@ mod tests {
         assert!(cfg.anomaly.enabled);
         assert!(cfg.anomaly.cpu_sustained_samples >= 2);
         assert!(!cfg.anomaly.suspicious_path_keywords.is_empty());
+        assert!(cfg.resilience.enabled);
+        assert!(cfg.resilience.heartbeat_interval_secs >= 5);
         assert!(!cfg.ai.enabled);
     }
 }

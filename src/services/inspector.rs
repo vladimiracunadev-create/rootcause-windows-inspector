@@ -13,6 +13,7 @@ use crate::services::{
     anomaly::{AnomalyTracker, DetectionInput},
     etl, network,
     persistence::PersistenceStore,
+    resilience::ResilienceMonitor,
     rules, temp_scan, windows,
 };
 use anyhow::{Context, Result, anyhow};
@@ -44,6 +45,7 @@ pub struct InspectorService {
     config: RootCauseConfig,
     config_path: PathBuf,
     config_warning: Option<String>,
+    resilience_monitor: ResilienceMonitor,
     anomaly_tracker: AnomalyTracker,
     precision_traces_dir: PathBuf,
     precision_analysis_dir: PathBuf,
@@ -88,6 +90,11 @@ impl InspectorService {
             .unwrap_or_default();
         let store = PersistenceStore::new(APP_NAME)?;
         let (config_manager, config_warning) = ConfigManager::load_or_default(APP_NAME);
+        let resilience_monitor = ResilienceMonitor::new(
+            APP_NAME,
+            config_manager.path(),
+            &config_manager.config().resilience,
+        )?;
 
         let base_precision_dir = dirs::document_dir()
             .or_else(dirs::download_dir)
@@ -116,7 +123,7 @@ impl InspectorService {
                     .unwrap_or(false)
             });
 
-        Ok(Self {
+        let service = Self {
             system,
             networks,
             process_baselines: HashMap::new(),
@@ -127,12 +134,19 @@ impl InspectorService {
             config: config_manager.config().clone(),
             config_path: config_manager.path().to_path_buf(),
             config_warning,
+            resilience_monitor,
             anomaly_tracker: AnomalyTracker::default(),
             precision_traces_dir,
             precision_analysis_dir,
             precision_last_trace_path,
             precision_last_analysis_path,
-        })
+        };
+
+        for record in service.resilience_monitor.startup_audits() {
+            let _ = service.store.record_audit(&record);
+        }
+
+        Ok(service)
     }
 
     /// Devuelve una frase rápida desde el historial persistido.
@@ -190,6 +204,11 @@ impl InspectorService {
 
     /// Captura una instantánea completa.
     pub fn collect_snapshot(&mut self) -> Result<SystemSnapshot> {
+        let heartbeat_audits = self.resilience_monitor.heartbeat().unwrap_or_default();
+        for record in &heartbeat_audits {
+            let _ = self.store.record_audit(record);
+        }
+
         self.system.refresh_all();
         self.networks.refresh(true);
 
@@ -380,6 +399,7 @@ impl InspectorService {
             collected_at,
             overview,
             alerts,
+            agent_health: self.resilience_monitor.health().clone(),
             processes,
             temp,
             connections,
@@ -392,6 +412,7 @@ impl InspectorService {
             trace_analysis,
         };
 
+        apply_agent_health_to_snapshot(&mut snapshot, self.config.alerting.max_alerts);
         apply_trace_analysis_to_snapshot(&mut snapshot, self.config.alerting.max_alerts);
 
         if let Some(incident) = rules::derive_incident(&snapshot) {
@@ -753,6 +774,14 @@ impl InspectorService {
     }
 }
 
+impl Drop for InspectorService {
+    fn drop(&mut self) {
+        if let Ok(record) = self.resilience_monitor.shutdown() {
+            let _ = self.store.record_audit(&record);
+        }
+    }
+}
+
 fn apply_trace_analysis_to_snapshot(snapshot: &mut SystemSnapshot, max_alerts: usize) {
     let Some(analysis) = snapshot.trace_analysis.as_ref() else {
         return;
@@ -777,6 +806,63 @@ fn apply_trace_analysis_to_snapshot(snapshot: &mut SystemSnapshot, max_alerts: u
             hint: format!("Evidencia: {}", finding.evidence),
         },
     );
+    snapshot.alerts.truncate(max_alerts);
+}
+
+fn apply_agent_health_to_snapshot(snapshot: &mut SystemSnapshot, max_alerts: usize) {
+    let health = &snapshot.agent_health;
+    use crate::models::AgentStatus;
+
+    match health.status {
+        AgentStatus::Healthy => {
+            snapshot.alerts.push(Alert {
+                severity: Severity::Healthy,
+                title: "Salud del agente estable".to_owned(),
+                detail: health.summary.clone(),
+                pid: None,
+                path: None,
+                hint: "Heartbeat local e integridad básica de configuración activos."
+                    .to_owned(),
+            });
+        }
+        AgentStatus::Recovered => {
+            if snapshot.overview.primary_severity < Severity::Warning {
+                snapshot.overview.primary_severity = Severity::Warning;
+                snapshot.overview.primary_reason = health.summary.clone();
+            }
+            snapshot.alerts.insert(
+                0,
+                Alert {
+                    severity: Severity::Warning,
+                    title: "Agente recuperado tras cierre abrupto".to_owned(),
+                    detail: health.summary.clone(),
+                    pid: None,
+                    path: None,
+                    hint: "Revisa incidentes y auditoría si la detención no fue esperada."
+                        .to_owned(),
+                },
+            );
+        }
+        AgentStatus::Degraded => {
+            if snapshot.overview.primary_severity < Severity::Warning {
+                snapshot.overview.primary_severity = Severity::Warning;
+                snapshot.overview.primary_reason = health.summary.clone();
+            }
+            snapshot.alerts.insert(
+                0,
+                Alert {
+                    severity: Severity::Warning,
+                    title: "Resiliencia del agente requiere revisión".to_owned(),
+                    detail: health.summary.clone(),
+                    pid: None,
+                    path: None,
+                    hint: "Valida cambios de configuración y evita reinicios repetidos hasta confirmar estabilidad."
+                        .to_owned(),
+                },
+            );
+        }
+    }
+
     snapshot.alerts.truncate(max_alerts);
 }
 
