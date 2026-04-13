@@ -821,8 +821,7 @@ fn apply_agent_health_to_snapshot(snapshot: &mut SystemSnapshot, max_alerts: usi
                 detail: health.summary.clone(),
                 pid: None,
                 path: None,
-                hint: "Heartbeat local e integridad básica de configuración activos."
-                    .to_owned(),
+                hint: "Heartbeat local e integridad básica de configuración activos.".to_owned(),
             });
         }
         AgentStatus::Recovered => {

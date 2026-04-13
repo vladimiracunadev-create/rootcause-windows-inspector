@@ -78,7 +78,8 @@ impl ResilienceMonitor {
             .and_then(|state| state.last_heartbeat_at.as_ref())
             .and_then(|raw| DateTime::parse_from_rfc3339(raw).ok())
             .map(|ts| {
-                now.signed_duration_since(ts.with_timezone(&Utc)).num_seconds()
+                now.signed_duration_since(ts.with_timezone(&Utc))
+                    .num_seconds()
                     > config.stale_after_secs as i64
             })
             .unwrap_or(false);
@@ -119,8 +120,7 @@ impl ResilienceMonitor {
             config_changed = true;
             if status == AgentStatus::Healthy {
                 status = AgentStatus::Degraded;
-                summary = "La configuración operativa cambió desde la última ejecución."
-                    .to_owned();
+                summary = "La configuración operativa cambió desde la última ejecución.".to_owned();
             }
             notes.push(
                 "Cambio de configuración pendiente de revisión: puede ser legítimo o requerir validación."
@@ -316,7 +316,8 @@ fn prune_old_timestamps(values: &mut Vec<String>, restart_window_secs: u64, now:
         DateTime::parse_from_rfc3339(raw)
             .ok()
             .map(|ts| {
-                now.signed_duration_since(ts.with_timezone(&Utc)).num_seconds()
+                now.signed_duration_since(ts.with_timezone(&Utc))
+                    .num_seconds()
                     <= restart_window_secs as i64
             })
             .unwrap_or(false)

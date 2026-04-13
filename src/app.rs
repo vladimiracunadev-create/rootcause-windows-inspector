@@ -444,7 +444,9 @@ impl eframe::App for RootCauseApp {
                 if self.active_tab == Tab::About {
                     egui::ScrollArea::vertical()
                         .auto_shrink([false; 2])
-                        .show(ui, |ui| draw_tab_about(ui, &self.hardware_info, self.snapshot.as_ref()));
+                        .show(ui, |ui| {
+                            draw_tab_about(ui, &self.hardware_info, self.snapshot.as_ref())
+                        });
                     return;
                 }
 
@@ -2705,7 +2707,11 @@ fn draw_agent_health_block(ui: &mut egui::Ui, health: &AgentHealth) {
     }
     about_row(ui, "Huella config", &health.config_fingerprint, TEXT_MUT);
     for note in health.notes.iter().take(3) {
-        ui.label(RichText::new(format!("• {note}")).size(11.5).color(TEXT_MUT));
+        ui.label(
+            RichText::new(format!("• {note}"))
+                .size(11.5)
+                .color(TEXT_MUT),
+        );
     }
 }
 
