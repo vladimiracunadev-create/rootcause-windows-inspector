@@ -12,6 +12,7 @@ Checklist profesional antes de distribuir artefactos.
 - [ ] `cargo test --all-targets --all-features -- --nocapture`
 - [ ] `cargo build --release --verbose`
 - [ ] `scripts\ci-local.ps1` ejecutado localmente
+- [ ] `scripts\release-product.ps1 -VerifyEnvironment` ejecutado si esta version se va a empaquetar/publicar
 - [ ] `ci.yml` en verde en GitHub Actions
 
 ---
@@ -82,6 +83,7 @@ Checklist profesional antes de distribuir artefactos.
 ## 7) GitHub Release
 
 - [ ] `release-windows.yml` ejecutado y en verde
+- [ ] `scripts\release-product.ps1 -VerifyEnvironment -Publish` ejecutado para evitar pasos manuales omitidos
 - [ ] el release de GitHub tiene `body:` con instrucciones de instalación, no solo links de commits
 - [ ] se incluyen las secciones: instalación, verificación de hash, requisitos, funciones
 - [ ] los artefactos adjuntos coinciden con el catálogo actual: Setup, portable GUI, portable CLI, módulo PowerShell, VSIX y hashes

@@ -326,14 +326,21 @@ Este repositorio incluye validación visible en GitHub Actions:
 ## 📦 Empaquetado
 
 ```powershell
-# Portable ZIP
-.\scripts\package-portable.ps1
+# Flujo completo de release y artefactos
+.\scripts\release-product.ps1 -VerifyEnvironment
 
-# Instalador Inno Setup
-.\scripts\package-inno.ps1
+# Flujo completo + push/tag/release
+.\scripts\release-product.ps1 -VerifyEnvironment -Publish
 
 # Instalación silenciosa (corporativo)
 RootCause-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+```
+
+También disponible desde shell:
+
+```sh
+./scripts/release-product.sh -VerifyEnvironment
+./scripts/release-product.sh -VerifyEnvironment -Publish
 ```
 
 Detalle completo → [`docs/PACKAGING_WINDOWS.md`](docs/PACKAGING_WINDOWS.md)

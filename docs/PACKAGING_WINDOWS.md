@@ -87,9 +87,40 @@ code --install-extension RootCause-VSCode-Extension.vsix
 9. `package-vscode-extension`
 10. `hash-artifacts`
 
+### Comando unico recomendado
+
+```powershell
+.\scripts\release-product.ps1 -VerifyEnvironment
+```
+
+Publicacion completa con push, tag y verificacion del release:
+
+```powershell
+.\scripts\release-product.ps1 -VerifyEnvironment -Publish
+```
+
+Wrapper para Git Bash / shell compatible:
+
+```sh
+./scripts/release-product.sh -VerifyEnvironment
+./scripts/release-product.sh -VerifyEnvironment -Publish
+```
+
 ---
 
 ## 4) Comandos
+
+### Release completo
+
+```powershell
+.\scripts\release-product.ps1 -VerifyEnvironment
+```
+
+### Release completo + publicacion
+
+```powershell
+.\scripts\release-product.ps1 -VerifyEnvironment -Publish
+```
 
 ### Portable
 
