@@ -531,7 +531,7 @@ fn cmd_autostart(args: &[String]) -> i32 {
                 println!("No se encontraron entradas de autostart.");
                 return 0;
             }
-            println!("{:<32}  {:<26}  {}", "Nombre", "Tipo", "Comando / Ruta");
+            println!("{:<32}  {:<26}  Comando / Ruta", "Nombre", "Tipo");
             println!("{}", "─".repeat(100));
             for e in &entries {
                 let kind_short = if e.entry_kind.contains("RunOnce") {
