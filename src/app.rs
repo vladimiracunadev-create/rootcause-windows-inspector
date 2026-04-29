@@ -471,18 +471,16 @@ impl eframe::App for RootCauseApp {
                                 &mut save_config,
                             )
                         });
-                    if save_config {
-                        if let Some(svc) = self.inspector.as_mut() {
-                            match svc.save_config(&self.cached_config) {
-                                Ok(()) => {
-                                    self.status_line =
-                                        "Configuración guardada correctamente.".to_owned();
-                                    self.status_is_error = false;
-                                }
-                                Err(e) => {
-                                    self.status_line = format!("Error al guardar config: {e}");
-                                    self.status_is_error = true;
-                                }
+                    if save_config && let Some(svc) = self.inspector.as_mut() {
+                        match svc.save_config(&self.cached_config) {
+                            Ok(()) => {
+                                self.status_line =
+                                    "Configuración guardada correctamente.".to_owned();
+                                self.status_is_error = false;
+                            }
+                            Err(e) => {
+                                self.status_line = format!("Error al guardar config: {e}");
+                                self.status_is_error = true;
                             }
                         }
                     }
