@@ -45,6 +45,10 @@ const C_CR_BG: Color32 = Color32::from_rgb(43, 14, 14);
 const C_BL_FG: Color32 = Color32::from_rgb(88, 166, 255);
 const C_BL_BG: Color32 = Color32::from_rgb(14, 34, 68);
 
+// ── Servicios que el usuario puede detener desde la UI ─────────────────────────
+
+const STOPPABLE_SERVICES: &[&str] = &["wuauserv", "bits", "dosvc", "sysmain"];
+
 // ── Anchos de columna para tablas ──────────────────────────────────────────────
 
 const W_NAME: f32 = 180.0;
@@ -486,7 +490,7 @@ impl eframe::App for RootCauseApp {
                                 ui,
                                 &snapshot,
                                 &self.filter_text,
-                                self.only_public_connections,
+                                &mut self.only_public_connections,
                                 |ip| ip_to_block = Some(ip.to_owned()),
                             ),
                             Tab::TempFiles => {
@@ -568,10 +572,10 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 ui.add_space(10.0);
 
                 // Botones principales
-                if accion_btn(ui, "⟳", "Actualizar").clicked() {
+                if header_btn(ui, "⟳", "Actualizar").clicked() {
                     app.refresh_now();
                 }
-                if accion_btn(ui, "↓", "Exportar JSON").clicked() {
+                if header_btn(ui, "↓", "Exportar JSON").clicked() {
                     app.export_snapshot();
                 }
 
@@ -588,15 +592,7 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 );
 
                 ui.add_space(8.0);
-                ui.separator();
-                ui.add_space(8.0);
 
-                ui.checkbox(
-                    &mut app.only_public_connections,
-                    RichText::new("Solo IP públicas").color(TEXT_SEC),
-                );
-
-                ui.add_space(4.0);
                 ui.checkbox(
                     &mut app.notifications_enabled,
                     RichText::new("🔔").color(TEXT_SEC),
@@ -660,9 +656,11 @@ fn draw_tabbar(app: &mut RootCauseApp, ctx: &egui::Context) {
         )
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                for &(tab, icon, label) in Tab::ALL {
+                for (idx, &(tab, icon, label)) in Tab::ALL.iter().enumerate() {
                     let selected = app.active_tab == tab;
-                    if tab_btn(ui, icon, label, selected).clicked() {
+                    let resp = tab_btn(ui, icon, label, selected)
+                        .on_hover_text(format!("Ctrl+{}", idx + 1));
+                    if resp.clicked() {
                         app.active_tab = tab;
                     }
                 }
@@ -1316,6 +1314,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
     );
 
     let mut to_kill: Option<u32> = None;
+    let total_ram_mb = snap.overview.memory_total_gb.max(0.1) * 1024.0;
 
     egui::ScrollArea::vertical()
         .id_source("tab_procs")
@@ -1407,7 +1406,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                             );
                             pbar(
                                 ui,
-                                (p.memory_mb / 16384.0).min(1.0),
+                                (p.memory_mb / total_ram_mb).min(1.0),
                                 sev_fg(Severity::Warning),
                                 W_BAR,
                             );
@@ -1469,14 +1468,46 @@ fn draw_tab_connections<F: FnMut(&str)>(
     ui: &mut egui::Ui,
     snap: &SystemSnapshot,
     filter: &str,
-    only_public: bool,
+    only_public: &mut bool,
     mut on_block: F,
 ) {
     section_header(
         ui,
         "▸  Conexiones activas  ·  foco en IP pública y rutas poco confiables",
     );
-    ui.add_space(8.0);
+    ui.add_space(6.0);
+
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            only_public,
+            RichText::new("Solo IP públicas").color(TEXT_SEC),
+        )
+        .on_hover_text("Ocultar conexiones a IPs privadas / localhost");
+        let total = snap.connections.len();
+        let shown = snap
+            .connections
+            .iter()
+            .filter(|c| !*only_public || c.is_public_remote)
+            .filter(|c| matches_filter(&c.process_name, &c.remote_address, filter))
+            .count();
+        ui.add_space(8.0);
+        ui.label(
+            RichText::new(format!(
+                "{shown} conexión{}",
+                if shown != 1 { "es" } else { "" }
+            ))
+            .size(11.0)
+            .color(TEXT_MUT),
+        );
+        if shown < total {
+            ui.label(
+                RichText::new(format!("de {total} totales"))
+                    .size(11.0)
+                    .color(TEXT_MUT),
+            );
+        }
+    });
+    ui.add_space(6.0);
 
     table_header(
         ui,
@@ -1499,7 +1530,7 @@ fn draw_tab_connections<F: FnMut(&str)>(
             for (i, c) in snap
                 .connections
                 .iter()
-                .filter(|c| !only_public || c.is_public_remote)
+                .filter(|c| !*only_public || c.is_public_remote)
                 .filter(|c| {
                     matches_filter(
                         &c.process_name,
@@ -2817,7 +2848,7 @@ fn action_btn(ui: &mut egui::Ui, label: &str, bg: Color32, fg: Color32) -> egui:
 }
 
 /// Botón de acción en el header (icono + texto).
-fn accion_btn(ui: &mut egui::Ui, icon: &str, label: &str) -> egui::Response {
+fn header_btn(ui: &mut egui::Ui, icon: &str, label: &str) -> egui::Response {
     ui.add(
         egui::Button::new(
             RichText::new(format!("{icon}  {label}"))
@@ -3150,21 +3181,18 @@ fn tool_chip(ui: &mut egui::Ui, name: &str, ok: bool) {
 }
 
 fn info_row(ui: &mut egui::Ui, label: &str, value: &str) {
-    ui.horizontal_wrapped(|ui| {
-        ui.label(RichText::new(label).size(11.5).color(TEXT_MUT));
-        let short = trunc(value, 60);
-        let resp = ui.label(RichText::new(&short).size(11.5).monospace().color(TEXT_SEC));
-        if value.len() > 60 {
-            resp.on_hover_text(value);
-        }
-    });
+    info_row_colored(ui, label, value, TEXT_SEC);
 }
 
 fn info_row_ok(ui: &mut egui::Ui, label: &str, value: &str) {
+    info_row_colored(ui, label, value, C_OK_FG);
+}
+
+fn info_row_colored(ui: &mut egui::Ui, label: &str, value: &str, color: Color32) {
     ui.horizontal_wrapped(|ui| {
         ui.label(RichText::new(label).size(11.5).color(TEXT_MUT));
         let short = trunc(value, 60);
-        let resp = ui.label(RichText::new(&short).size(11.5).monospace().color(C_OK_FG));
+        let resp = ui.label(RichText::new(&short).size(11.5).monospace().color(color));
         if value.len() > 60 {
             resp.on_hover_text(value);
         }
@@ -3390,9 +3418,7 @@ fn sev_dot(sev: Severity) -> &'static str {
 
 fn service_severity(svc: &ServiceState) -> Severity {
     let low = svc.name.to_ascii_lowercase();
-    if ["wuauserv", "bits", "dosvc", "sysmain"].contains(&low.as_str())
-        && svc.status.eq_ignore_ascii_case("Running")
-    {
+    if STOPPABLE_SERVICES.contains(&low.as_str()) && svc.status.eq_ignore_ascii_case("Running") {
         Severity::Warning
     } else {
         Severity::Healthy
@@ -3400,15 +3426,13 @@ fn service_severity(svc: &ServiceState) -> Severity {
 }
 
 fn is_stoppable_service(svc: &ServiceState) -> bool {
-    ["wuauserv", "bits", "dosvc", "sysmain"].contains(&svc.name.to_ascii_lowercase().as_str())
+    STOPPABLE_SERVICES.contains(&svc.name.to_ascii_lowercase().as_str())
 }
 
 fn trunc(s: &str, max: usize) -> String {
-    let chars: Vec<char> = s.chars().collect();
-    if chars.len() <= max {
-        s.to_owned()
-    } else {
-        format!("{}…", chars[..max].iter().collect::<String>())
+    match s.char_indices().nth(max) {
+        None => s.to_owned(),
+        Some((byte_offset, _)) => format!("{}…", &s[..byte_offset]),
     }
 }
 
