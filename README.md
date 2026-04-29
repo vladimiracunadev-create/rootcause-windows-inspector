@@ -9,7 +9,7 @@
 ║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝      ║
 ║                                                                                   ║
 ║                     W I N D O W S   I N S P E C T O R                             ║
-║               Forensic diagnostics · Built in Rust · v0.9.0                       ║
+║               Forensic diagnostics · Built in Rust · v0.10.0                      ║
 ╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -17,7 +17,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
-[![Version](https://img.shields.io/badge/version-0.9.0-green.svg)](docs/ROADMAP.md)
+[![Version](https://img.shields.io/badge/version-0.10.0-green.svg)](docs/ROADMAP.md)
 
 🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-landing/)**
 
@@ -77,8 +77,9 @@ El modo principal. Bajo consumo, útil para observación frecuente.
 - 🗃️ Exportación JSON · Historial SQLite con comparación A vs B
 - ⚡ Filtro de severidad por proceso (Critical / Warning / Normal)
 - 🔔 Notificaciones toast cuando aparece proceso Critical
-- ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…8` cambio de tab
+- ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…9` cambio de tab
 - 🖥️ Info de hardware del equipo: OS, CPU, núcleos, frecuencia, RAM
+- ◫  Tab Autostart: registro Run (HKCU/HKLM) y carpetas Startup con severidad y verificación en disco
 - 💻 CLI completa: `rootcause --help` con todos los comandos desde consola
 
 ### 2 · Modo de precisión ETW/WPR

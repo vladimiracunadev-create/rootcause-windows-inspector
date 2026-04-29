@@ -43,7 +43,7 @@
 - adaptador IA opcional desacoplado y apagado por defecto
 - trazabilidad documental formal para REQ-SEC-001 y REQ-SEC-002
 
-## v0.9 Entregado (version actual)
+## v0.9 Entregado
 - estado explicito de salud del agente con `Healthy / Recovered / Degraded`
 - heartbeat local persistido para el propio agente
 - deteccion de cierre abrupto previo y recuperacion visible en la siguiente sesion
@@ -52,8 +52,16 @@
 - visibilidad del estado del agente en GUI, `status --json`, `config show` y snapshot exportado
 - documentacion, landing y manifests alineados con la version 0.9.0
 
+## v0.10 Entregado (version actual)
+- tab Autostart integrado en la GUI (Ctrl+7): entradas de registro HKCU/HKLM Run + carpetas Startup
+- tabla con severidad heuristica, tipo de origen, comando completo con tooltip, indicador de existencia en disco
+- chips de resumen por tipo de riesgo (sospechosas / a revisar)
+- nota informativa al pie para entradas de Sistema vs Usuario
+- atajos de teclado extendidos a Ctrl+1..9 (nuevo tab en posicion 7)
+- mejoras profesionales a la interfaz: barra RAM normalizada a RAM real, tooltips Ctrl+N en tabs
+- version bump a 0.10.0
+
 ## v1.0 Objetivo de distribucion formal
-- tab Autostart (HKCU Run + carpeta Startup + tareas programadas)
 - tray icon activo
 - alertas y umbrales configurables enriquecidos desde AppData
 - firma digital

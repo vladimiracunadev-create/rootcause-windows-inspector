@@ -65,9 +65,10 @@ Este proyecto demuestra capacidades en varias áreas al mismo tiempo:
 
 ### CLI y experiencia de usuario
 - interfaz de línea de comandos completa (`rootcause --help`),
-- atajos de teclado en la GUI,
+- atajos de teclado en la GUI (`Ctrl+1…9`),
 - tab Acerca con metadatos del producto,
-- información de hardware del equipo.
+- información de hardware del equipo,
+- tab Autostart integrado: registro Run y carpetas Startup con severidad heurística — diferenciador clave frente a herramientas equivalentes gratuitas.
 
 ### Escalabilidad técnica
 - ruta clara para crecer a análisis más fino,

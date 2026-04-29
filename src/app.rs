@@ -6,8 +6,9 @@
 
 use crate::meta;
 use crate::models::{
-    AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, ProcessInsight, ServiceState, Severity,
-    SnapshotRow, SystemSnapshot, TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
+    AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, PersistenceEntry, ProcessInsight,
+    RiskLevel, ServiceState, Severity, SnapshotRow, SystemSnapshot, TraceAnalysisSummary,
+    TracePathSummary, TraceProcessSummary,
 };
 use crate::services::inspector::InspectorService;
 use crate::services::windows;
@@ -73,6 +74,7 @@ enum Tab {
     TempFiles,
     Precision,
     Services,
+    Autostart,
     History,
     About,
 }
@@ -85,6 +87,7 @@ impl Tab {
         (Tab::TempFiles, "▤", "Temporales"),
         (Tab::Precision, "◉", "ETW / WPR"),
         (Tab::Services, "◧", "Servicios"),
+        (Tab::Autostart, "◫", "Autostart"),
         (Tab::History, "◑", "Historial"),
         (Tab::About, "ℹ", "Acerca"),
     ];
@@ -389,7 +392,7 @@ impl eframe::App for RootCauseApp {
             if i.key_pressed(egui::Key::E) && i.modifiers.ctrl {
                 should_export = true;
             }
-            // Ctrl+1..8 → Cambiar de tab
+            // Ctrl+1..9 → Cambiar de tab
             for (key, idx) in [
                 (egui::Key::Num1, 0usize),
                 (egui::Key::Num2, 1),
@@ -399,6 +402,7 @@ impl eframe::App for RootCauseApp {
                 (egui::Key::Num6, 5),
                 (egui::Key::Num7, 6),
                 (egui::Key::Num8, 7),
+                (egui::Key::Num9, 8),
             ] {
                 if i.key_pressed(key) && i.modifiers.ctrl {
                     tab_switch = Some(idx);
@@ -505,6 +509,9 @@ impl eframe::App for RootCauseApp {
                             Tab::Services => draw_tab_services(ui, &snapshot, |svc| {
                                 svc_to_stop = Some(svc.to_owned())
                             }),
+                            Tab::Autostart => {
+                                draw_tab_autostart(ui, &snapshot, &self.filter_text);
+                            }
                             Tab::History => draw_tab_history(
                                 ui,
                                 &self.history_rows,
@@ -2479,6 +2486,245 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
         });
 }
 
+// ── Tab: Autostart ────────────────────────────────────────────────────────────
+
+fn draw_tab_autostart(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
+    section_header(
+        ui,
+        "◫  Autostart  ·  entradas de registro Run, carpetas Startup y tareas programadas",
+    );
+    ui.add_space(6.0);
+
+    // Barra de resumen por tipo
+    let entries = &snap.persistence_entries;
+    if entries.is_empty() {
+        ui.add_space(24.0);
+        ui.vertical_centered(|ui| {
+            ui.label(
+                RichText::new("◫")
+                    .size(40.0)
+                    .color(TEXT_MUT.linear_multiply(0.5)),
+            );
+            ui.add_space(8.0);
+            ui.label(
+                RichText::new("No se encontraron entradas de autostart")
+                    .size(13.0)
+                    .color(TEXT_MUT),
+            );
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new(
+                    "Registro Run vacío · Carpetas Startup vacías · Sin tareas detectadas",
+                )
+                .size(11.0)
+                .color(TEXT_MUT.linear_multiply(0.6)),
+            );
+        });
+        return;
+    }
+
+    // Contador y filtro de riesgo
+    let filtered: Vec<&PersistenceEntry> = entries
+        .iter()
+        .filter(|e| {
+            filter.is_empty()
+                || e.name
+                    .to_ascii_lowercase()
+                    .contains(&filter.to_ascii_lowercase())
+                || e.command
+                    .to_ascii_lowercase()
+                    .contains(&filter.to_ascii_lowercase())
+                || e.entry_kind
+                    .to_ascii_lowercase()
+                    .contains(&filter.to_ascii_lowercase())
+        })
+        .collect();
+
+    // Chips de resumen: total + cuántos son críticos/warning
+    let n_critical = entries
+        .iter()
+        .filter(|e| matches!(e.severity, RiskLevel::Critical | RiskLevel::High))
+        .count();
+    let n_warn = entries
+        .iter()
+        .filter(|e| matches!(e.severity, RiskLevel::Medium))
+        .count();
+
+    ui.horizontal_wrapped(|ui| {
+        pill(
+            ui,
+            &format!("{} entradas totales", entries.len()),
+            TEXT_SEC,
+            BG_CARD,
+        );
+        if n_critical > 0 {
+            pill(
+                ui,
+                &format!("▲ {} sospechosas", n_critical),
+                C_CR_FG,
+                C_CR_BG,
+            );
+        }
+        if n_warn > 0 {
+            pill(ui, &format!("● {} a revisar", n_warn), C_WN_FG, C_WN_BG);
+        }
+        if !filter.is_empty() {
+            pill(
+                ui,
+                &format!("{} visibles", filtered.len()),
+                C_BL_FG,
+                C_BL_BG,
+            );
+        }
+    });
+    ui.add_space(8.0);
+
+    // Cabecera de columnas
+    table_header(
+        ui,
+        &[
+            ("", 18.0),
+            ("Nombre", 180.0),
+            ("Tipo", 200.0),
+            ("Comando / Ruta", 340.0),
+            ("En disco", 64.0),
+        ],
+    );
+
+    egui::ScrollArea::vertical()
+        .id_source("tab_autostart")
+        .show(ui, |ui| {
+            for (i, entry) in filtered.iter().enumerate() {
+                let sev = entry.severity.to_severity();
+                let fg = sev_fg(sev);
+                let row_bg = if i % 2 == 0 { BG_APP } else { BG_ROW_ALT };
+
+                egui::Frame::none()
+                    .fill(row_bg)
+                    .inner_margin(Margin::symmetric(6.0, 5.0))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            // Dot de severidad
+                            ui.add_sized(
+                                [18.0, 18.0],
+                                egui::Label::new(RichText::new(sev_dot(sev)).size(10.0).color(fg)),
+                            );
+
+                            // Nombre
+                            let short_name = trunc(&entry.name, 24);
+                            let name_resp = ui.add_sized(
+                                [180.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(&short_name)
+                                        .size(12.0)
+                                        .strong()
+                                        .color(TEXT_PRI),
+                                ),
+                            );
+                            if entry.name.len() > 24 {
+                                name_resp.on_hover_text(&entry.name);
+                            }
+
+                            // Tipo (pill con origen)
+                            {
+                                let kind_short = if entry.entry_kind.contains("HKCU") {
+                                    "Registro (Usuario)"
+                                } else if entry.entry_kind.contains("HKLM") {
+                                    "Registro (Sistema)"
+                                } else if entry.entry_kind.contains("All Users") {
+                                    "Startup (Todos)"
+                                } else if entry.entry_kind.contains("Current User") {
+                                    "Startup (Usuario)"
+                                } else {
+                                    &entry.entry_kind
+                                };
+                                let (kfg, kbg) = if entry.entry_kind.contains("HKLM") {
+                                    (C_WN_FG, C_WN_BG)
+                                } else {
+                                    (C_BL_FG, C_BL_BG)
+                                };
+                                ui.allocate_ui_with_layout(
+                                    Vec2::new(200.0, 18.0),
+                                    egui::Layout::left_to_right(egui::Align::Center),
+                                    |ui| pill(ui, kind_short, kfg, kbg),
+                                );
+                            }
+
+                            // Comando / ruta
+                            let short_cmd = trunc(&entry.command, 48);
+                            let cmd_resp = ui.add_sized(
+                                [340.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(&short_cmd).size(11.5).monospace().color(
+                                        if sev == Severity::Healthy {
+                                            TEXT_SEC
+                                        } else {
+                                            fg
+                                        },
+                                    ),
+                                ),
+                            );
+                            // Tooltip con comando completo + nota si existe
+                            if entry.command.len() > 48 || !entry.note.is_empty() {
+                                cmd_resp.on_hover_ui(|ui| {
+                                    ui.set_max_width(480.0);
+                                    ui.label(
+                                        RichText::new(&entry.command)
+                                            .monospace()
+                                            .size(11.0)
+                                            .color(TEXT_PRI),
+                                    );
+                                    if !entry.note.is_empty() {
+                                        ui.separator();
+                                        ui.label(
+                                            RichText::new(&entry.note).size(11.0).color(C_WN_FG),
+                                        );
+                                    }
+                                });
+                            }
+
+                            // Existe en disco
+                            let (disk_txt, disk_col) = if entry.exists_on_disk {
+                                ("✓ Sí", C_OK_FG)
+                            } else {
+                                ("✗ No", C_CR_FG)
+                            };
+                            ui.add_sized(
+                                [64.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(disk_txt).size(11.5).color(disk_col),
+                                ),
+                            );
+                        });
+                    });
+            }
+        });
+
+    // Nota informativa al pie
+    ui.add_space(12.0);
+    egui::Frame::none()
+        .fill(C_BL_BG)
+        .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.3)))
+        .rounding(Rounding::same(6.0))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(RichText::new("ℹ").color(C_BL_FG).size(13.0));
+                ui.add_space(4.0);
+                ui.label(
+                    RichText::new(
+                        "Las entradas de tipo Registro (Sistema) requieren privilegios \
+                         de administrador para modificarse. \
+                         Las entradas marcadas \"✗ No\" apuntan a archivos que ya no existen \
+                         y pueden limpiarse de forma segura.",
+                    )
+                    .size(11.0)
+                    .color(TEXT_SEC),
+                );
+            });
+        });
+}
+
 // ── Tab: Acerca ────────────────────────────────────────────────────────────────
 
 fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&SystemSnapshot>) {
@@ -2627,8 +2873,9 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                     ("Ctrl + 4", "Ir a Temporales"),
                     ("Ctrl + 5", "Ir a ETW / WPR"),
                     ("Ctrl + 6", "Ir a Servicios"),
-                    ("Ctrl + 7", "Ir a Historial"),
-                    ("Ctrl + 8", "Ir a Acerca"),
+                    ("Ctrl + 7", "Ir a Autostart"),
+                    ("Ctrl + 8", "Ir a Historial"),
+                    ("Ctrl + 9", "Ir a Acerca"),
                 ] {
                     ui.horizontal(|ui| {
                         egui::Frame::none()

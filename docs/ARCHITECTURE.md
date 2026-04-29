@@ -97,12 +97,13 @@ Responsabilidades:
 Capa de interfaz.
 
 Responsabilidades:
-- layout general con tabs (Overview, Procesos, Temporales, Red, Servicios, ETL/WPR, Historial, Acerca),
-- atajos de teclado: `F5` = actualizar, `Ctrl+E` = exportar, `Ctrl+1…8` = cambio de tab,
+- layout general con 9 tabs (Resumen, Procesos, Conexiones, Temporales, ETW/WPR, Servicios, Autostart, Historial, Acerca),
+- atajos de teclado: `F5` = actualizar, `Ctrl+E` = exportar, `Ctrl+1…9` = cambio de tab,
 - semáforo,
 - sparklines de CPU / RAM / I/O (ring buffer `VecDeque<MetricSample>`, max 60 muestras),
 - sección "Características del equipo" en tab Resumen (datos de `HardwareInfo`),
 - filtro de severidad por tab de procesos,
+- tab Autostart: tabla de entradas de registro Run (HKCU/HKLM) y carpetas Startup con severidad heurística,
 - tab de Historial con tabla SQLite y comparación A vs B,
 - notificaciones toast vía PowerShell (non-blocking),
 - tab Acerca con versión, autor, links, atajos y hardware del equipo,
@@ -167,6 +168,7 @@ Responsabilidades:
 - `tracerpt`,
 - `show_toast_notification()` vía WinRT/PowerShell (non-blocking),
 - `batch_process_cmdlines()` vía `Get-CimInstance Win32_Process` en batch,
+- `persistence_entries()` — recopila entradas de registro Run (HKCU/HKLM) y carpetas Startup vía PowerShell,
 - `is_valid_firewall_ip()` — validación estricta de IPv4/IPv6 antes de construir scripts PowerShell (defensa contra command injection).
 
 ### `services/etl.rs`

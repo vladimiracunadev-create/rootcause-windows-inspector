@@ -1,6 +1,6 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.9.0 · **Actualizado:** 2026-04-13
+**Versión base:** v0.10.0 · **Actualizado:** 2026-04-29
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
@@ -153,12 +153,18 @@ windows-service = { version = "0.6", optional = true }
 
 Ordenadas por impacto real para el usuario:
 
-#### 4.1 Tab Autostart (mayor diferenciador vs competencia)
-Qué hace: muestra qué arranca con Windows — entradas de registro `HKEY_CURRENT_USER\...\Run`, carpeta Startup, tareas programadas.
-Por qué primero: ninguna herramienta gratuita equivalente lo tiene integrado con diagnóstico. Diferenciador fuerte.
-Implementación: PowerShell via `Command::spawn()` (ya existe el patrón) + nuevo tab. Cero crates nuevos.
+#### 4.1 Tab Autostart ✅ Completado en v0.10.0
+Qué hace: muestra qué arranca con Windows — entradas de registro `HKCU/HKLM\...\Run` y carpetas Startup.
+Dónde: tab "Autostart" (Ctrl+7), 9 tabs totales ahora.
+Implementación: `windows::persistence_entries()` (PowerShell) → `snap.persistence_entries` → `draw_tab_autostart()`.
+Datos: nombre, tipo de origen (pill diferenciado), comando completo con tooltip, indicador de existencia en disco, severidad heurística.
 
-#### 4.2 Tray icon (monitor proactivo)
+#### 4.2 Tareas programadas en Autostart (v0.10 → v1.0)
+Qué falta: la implementación actual cubre Registro Run y carpetas Startup. Falta añadir tareas programadas del Task Scheduler.
+Implementación: `schtasks /Query /FO JSON` o `Get-ScheduledTask | ConvertTo-Json` via PowerShell, parsear y agregar como tipo "Tarea programada" en `persistence_entries`.
+Por qué importa: los RATs y malware modernos usan Task Scheduler para persistencia porque es menos conocido que Run.
+
+#### 4.3 Tray icon (monitor proactivo)
 Qué hace: ícono en bandeja del sistema. Cambia de color (verde/amarillo/rojo) según severidad. Click abre la ventana completa. El programa corre en segundo plano sin que el usuario lo vea.
 Por qué importa: transforma RootCause de herramienta reactiva (abro cuando hay problema) a monitor proactivo (me avisa cuando hay problema).
 Implementación: requiere actualizar eframe a 0.28+ que incluye soporte de tray nativo.
@@ -222,14 +228,14 @@ En orden de impacto potencial:
 ## IV. Mapa de versiones del producto
 
 ```
-v0.6  ✅   v0.7 ✅               v1.0 ⏳               v2.0+ ⏳
-──────────  ────────────────────  ──────────────────── ──────────────────
-GUI+CLI+    CLI-only binary ✅    Tab Autostart         Windows Service
-SQLite+     PowerShell module ✅  Tray icon activo      Edición Seguridad
-historial   Scoop/Winget/Choco✅  Scoop/Winget publis.  Edición Enterprise
-            VS Code Extension ✅  Firma digital         MSIX / Store
-            Tray skeleton ✅      Alertas config.
-            Service skeleton ✅   EMAIL+GitLab meta.rs
+v0.6  ✅   v0.7 ✅               v0.9 ✅   v0.10 ✅          v1.0 ⏳               v2.0+ ⏳
+──────────  ────────────────────  ────────  ──────────────────  ──────────────────── ──────────────────
+GUI+CLI+    CLI-only binary ✅    Agente    Tab Autostart ✅    Tray icon activo      Windows Service
+SQLite+     PowerShell module ✅  salud ✅  UI profesional ✅   Scoop/Winget publis.  Edición Seguridad
+historial   Scoop/Winget/Choco✅  heartb.✅ RAM pbar real ✅    Firma digital         Edición Enterprise
+            VS Code Extension ✅  backoff✅ Ctrl+1..9 ✅        Alertas config.       MSIX / Store
+            Tray skeleton ✅                                     EMAIL+GitLab meta.rs
+            Service skeleton ✅
             SQLite retención ✅
             JSON backup ✅
 ```

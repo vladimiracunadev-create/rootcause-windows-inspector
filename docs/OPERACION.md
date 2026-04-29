@@ -179,8 +179,9 @@ rootcause --gui
 | `Ctrl + 4`   | Ir a tab Temporales           |
 | `Ctrl + 5`   | Ir a tab ETW / WPR            |
 | `Ctrl + 6`   | Ir a tab Servicios            |
-| `Ctrl + 7`   | Ir a tab Historial            |
-| `Ctrl + 8`   | Ir a tab Acerca               |
+| `Ctrl + 7`   | Ir a tab Autostart            |
+| `Ctrl + 8`   | Ir a tab Historial            |
+| `Ctrl + 9`   | Ir a tab Acerca               |
 
 ---
 
@@ -221,10 +222,37 @@ RootCause-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 El binario funciona también como CLI. `rootcause --help` muestra todos los comandos disponibles. Ahora incluye salida JSON para integraciones, consulta de incidentes persistidos, configuración local e IA opcional.
 
 ### Atajos de teclado
-`F5` para refrescar, `Ctrl+E` para exportar, `Ctrl+1…8` para cambiar de tab sin usar el ratón. Ver sección 7.
+`F5` para refrescar, `Ctrl+E` para exportar, `Ctrl+1…9` para cambiar de tab sin usar el ratón. Ver sección 7.
 
 ### Características del equipo
 Nueva sección al final del tab **Resumen** y en el tab **Acerca**: muestra OS, CPU, núcleos, frecuencia y RAM total del equipo. Ver sección 8.
 
 ### Tab Acerca
 Nueva pestaña con versión del producto, autor, enlaces a GitHub/GitLab, stack técnico, atajos de teclado y hardware del equipo.
+
+---
+
+## 10) Tab Autostart (v0.10)
+
+El tab **Autostart** (Ctrl+7) muestra qué programas se configuran para ejecutarse con Windows:
+
+- **Registro Run (Usuario)** — `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+- **Registro Run (Sistema)** — `HKLM\Software\Microsoft\Windows\CurrentVersion\Run`
+- **Carpeta Startup (Usuario)** — `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`
+- **Carpeta Startup (Todos)** — `%ProgramData%\Microsoft\Windows\Start Menu\Programs\Startup`
+
+### Cómo leer la tabla
+
+| Columna      | Qué indica                                                          |
+|:-------------|:--------------------------------------------------------------------|
+| Dot color    | Severidad heurística: verde = normal, amarillo = revisar, rojo = sospechoso |
+| Nombre       | Nombre de la entrada o archivo                                       |
+| Tipo         | Origen: Registro (Usuario/Sistema) o Startup (Usuario/Todos)        |
+| Comando/Ruta | Ejecutable o script configurado — tooltip muestra ruta completa     |
+| En disco     | ✓ = el archivo existe · ✗ = el archivo ya no existe                |
+
+### Qué hacer con entradas "✗ No"
+Las entradas que no existen en disco son residuos de software desinstalado. Se pueden limpiar manualmente desde el Editor del Registro (`regedit`) o desde `msconfig` → pestaña Inicio.
+
+### Entradas de tipo Registro (Sistema)
+Requieren privilegios de administrador para modificarse. Son más difíciles de eliminar desde una cuenta estándar y por eso se marcan con color diferente.
