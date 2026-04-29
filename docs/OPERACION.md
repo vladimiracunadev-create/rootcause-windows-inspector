@@ -145,6 +145,12 @@ rootcause ai explain-latest
 
 La IA es opcional. Si no la habilitas en `rootcause-config.json`, RootCause sigue operando normal.
 
+### Autostart y persistencia
+```
+rootcause autostart               # lista entradas Registro Run + Startup + Tareas programadas
+rootcause autostart --json        # lo mismo en JSON para integraciones
+```
+
 ### Acciones de intervención
 ```
 rootcause kill <PID>              # finaliza proceso (respeta política de protección)

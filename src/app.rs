@@ -4,6 +4,7 @@
 //! cada tab dibuja su contenido con tablas, progress bars y tooltips para
 //! nombres o rutas largas. Sin scroll horizontal.
 
+use crate::config::RootCauseConfig;
 use crate::meta;
 use crate::models::{
     AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, PersistenceEntry, ProcessInsight,
@@ -131,6 +132,9 @@ pub struct RootCauseApp {
     proc_severity_filter: Option<Severity>,
     // Información de hardware (recopilada una sola vez al iniciar)
     hardware_info: HardwareInfo,
+    // Configuración operativa (snapshot al iniciar, para el panel Config)
+    cached_config: RootCauseConfig,
+    config_path: String,
 }
 
 impl RootCauseApp {
@@ -159,6 +163,8 @@ impl RootCauseApp {
             history_filter: String::new(),
             proc_severity_filter: None,
             hardware_info: HardwareInfo::default(),
+            cached_config: RootCauseConfig::default(),
+            config_path: String::new(),
         };
         match inspector {
             Ok(svc) => {
@@ -166,6 +172,8 @@ impl RootCauseApp {
                 app.status_line = svc.latest_history_line();
                 app.refresh_interval_secs = svc.config().collection.refresh_interval_secs;
                 app.notifications_enabled = svc.config().alerting.notify_on_critical;
+                app.cached_config = svc.config().clone();
+                app.config_path = svc.config_path().display().to_string();
                 app.inspector = Some(svc);
             }
             Err(e) => {
@@ -453,7 +461,13 @@ impl eframe::App for RootCauseApp {
                     egui::ScrollArea::vertical()
                         .auto_shrink([false; 2])
                         .show(ui, |ui| {
-                            draw_tab_about(ui, &self.hardware_info, self.snapshot.as_ref())
+                            draw_tab_about(
+                                ui,
+                                &self.hardware_info,
+                                self.snapshot.as_ref(),
+                                &self.cached_config,
+                                &self.config_path,
+                            )
                         });
                     return;
                 }
@@ -2627,7 +2641,9 @@ fn draw_tab_autostart(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
 
                             // Tipo (pill con origen)
                             {
-                                let kind_short = if entry.entry_kind.contains("HKCU") {
+                                let kind_short = if entry.entry_kind.contains("RunOnce") {
+                                    "RunOnce"
+                                } else if entry.entry_kind.contains("HKCU") {
                                     "Registro (Usuario)"
                                 } else if entry.entry_kind.contains("HKLM") {
                                     "Registro (Sistema)"
@@ -2635,10 +2651,14 @@ fn draw_tab_autostart(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
                                     "Startup (Todos)"
                                 } else if entry.entry_kind.contains("Current User") {
                                     "Startup (Usuario)"
+                                } else if entry.entry_kind.contains("Scheduled") {
+                                    "Tarea programada"
                                 } else {
                                     &entry.entry_kind
                                 };
-                                let (kfg, kbg) = if entry.entry_kind.contains("HKLM") {
+                                let (kfg, kbg) = if entry.entry_kind.contains("HKLM")
+                                    || entry.entry_kind.contains("Scheduled")
+                                {
                                     (C_WN_FG, C_WN_BG)
                                 } else {
                                     (C_BL_FG, C_BL_BG)
@@ -2727,7 +2747,13 @@ fn draw_tab_autostart(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
 
 // ── Tab: Acerca ────────────────────────────────────────────────────────────────
 
-fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&SystemSnapshot>) {
+fn draw_tab_about(
+    ui: &mut egui::Ui,
+    hw: &HardwareInfo,
+    snapshot: Option<&SystemSnapshot>,
+    cfg: &RootCauseConfig,
+    config_path: &str,
+) {
     ui.add_space(28.0);
 
     ui.vertical_centered(|ui| {
@@ -2931,6 +2957,157 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                         TEXT_SEC,
                     );
                 }
+
+                // ── Configuración operativa ────────────────────────────────────
+                ui.add_space(18.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                section_header(ui, "▸  Configuración operativa");
+                ui.add_space(10.0);
+
+                // Ruta al archivo de config
+                {
+                    let path_short = if config_path.is_empty() {
+                        "No disponible".to_owned()
+                    } else {
+                        trunc(config_path, 60)
+                    };
+                    ui.horizontal_wrapped(|ui| {
+                        ui.add_sized(
+                            [120.0, 18.0],
+                            egui::Label::new(
+                                RichText::new("Ruta config").size(12.0).color(TEXT_MUT),
+                            ),
+                        );
+                        let resp = ui.label(
+                            RichText::new(&path_short)
+                                .size(11.5)
+                                .monospace()
+                                .color(TEXT_SEC),
+                        );
+                        if config_path.len() > 60 {
+                            resp.on_hover_text(config_path);
+                        }
+                        if !config_path.is_empty()
+                            && action_btn(ui, "Abrir", C_BL_BG, C_BL_FG).clicked()
+                        {
+                            let _ = windows::powershell(&format!(
+                                "Start-Process notepad.exe '{}'",
+                                config_path.replace('\'', "''")
+                            ));
+                        }
+                    });
+                }
+                ui.add_space(6.0);
+
+                // Umbrales de procesos
+                section_header(ui, "Umbrales — Procesos");
+                ui.add_space(6.0);
+                let th = &cfg.thresholds.process;
+                about_row(
+                    ui,
+                    "CPU warning",
+                    &format!("{:.0}%", th.cpu_warning_percent),
+                    C_WN_FG,
+                );
+                about_row(
+                    ui,
+                    "CPU crítico",
+                    &format!("{:.0}%", th.cpu_critical_percent),
+                    C_CR_FG,
+                );
+                about_row(
+                    ui,
+                    "RAM warning",
+                    &format!("{:.0} MB", th.memory_warning_mb),
+                    C_WN_FG,
+                );
+                about_row(
+                    ui,
+                    "RAM crítico",
+                    &format!("{:.0} MB", th.memory_critical_mb),
+                    C_CR_FG,
+                );
+                about_row(
+                    ui,
+                    "I/O warning",
+                    &format!("{:.0} MB/s", th.io_write_warning_mb),
+                    C_WN_FG,
+                );
+                about_row(
+                    ui,
+                    "I/O crítico",
+                    &format!("{:.0} MB/s", th.io_write_critical_mb),
+                    C_CR_FG,
+                );
+                ui.add_space(8.0);
+
+                // Detección de anomalías
+                section_header(ui, "Detección de anomalías");
+                ui.add_space(6.0);
+                let an = &cfg.anomaly;
+                about_row(
+                    ui,
+                    "Estado",
+                    if an.enabled {
+                        "Habilitada"
+                    } else {
+                        "Deshabilitada"
+                    },
+                    if an.enabled { C_OK_FG } else { TEXT_MUT },
+                );
+                about_row(
+                    ui,
+                    "CPU sostenida",
+                    &format!(
+                        "{:.0}% × {} muestras",
+                        an.cpu_sustained_percent, an.cpu_sustained_samples
+                    ),
+                    TEXT_SEC,
+                );
+                about_row(
+                    ui,
+                    "RAM crecimiento",
+                    &format!(
+                        "+{:.0} MB × {} muestras",
+                        an.memory_growth_mb, an.memory_growth_samples
+                    ),
+                    TEXT_SEC,
+                );
+                about_row(
+                    ui,
+                    "Escritura agres.",
+                    &format!(
+                        "{:.0} MB × {} muestras",
+                        an.aggressive_write_mb, an.aggressive_write_samples
+                    ),
+                    TEXT_SEC,
+                );
+                about_row(
+                    ui,
+                    "Refresco UI",
+                    &format!("{} s", cfg.collection.refresh_interval_secs),
+                    TEXT_SEC,
+                );
+
+                // Nota: para cambiar los valores editar el JSON
+                ui.add_space(10.0);
+                egui::Frame::none()
+                    .fill(C_BL_BG)
+                    .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.3)))
+                    .rounding(Rounding::same(6.0))
+                    .inner_margin(Margin::same(10.0))
+                    .show(ui, |ui| {
+                        ui.label(
+                            RichText::new(
+                                "Para ajustar umbrales, edita el archivo JSON de configuración \
+                                 y reinicia la app. Usa \"Abrir\" para abrirlo en Notepad.",
+                            )
+                            .size(11.0)
+                            .color(TEXT_SEC),
+                        );
+                    });
             });
     });
 }

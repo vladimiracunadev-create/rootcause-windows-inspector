@@ -180,6 +180,25 @@ pub fn persistence_entries() -> Result<Vec<PersistenceEntry>> {
             }
         }
 
+        # Tareas programadas (excluir tareas de sistema Microsoft)
+        try {
+            Get-ScheduledTask -ErrorAction SilentlyContinue |
+            Where-Object { $_.TaskPath -notlike '\Microsoft\*' -and $_.State -ne 'Disabled' } |
+            ForEach-Object {
+                $t = $_
+                $action = $t.Actions | Select-Object -First 1
+                $cmd = if ($action -and $action.Execute) {
+                    "$($action.Execute) $($action.Arguments)".Trim()
+                } else { '' }
+                $items += [pscustomobject]@{
+                    EntryKind = 'Scheduled Task'
+                    Location  = $t.TaskPath
+                    Name      = $t.TaskName
+                    Command   = $cmd
+                }
+            }
+        } catch {}
+
         $items | ConvertTo-Json -Depth 4
     "#;
 
@@ -597,7 +616,27 @@ fn map_persistence_entry(value: &Value) -> PersistenceEntry {
         command,
         target_path,
         exists_on_disk,
-        note: "Persistencia observable desde Run/RunOnce o carpeta Startup".to_owned(),
+        note: {
+            let kind = value
+                .get("EntryKind")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if kind.contains("RunOnce") {
+                "Se ejecuta una sola vez al próximo inicio y luego se elimina automáticamente."
+                    .to_owned()
+            } else if kind.contains("HKLM") {
+                "Entrada de sistema: afecta a todos los usuarios. Requiere administrador para modificar."
+                    .to_owned()
+            } else if kind.contains("Scheduled Task") {
+                "Tarea programada no-Microsoft. Puede ejecutarse en cualquier momento o en inicio."
+                    .to_owned()
+            } else if kind.contains("Startup Folder") {
+                "Archivo en carpeta Startup: se ejecuta automáticamente al iniciar sesión."
+                    .to_owned()
+            } else {
+                "Entrada de autoarranque del usuario actual (HKCU Run).".to_owned()
+            }
+        },
         ..Default::default()
     }
 }

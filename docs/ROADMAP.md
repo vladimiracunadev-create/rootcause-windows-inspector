@@ -52,7 +52,7 @@
 - visibilidad del estado del agente en GUI, `status --json`, `config show` y snapshot exportado
 - documentacion, landing y manifests alineados con la version 0.9.0
 
-## v0.10 Entregado (version actual)
+## v0.10 Entregado
 - tab Autostart integrado en la GUI (Ctrl+7): entradas de registro HKCU/HKLM Run + carpetas Startup
 - tabla con severidad heuristica, tipo de origen, comando completo con tooltip, indicador de existencia en disco
 - chips de resumen por tipo de riesgo (sospechosas / a revisar)
@@ -61,9 +61,16 @@
 - mejoras profesionales a la interfaz: barra RAM normalizada a RAM real, tooltips Ctrl+N en tabs
 - version bump a 0.10.0
 
+## v0.11 Entregado (version actual)
+- tareas programadas no-Microsoft integradas en el tab Autostart
+- notas contextuales por tipo de entrada (RunOnce, HKLM, Scheduled Task, Startup)
+- CLI `rootcause autostart [--json]` — lista entradas de persistencia desde consola
+- panel Configuracion en tab Acerca: umbrales CPU/RAM/IO, anomalias, refresco, boton abrir config en Notepad
+- version bump a 0.11.0
+
 ## v1.0 Objetivo de distribucion formal
 - tray icon activo
-- alertas y umbrales configurables enriquecidos desde AppData
+- alertas editables desde la UI (no solo visibles)
 - firma digital
 - documentacion madura de instalacion y operacion
 

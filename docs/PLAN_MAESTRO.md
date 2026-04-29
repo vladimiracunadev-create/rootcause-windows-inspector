@@ -1,6 +1,6 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.10.0 · **Actualizado:** 2026-04-29
+**Versión base:** v0.11.0 · **Actualizado:** 2026-04-29
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
@@ -159,19 +159,19 @@ Dónde: tab "Autostart" (Ctrl+7), 9 tabs totales ahora.
 Implementación: `windows::persistence_entries()` (PowerShell) → `snap.persistence_entries` → `draw_tab_autostart()`.
 Datos: nombre, tipo de origen (pill diferenciado), comando completo con tooltip, indicador de existencia en disco, severidad heurística.
 
-#### 4.2 Tareas programadas en Autostart (v0.10 → v1.0)
-Qué falta: la implementación actual cubre Registro Run y carpetas Startup. Falta añadir tareas programadas del Task Scheduler.
-Implementación: `schtasks /Query /FO JSON` o `Get-ScheduledTask | ConvertTo-Json` via PowerShell, parsear y agregar como tipo "Tarea programada" en `persistence_entries`.
-Por qué importa: los RATs y malware modernos usan Task Scheduler para persistencia porque es menos conocido que Run.
+#### 4.2 Tareas programadas en Autostart ✅ Completado en v0.11.0
+`Get-ScheduledTask` (excluye `\Microsoft\*` y deshabilitadas) → tipo "Scheduled Task" en `persistence_entries`.
+Pill amarillo en UI, CLI muestra "Tarea programada". Nota contextual al pie por tipo.
+Próximo: filtrar también por `TaskPath` raíz no-Microsoft para reducir ruido.
 
 #### 4.3 Tray icon (monitor proactivo)
 Qué hace: ícono en bandeja del sistema. Cambia de color (verde/amarillo/rojo) según severidad. Click abre la ventana completa. El programa corre en segundo plano sin que el usuario lo vea.
 Por qué importa: transforma RootCause de herramienta reactiva (abro cuando hay problema) a monitor proactivo (me avisa cuando hay problema).
 Implementación: requiere actualizar eframe a 0.28+ que incluye soporte de tray nativo.
 
-#### 4.3 Alertas y umbrales configurables
-Qué hace: panel de configuración donde el usuario ajusta los umbrales de CPU/RAM/IO, el intervalo de refresco y las notificaciones. Guardar en `rootcause.toml` en AppData.
-Por qué importa: distintos equipos tienen distintas líneas base. Un servidor con 80% CPU es normal; un desktop con 80% es alerta.
+#### 4.4 Alertas y umbrales configurables — Vista ✅ v0.11.0 / Edición ⏳ v1.0
+Panel de configuración en tab Acerca ya muestra umbrales actuales (CPU, RAM, I/O, anomalías, refresco) con botón "Abrir" que abre el JSON en Notepad.
+Próximo: edición inline + persistencia inmediata sin reiniciar (requiere `write_config()` en InspectorService).
 
 #### 4.4 `--output` en CLI
 Qué hace: `rootcause snapshot --output diagnostico.json` además de stdout.

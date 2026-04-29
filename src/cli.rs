@@ -2,7 +2,7 @@
 
 use crate::meta;
 use crate::models::{AiIncidentAdvice, IncidentSummary, SnapshotRow, SystemSnapshot};
-use crate::services::inspector::InspectorService;
+use crate::services::{inspector::InspectorService, windows};
 use serde::Serialize;
 use std::fs;
 
@@ -41,6 +41,7 @@ pub fn run(args: &[String]) -> i32 {
         }
         "ai" => cmd_ai(&args[1..]),
         "config" => cmd_config(&args[1..]),
+        "autostart" => cmd_autostart(&args[1..]),
         other => {
             eprintln!(
                 "Comando desconocido: '{other}'\nUsa  rootcause --help  para ver todas las opciones."
@@ -79,6 +80,9 @@ MODO DE PRECISIÓN WPR/ETW:
   rootcause wpr stop  [--note NOTA]       Detener y guardar ETL
   rootcause wpr cancel                    Cancelar captura activa
   rootcause wpr analyze                   Resumir el último ETL capturado
+
+AUTOSTART Y PERSISTENCIA:
+  rootcause autostart [--json]            Entradas Registro Run + Startup + Tareas programadas
 
 CONFIGURACIÓN E IA OPCIONAL:
   rootcause config show [--json]          Ver ruta y configuración efectiva
@@ -511,6 +515,54 @@ fn cmd_config(args: &[String]) -> i32 {
         },
         other => {
             eprintln!("Subcomando config desconocido: {other}");
+            1
+        }
+    }
+}
+
+fn cmd_autostart(args: &[String]) -> i32 {
+    let json_mode = has_flag(args, "--json");
+    match windows::persistence_entries() {
+        Ok(entries) => {
+            if json_mode {
+                return print_json(&entries);
+            }
+            if entries.is_empty() {
+                println!("No se encontraron entradas de autostart.");
+                return 0;
+            }
+            println!("{:<32}  {:<26}  {}", "Nombre", "Tipo", "Comando / Ruta");
+            println!("{}", "─".repeat(100));
+            for e in &entries {
+                let kind_short = if e.entry_kind.contains("RunOnce") {
+                    "RunOnce"
+                } else if e.entry_kind.contains("HKLM") {
+                    "Registro (Sistema)"
+                } else if e.entry_kind.contains("HKCU") {
+                    "Registro (Usuario)"
+                } else if e.entry_kind.contains("Scheduled") {
+                    "Tarea programada"
+                } else if e.entry_kind.contains("All Users") {
+                    "Startup (Todos)"
+                } else {
+                    "Startup (Usuario)"
+                };
+                let disk = if e.exists_on_disk { "✓" } else { "✗" };
+                let name_col: String = e.name.chars().take(31).collect();
+                let cmd_col: String = e.command.chars().take(55).collect();
+                println!("{:<32}  {:<26}  {} {}", name_col, kind_short, disk, cmd_col);
+            }
+            println!();
+            let missing = entries.iter().filter(|e| !e.exists_on_disk).count();
+            println!(
+                "{} entrada(s) total — {} sin archivo en disco",
+                entries.len(),
+                missing
+            );
+            0
+        }
+        Err(e) => {
+            eprintln!("Error al leer entradas de autostart: {e}");
             1
         }
     }
