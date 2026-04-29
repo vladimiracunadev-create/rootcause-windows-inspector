@@ -65,13 +65,15 @@
 - tareas programadas no-Microsoft integradas en el tab Autostart
 - notas contextuales por tipo de entrada (RunOnce, HKLM, Scheduled Task, Startup)
 - CLI `rootcause autostart [--json]` — lista entradas de persistencia desde consola
-- panel Configuracion en tab Acerca: umbrales CPU/RAM/IO, anomalias, refresco, boton abrir config en Notepad
+- panel Configuracion en tab Acerca con edicion inline de umbrales (CPU/RAM/IO, anomalias, refresco)
+- boton Guardar persiste cambios a `rootcause-config.json` sin reiniciar via `save_config()` en InspectorService
+- manifests Scoop/Winget/Chocolatey actualizados a 0.11.0
 - version bump a 0.11.0
 
 ## v1.0 Objetivo de distribucion formal
-- tray icon activo
-- alertas editables desde la UI (no solo visibles)
-- firma digital
+- tray icon activo (monitor proactivo en bandeja del sistema)
+- firma digital (elimina alerta SmartScreen)
+- publicacion en Scoop/Winget/Chocolatey con releases reales
 - documentacion madura de instalacion y operacion
 
 ## Lineas estrategicas documentadas

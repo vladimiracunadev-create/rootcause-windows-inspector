@@ -173,6 +173,13 @@ impl InspectorService {
         Ok(path.display().to_string())
     }
 
+    /// Persiste `config` en disco y actualiza el estado interno del motor.
+    pub fn save_config(&mut self, config: &RootCauseConfig) -> Result<()> {
+        ConfigManager::save_to_path(&self.config_path, config)?;
+        self.config = config.clone();
+        Ok(())
+    }
+
     /// Carga las últimas N filas del historial SQLite.
     pub fn load_history(&self, limit: usize) -> Vec<SnapshotRow> {
         self.store.load_recent(limit).unwrap_or_default()

@@ -322,6 +322,16 @@ impl ConfigManager {
     pub fn config(&self) -> &RootCauseConfig {
         &self.config
     }
+
+    /// Serializa `config` al disco en `path`.  Crea el directorio padre si no existe.
+    pub fn save_to_path(path: &Path, config: &RootCauseConfig) -> anyhow::Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let json = serde_json::to_string_pretty(config)?;
+        fs::write(path, json)?;
+        Ok(())
+    }
 }
 
 pub fn config_path(app_name: &str) -> PathBuf {

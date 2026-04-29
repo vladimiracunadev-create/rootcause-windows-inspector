@@ -262,3 +262,16 @@ Las entradas que no existen en disco son residuos de software desinstalado. Se p
 
 ### Entradas de tipo Registro (Sistema)
 Requieren privilegios de administrador para modificarse. Son más difíciles de eliminar desde una cuenta estándar y por eso se marcan con color diferente.
+
+### Tareas programadas (v0.11)
+Las entradas de tipo **Scheduled Task** son tareas de `Task Scheduler` fuera del espacio `\Microsoft\*` y no deshabilitadas. Se muestran en amarillo como "a revisar". No se pueden eliminar desde aquí — usa `taskschd.msc` para gestionarlas.
+
+---
+
+## 11) Edición de umbrales (v0.11)
+
+En el tab **Acerca** → sección "Configuración operativa":
+
+1. Arrastra o edita directamente los valores de CPU, RAM, I/O (warning y crítico), CPU sostenida, crecimiento de RAM, escritura agresiva y refresco.
+2. Pulsa **Guardar** — los cambios se escriben en `rootcause-config.json` y se aplican en la próxima captura sin reiniciar la app.
+3. Si prefieres editar el JSON a mano, usa el botón **Abrir** para abrirlo en Notepad.

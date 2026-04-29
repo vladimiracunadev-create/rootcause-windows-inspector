@@ -4,7 +4,7 @@
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
-> Estado del entorno: CI debe estar verde — v0.7 completada con múltiples ediciones del producto.
+> Estado del entorno: CI debe estar verde — v0.11.0 completada. Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
 
 ---
 
@@ -169,9 +169,9 @@ Qué hace: ícono en bandeja del sistema. Cambia de color (verde/amarillo/rojo) 
 Por qué importa: transforma RootCause de herramienta reactiva (abro cuando hay problema) a monitor proactivo (me avisa cuando hay problema).
 Implementación: requiere actualizar eframe a 0.28+ que incluye soporte de tray nativo.
 
-#### 4.4 Alertas y umbrales configurables — Vista ✅ v0.11.0 / Edición ⏳ v1.0
-Panel de configuración en tab Acerca ya muestra umbrales actuales (CPU, RAM, I/O, anomalías, refresco) con botón "Abrir" que abre el JSON en Notepad.
-Próximo: edición inline + persistencia inmediata sin reiniciar (requiere `write_config()` en InspectorService).
+#### 4.4 Alertas y umbrales configurables ✅ v0.11.0
+Panel de configuración en tab Acerca con edición inline de umbrales (CPU, RAM, I/O, anomalías, refresco) y botón Guardar que persiste a `rootcause-config.json` sin reiniciar.
+`save_config(&mut self, config)` implementado en `InspectorService` y `ConfigManager::save_to_path()` en `config.rs`.
 
 #### 4.4 `--output` en CLI
 Qué hace: `rootcause snapshot --output diagnostico.json` además de stdout.
@@ -228,13 +228,13 @@ En orden de impacto potencial:
 ## IV. Mapa de versiones del producto
 
 ```
-v0.6  ✅   v0.7 ✅               v0.9 ✅   v0.10 ✅          v1.0 ⏳               v2.0+ ⏳
-──────────  ────────────────────  ────────  ──────────────────  ──────────────────── ──────────────────
-GUI+CLI+    CLI-only binary ✅    Agente    Tab Autostart ✅    Tray icon activo      Windows Service
-SQLite+     PowerShell module ✅  salud ✅  UI profesional ✅   Scoop/Winget publis.  Edición Seguridad
-historial   Scoop/Winget/Choco✅  heartb.✅ RAM pbar real ✅    Firma digital         Edición Enterprise
-            VS Code Extension ✅  backoff✅ Ctrl+1..9 ✅        Alertas config.       MSIX / Store
-            Tray skeleton ✅                                     EMAIL+GitLab meta.rs
+v0.6  ✅   v0.7 ✅               v0.9 ✅   v0.10 ✅          v0.11 ✅              v1.0 ⏳               v2.0+ ⏳
+──────────  ────────────────────  ────────  ──────────────────  ────────────────────  ──────────────────── ──────────────────
+GUI+CLI+    CLI-only binary ✅    Agente    Tab Autostart ✅    Tareas programadas ✅  Tray icon activo      Windows Service
+SQLite+     PowerShell module ✅  salud ✅  UI profesional ✅   CLI autostart ✅       Firma digital         Edición Seguridad
+historial   Scoop/Winget/Choco✅  heartb.✅ RAM pbar real ✅    Umbrales editables ✅  Scoop/Winget publis.  Edición Enterprise
+            VS Code Extension ✅  backoff✅ Ctrl+1..9 ✅        save_config() ✅       EMAIL+GitLab meta.rs  MSIX / Store
+            Tray skeleton ✅                                     Manifests 0.11.0 ✅
             Service skeleton ✅
             SQLite retención ✅
             JSON backup ✅

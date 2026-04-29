@@ -458,6 +458,7 @@ impl eframe::App for RootCauseApp {
             .show(ctx, |ui| {
                 // El tab Acerca no necesita snapshot — se muestra siempre.
                 if self.active_tab == Tab::About {
+                    let mut save_config = false;
                     egui::ScrollArea::vertical()
                         .auto_shrink([false; 2])
                         .show(ui, |ui| {
@@ -465,10 +466,26 @@ impl eframe::App for RootCauseApp {
                                 ui,
                                 &self.hardware_info,
                                 self.snapshot.as_ref(),
-                                &self.cached_config,
+                                &mut self.cached_config,
                                 &self.config_path,
+                                &mut save_config,
                             )
                         });
+                    if save_config {
+                        if let Some(svc) = self.inspector.as_mut() {
+                            match svc.save_config(&self.cached_config) {
+                                Ok(()) => {
+                                    self.status_line =
+                                        "Configuración guardada correctamente.".to_owned();
+                                    self.status_is_error = false;
+                                }
+                                Err(e) => {
+                                    self.status_line = format!("Error al guardar config: {e}");
+                                    self.status_is_error = true;
+                                }
+                            }
+                        }
+                    }
                     return;
                 }
 
@@ -2751,8 +2768,9 @@ fn draw_tab_about(
     ui: &mut egui::Ui,
     hw: &HardwareInfo,
     snapshot: Option<&SystemSnapshot>,
-    cfg: &RootCauseConfig,
+    cfg: &mut RootCauseConfig,
     config_path: &str,
+    save_requested: &mut bool,
 ) {
     ui.add_space(28.0);
 
@@ -3001,113 +3019,116 @@ fn draw_tab_about(
                 }
                 ui.add_space(6.0);
 
-                // Umbrales de procesos
-                section_header(ui, "Umbrales — Procesos");
+                // Umbrales de procesos — editables inline
+                section_header(ui, "Umbrales — Procesos  (edita y guarda)");
                 ui.add_space(6.0);
-                let th = &cfg.thresholds.process;
-                about_row(
-                    ui,
-                    "CPU warning",
-                    &format!("{:.0}%", th.cpu_warning_percent),
-                    C_WN_FG,
-                );
-                about_row(
-                    ui,
-                    "CPU crítico",
-                    &format!("{:.0}%", th.cpu_critical_percent),
-                    C_CR_FG,
-                );
-                about_row(
-                    ui,
-                    "RAM warning",
-                    &format!("{:.0} MB", th.memory_warning_mb),
-                    C_WN_FG,
-                );
-                about_row(
-                    ui,
-                    "RAM crítico",
-                    &format!("{:.0} MB", th.memory_critical_mb),
-                    C_CR_FG,
-                );
-                about_row(
-                    ui,
-                    "I/O warning",
-                    &format!("{:.0} MB/s", th.io_write_warning_mb),
-                    C_WN_FG,
-                );
-                about_row(
-                    ui,
-                    "I/O crítico",
-                    &format!("{:.0} MB/s", th.io_write_critical_mb),
-                    C_CR_FG,
-                );
+                {
+                    let th = &mut cfg.thresholds.process;
+                    threshold_row(ui, "CPU warning", &mut th.cpu_warning_percent, "%", C_WN_FG);
+                    threshold_row(
+                        ui,
+                        "CPU crítico",
+                        &mut th.cpu_critical_percent,
+                        "%",
+                        C_CR_FG,
+                    );
+                    threshold_row(ui, "RAM warning", &mut th.memory_warning_mb, "MB", C_WN_FG);
+                    threshold_row(ui, "RAM crítico", &mut th.memory_critical_mb, "MB", C_CR_FG);
+                    threshold_row(
+                        ui,
+                        "I/O warning",
+                        &mut th.io_write_warning_mb,
+                        "MB/s",
+                        C_WN_FG,
+                    );
+                    threshold_row(
+                        ui,
+                        "I/O crítico",
+                        &mut th.io_write_critical_mb,
+                        "MB/s",
+                        C_CR_FG,
+                    );
+                }
                 ui.add_space(8.0);
 
-                // Detección de anomalías
+                // Detección de anomalías — editable
                 section_header(ui, "Detección de anomalías");
                 ui.add_space(6.0);
-                let an = &cfg.anomaly;
-                about_row(
-                    ui,
-                    "Estado",
-                    if an.enabled {
-                        "Habilitada"
-                    } else {
-                        "Deshabilitada"
-                    },
-                    if an.enabled { C_OK_FG } else { TEXT_MUT },
-                );
-                about_row(
-                    ui,
-                    "CPU sostenida",
-                    &format!(
-                        "{:.0}% × {} muestras",
-                        an.cpu_sustained_percent, an.cpu_sustained_samples
-                    ),
-                    TEXT_SEC,
-                );
-                about_row(
-                    ui,
-                    "RAM crecimiento",
-                    &format!(
-                        "+{:.0} MB × {} muestras",
-                        an.memory_growth_mb, an.memory_growth_samples
-                    ),
-                    TEXT_SEC,
-                );
-                about_row(
-                    ui,
-                    "Escritura agres.",
-                    &format!(
-                        "{:.0} MB × {} muestras",
-                        an.aggressive_write_mb, an.aggressive_write_samples
-                    ),
-                    TEXT_SEC,
-                );
-                about_row(
-                    ui,
-                    "Refresco UI",
-                    &format!("{} s", cfg.collection.refresh_interval_secs),
-                    TEXT_SEC,
-                );
-
-                // Nota: para cambiar los valores editar el JSON
-                ui.add_space(10.0);
-                egui::Frame::none()
-                    .fill(C_BL_BG)
-                    .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.3)))
-                    .rounding(Rounding::same(6.0))
-                    .inner_margin(Margin::same(10.0))
-                    .show(ui, |ui| {
-                        ui.label(
-                            RichText::new(
-                                "Para ajustar umbrales, edita el archivo JSON de configuración \
-                                 y reinicia la app. Usa \"Abrir\" para abrirlo en Notepad.",
-                            )
-                            .size(11.0)
-                            .color(TEXT_SEC),
+                {
+                    let an = &mut cfg.anomaly;
+                    ui.horizontal(|ui| {
+                        ui.add_sized(
+                            [120.0, 18.0],
+                            egui::Label::new(RichText::new("Estado").size(12.0).color(TEXT_MUT)),
                         );
+                        let label = if an.enabled {
+                            "Habilitada"
+                        } else {
+                            "Deshabilitada"
+                        };
+                        let color = if an.enabled { C_OK_FG } else { TEXT_MUT };
+                        if ui
+                            .add(
+                                egui::Button::new(RichText::new(label).size(11.5).color(color))
+                                    .min_size(Vec2::new(90.0, 18.0)),
+                            )
+                            .on_hover_text("Click para activar / desactivar")
+                            .clicked()
+                        {
+                            an.enabled = !an.enabled;
+                        }
                     });
+                    ui.add_space(3.0);
+                    threshold_row(
+                        ui,
+                        "CPU sostenida",
+                        &mut an.cpu_sustained_percent,
+                        "%",
+                        TEXT_SEC,
+                    );
+                    threshold_row(
+                        ui,
+                        "RAM crecimiento",
+                        &mut an.memory_growth_mb,
+                        "MB",
+                        TEXT_SEC,
+                    );
+                    threshold_row(
+                        ui,
+                        "Escritura agres.",
+                        &mut an.aggressive_write_mb,
+                        "MB/s",
+                        TEXT_SEC,
+                    );
+                }
+                {
+                    let mut secs = cfg.collection.refresh_interval_secs as f32;
+                    threshold_row(ui, "Refresco UI", &mut secs, "s", TEXT_SEC);
+                    cfg.collection.refresh_interval_secs = secs.max(1.0) as u64;
+                }
+                ui.add_space(12.0);
+
+                // Botón Guardar
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(
+                            egui::Button::new(
+                                RichText::new("💾  Guardar").size(12.5).color(C_OK_FG),
+                            )
+                            .min_size(Vec2::new(120.0, 28.0))
+                            .fill(C_OK_BG),
+                        )
+                        .on_hover_text("Persiste los cambios en el JSON y los aplica sin reiniciar")
+                        .clicked()
+                    {
+                        *save_requested = true;
+                    }
+                    ui.label(
+                        RichText::new("Los cambios se aplican en la próxima captura.")
+                            .size(11.0)
+                            .color(TEXT_MUT),
+                    );
+                });
             });
     });
 }
@@ -3132,6 +3153,27 @@ fn about_row(ui: &mut egui::Ui, label: &str, value: &str, color: Color32) {
             egui::Label::new(RichText::new(label).size(12.0).color(TEXT_MUT)),
         );
         ui.label(RichText::new(value).size(12.0).color(color));
+    });
+    ui.add_space(3.0);
+}
+
+/// Fila editable con etiqueta fija + DragValue + unidad.  Usa f32 multiplicado × 1.0.
+fn threshold_row(ui: &mut egui::Ui, label: &str, value: &mut f32, unit: &str, color: Color32) {
+    ui.horizontal(|ui| {
+        ui.add_sized(
+            [120.0, 18.0],
+            egui::Label::new(RichText::new(label).size(12.0).color(TEXT_MUT)),
+        );
+        ui.add(
+            egui::DragValue::new(value)
+                .speed(1.0)
+                .clamp_range(0.0_f32..=100_000.0)
+                .suffix(format!(" {unit}"))
+                .min_decimals(0)
+                .max_decimals(0),
+        )
+        .on_hover_text("Arrastra para cambiar · Click y escribe el valor");
+        ui.label(RichText::new("").color(color));
     });
     ui.add_space(3.0);
 }
