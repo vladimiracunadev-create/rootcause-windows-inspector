@@ -36,7 +36,7 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 
 ## Producto y presentación
 - [Catálogo del producto](CATALOGO_PRODUCTO.md)
-- [Landing page del producto](https://vladimiracunadev-create.github.io/rootcause-landing/) — repo público separado: `rootcause-landing`
+- [Landing page del producto](https://vladimiracunadev-create.github.io/rootcause-windows-inspector/) — servida desde `landing/` en este mismo repo vía GitHub Pages
 - [Roadmap](ROADMAP.md)
 - [Nombres posibles del producto](NOMBRES_PRODUCTO.md)
 

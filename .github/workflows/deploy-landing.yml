@@ -1,22 +1,16 @@
-# ── Deploy RootCause Landing Page → GitHub Pages ───────────────────────────
-#
-# INSTRUCCIONES:
-#   1. Crea un repo PÚBLICO en GitHub (ej: "rootcause-landing")
-#   2. Copia el contenido de la carpeta landing/ a la raíz de ese repo
-#   3. Coloca este archivo en .github/workflows/deploy.yml del repo público
-#   4. En Settings → Pages → Source: selecciona "GitHub Actions"
-#   5. Cada push a main desplegará automáticamente la landing
-#
 name: Deploy Landing Page
 
 on:
   push:
-    branches: [main]
+    branches: [master]
+    paths:
+      - 'landing/**'
+      - '.github/workflows/deploy-landing.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages:    write
+  pages: write
   id-token: write
 
 concurrency:
@@ -39,8 +33,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Sube todo el repositorio raíz como la landing
-          path: '.'
+          path: 'landing'
 
       - name: Deploy to GitHub Pages
         id: deployment

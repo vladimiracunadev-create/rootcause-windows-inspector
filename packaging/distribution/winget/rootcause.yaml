@@ -7,9 +7,9 @@ PackageVersion: "0.11.0"
 PackageLocale: es-ES
 Publisher: Vladimir Acuña
 PublisherUrl: https://github.com/vladimiracunadev-create
-PublisherSupportUrl: https://github.com/vladimiracunadev-create/rootcause-landing/issues
+PublisherSupportUrl: https://github.com/vladimiracunadev-create/rootcause-windows-inspector/issues
 PackageName: RootCause Windows Inspector
-PackageUrl: https://vladimiracunadev-create.github.io/rootcause-landing/
+PackageUrl: https://vladimiracunadev-create.github.io/rootcause-windows-inspector/
 License: Apache-2.0
 LicenseUrl: https://www.apache.org/licenses/LICENSE-2.0
 Copyright: "Copyright 2025 Vladimir Acuña"
@@ -32,7 +32,7 @@ Tags:
 Installers:
   - Architecture: x64
     InstallerType: inno
-    InstallerUrl: https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest/download/RootCause-Setup.exe
+    InstallerUrl: https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Setup.exe
     InstallerSha256: UPDATE_SHA256_ON_RELEASE
     InstallerSwitches:
       Silent: /SILENT

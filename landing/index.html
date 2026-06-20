@@ -1,667 +1,674 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RootCause Windows Inspector — Diagnóstico forense para Windows</title>
-  <meta name="description" content="Monitor forense ligero para Windows. Descubre qué proceso, carpeta, servicio o conexión está degradando tu equipo. Construido en Rust." />
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            'rc-bg':     '#0d1117',
-            'rc-panel':  '#161b22',
-            'rc-card':   '#1e252e',
-            'rc-border': '#30363d',
-            'rc-accent': '#1f6feb',
-            'rc-blue':   '#58a6ff',
-            'rc-green':  '#3fb950',
-            'rc-yellow': '#d29922',
-            'rc-red':    '#f85149',
-            'rc-text':   '#e6edf3',
-            'rc-muted':  '#8b949e',
-          },
-          fontFamily: {
-            mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'monospace'],
-          },
-        }
-      }
-    }
-  </script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
-    html { scroll-behavior: smooth; }
-    body { background-color: #0d1117; color: #e6edf3; font-family: 'JetBrains Mono', monospace; }
-    .grad-blue { background: linear-gradient(135deg, #1f6feb22, #58a6ff11); }
-    .grad-hero { background: radial-gradient(ellipse 80% 60% at 50% 0%, #1f6feb18 0%, transparent 70%); }
-    .card-hover { transition: transform .2s, border-color .2s; }
-    .card-hover:hover { transform: translateY(-3px); border-color: #58a6ff55; }
-    .pill { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .7rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
-    .terminal { background: #0d1117; border: 1px solid #30363d; border-radius: .5rem; overflow: hidden; }
-    .terminal-bar { background: #161b22; padding: .5rem 1rem; display: flex; gap: .4rem; align-items: center; }
-    .dot { width: 12px; height: 12px; border-radius: 50%; }
-    pre { margin: 0; padding: 1.25rem; font-size: .82rem; line-height: 1.6; overflow-x: auto; }
-    .feature-icon { font-size: 1.5rem; }
-    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #161b22; } ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-    .section-label { color: #58a6ff; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; font-weight: 700; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-    .cursor { animation: blink 1s step-end infinite; }
-  </style>
+  <meta name="description"
+    content="RootCause Windows Inspector – Monitor forense ligero para Windows. Descubre qué proceso, servicio o conexión está degradando tu equipo." />
+  <meta property="og:title" content="RootCause Windows Inspector" />
+  <meta property="og:description" content="Monitor forense ligero para Windows. Escrito en Rust. Telemetría: cero." />
+  <meta property="og:type" content="website" />
+  <title>RootCause Windows Inspector</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="stylesheet" href="assets/style.css" />
 </head>
+
 <body>
 
-<!-- ── NAV ────────────────────────────────────────────────────────────────── -->
-<nav class="sticky top-0 z-50 border-b border-rc-border" style="background:#0d1117ee;backdrop-filter:blur(12px)">
-  <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-        <rect width="32" height="32" rx="6" fill="#1f6feb22" stroke="#1f6feb" stroke-width="1.5"/>
-        <text x="16" y="21" text-anchor="middle" font-family="monospace" font-weight="900" font-size="14" fill="#58a6ff">RC</text>
-      </svg>
-      <span class="font-bold text-rc-text" style="font-size:.95rem">RootCause</span>
-      <span class="pill" style="background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44">v0.9.0</span>
-    </div>
-    <div class="hidden md:flex items-center gap-6 text-sm text-rc-muted">
-      <a href="#features"      class="hover:text-rc-text transition-colors">Funciones</a>
-      <a href="#how-it-works"  class="hover:text-rc-text transition-colors">Cómo funciona</a>
-      <a href="#security-evolution" class="hover:text-rc-text transition-colors">Evolución</a>
-      <a href="#requirements"  class="hover:text-rc-text transition-colors">Requisitos</a>
-      <a href="#install"       class="hover:text-rc-text transition-colors">Instalación</a>
-      <a href="#download"      class="hover:text-rc-text transition-colors px-4 py-1.5 rounded-md border border-rc-accent text-rc-blue">Descargar</a>
-    </div>
-  </div>
-</nav>
-
-<!-- ── HERO ───────────────────────────────────────────────────────────────── -->
-<section class="grad-hero pt-20 pb-16 px-6">
-  <div class="max-w-5xl mx-auto text-center">
-
-    <div class="mb-4">
-      <span class="pill" style="background:#3fb95022;color:#3fb950;border:1px solid #3fb95044">Apache 2.0</span>
-      <span class="pill ml-2" style="background:#d2992222;color:#d29922;border:1px solid #d2992244">Windows 10 / 11</span>
-      <span class="pill ml-2" style="background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44">Rust 2024</span>
-    </div>
-
-    <h1 class="text-5xl md:text-6xl font-bold text-rc-text mb-2" style="letter-spacing:-.02em">
-      Root<span style="color:#58a6ff">Cause</span>
-    </h1>
-    <p class="text-xl text-rc-muted mb-2 font-mono">Windows Inspector</p>
-    <p class="text-lg text-rc-text mb-8 max-w-2xl mx-auto" style="line-height:1.8">
-      Monitor forense ligero para Windows.<br>
-      Descubre <strong class="text-rc-blue">qué proceso, carpeta, servicio o conexión</strong><br>
-      está degradando tu equipo — antes de intervenir.
-    </p>
-
-    <blockquote class="mb-10 text-rc-muted italic" style="font-size:.9rem">
-      "Diagnóstico primero. Intervención después."
-    </blockquote>
-
-    <div class="flex flex-wrap justify-center gap-4 mb-12">
-      <a href="#download"
-         class="px-7 py-3 rounded-lg font-semibold text-white transition-all"
-         style="background:#1f6feb;border:1px solid #388bfd">
-        ⬇ Descargar v0.9.0
-      </a>
-      <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
-         target="_blank"
-         class="px-7 py-3 rounded-lg font-semibold transition-all"
-         style="background:#161b22;border:1px solid #30363d;color:#e6edf3">
-        ⭐ Ver en GitHub
-      </a>
-    </div>
-
-    <!-- Terminal hero -->
-    <div class="terminal max-w-3xl mx-auto text-left">
-      <div class="terminal-bar">
-        <div class="dot" style="background:#f85149"></div>
-        <div class="dot" style="background:#d29922"></div>
-        <div class="dot" style="background:#3fb950"></div>
-        <span class="ml-3 text-rc-muted" style="font-size:.72rem">PowerShell — rootcause.exe</span>
-      </div>
-<pre><span style="color:#58a6ff">PS C:\&gt;</span> <span style="color:#e6edf3">rootcause status</span>
-
-<span style="color:#3fb950">╔════════════════════════════════════════════╗
-║  RootCause Windows Inspector  v0.9.0       ║
-╚════════════════════════════════════════════╝</span>
-
-<span style="color:#d29922">  Severidad    </span><span style="color:#e6edf3">⚠  Warning</span>
-<span style="color:#8b949e">  CPU          </span><span style="color:#e6edf3">34.2 %</span>
-<span style="color:#8b949e">  RAM          </span><span style="color:#e6edf3">9.1 / 16.0 GB</span>
-<span style="color:#8b949e">  I/O Write    </span><span style="color:#d29922">87.3 MB (intervalo)</span>
-<span style="color:#8b949e">  Alertas      </span><span style="color:#d29922">2  (0 críticas)</span>
-
-<span style="color:#8b949e">  ▸  Servicio de actualización activo: wuauserv Running</span>
-
-<span style="color:#58a6ff">PS C:\&gt;</span> <span style="color:#e6edf3">rootcause --help</span><span class="cursor" style="color:#58a6ff">█</span></pre>
-    </div>
-
-  </div>
-</section>
-
-<!-- ── BADGES ─────────────────────────────────────────────────────────────── -->
-<div class="border-y border-rc-border py-4 px-6" style="background:#161b22">
-  <div class="max-w-5xl mx-auto flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-rc-muted">
-    <span>✅ <strong class="text-rc-text">Rust 2024</strong></span>
-    <span>✅ <strong class="text-rc-text">0 crates innecesarios</strong></span>
-    <span>✅ <strong class="text-rc-text">GUI nativa egui</strong></span>
-    <span>✅ <strong class="text-rc-text">SQLite local</strong></span>
-    <span>✅ <strong class="text-rc-text">CLI completa</strong></span>
-    <span>✅ <strong class="text-rc-text">CI GitHub Actions</strong></span>
-    <span>✅ <strong class="text-rc-text">Apache 2.0</strong></span>
-  </div>
-</div>
-
-<!-- ── FEATURES ───────────────────────────────────────────────────────────── -->
-<section id="features" class="py-20 px-6">
-  <div class="max-w-6xl mx-auto">
-    <div class="text-center mb-14">
-      <p class="section-label mb-2">Funciones</p>
-      <h2 class="text-3xl font-bold text-rc-text">Todo lo que necesitas para diagnosticar</h2>
-      <p class="text-rc-muted mt-3 max-w-xl mx-auto">Sin ruido. Sin magia. Solo datos concretos sobre lo que está pasando.</p>
-    </div>
-
-    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-
-      <!-- Feature cards -->
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">📊</div>
-        <h3 class="font-bold text-rc-text mb-2">Semáforo y sparklines</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7">Estado 🟢🟡🔴 en tiempo real con mini-gráficos de tendencia para CPU, RAM e I/O de las últimas 60 muestras.</p>
-      </div>
-
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">⚙️</div>
-        <h3 class="font-bold text-rc-text mb-2">Procesos dominantes</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7">Tabla con severidad, puntaje, I/O delta, command line completo y filtros por crítico / aviso / normal.</p>
-      </div>
-
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">🌐</div>
-        <h3 class="font-bold text-rc-text mb-2">Conexiones de red</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7">IPs públicas activas por proceso con bloqueo directo vía firewall de Windows desde la UI o CLI.</p>
-      </div>
-
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">🗂️</div>
-        <h3 class="font-bold text-rc-text mb-2">Temporales y cachés</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7">Escaneo de <code style="color:#58a6ff">%TEMP%</code>, SoftwareDistribution, DeliveryOptimization. Alertas cuando crecen anormalmente.</p>
-      </div>
-
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">📜</div>
-        <h3 class="font-bold text-rc-text mb-2">Historial SQLite + A vs B</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7">Últimas 60 capturas persistidas. Compara dos momentos con deltas de CPU / RAM / I/O / Alertas en verde o rojo.</p>
-      </div>
-
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">🔬</div>
-        <h3 class="font-bold text-rc-text mb-2">Modo de precisión ETW/WPR</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7">Captura ETL con WPR desde la UI. Resume automáticamente con <code style="color:#58a6ff">tracerpt</code> y heurísticas propias sin salir de la app.</p>
-      </div>
-
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">💻</div>
-        <h3 class="font-bold text-rc-text mb-2">CLI completa</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7"><code style="color:#58a6ff">rootcause status</code>, <code style="color:#58a6ff">snapshot</code>, <code style="color:#58a6ff">history</code>, <code style="color:#58a6ff">export</code>, <code style="color:#58a6ff">kill</code>, <code style="color:#58a6ff">block-ip</code>, <code style="color:#58a6ff">wpr</code> — todo desde la consola.</p>
-      </div>
-
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">⌨️</div>
-        <h3 class="font-bold text-rc-text mb-2">Atajos de teclado</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7"><code style="color:#58a6ff">F5</code> actualizar · <code style="color:#58a6ff">Ctrl+E</code> exportar · <code style="color:#58a6ff">Ctrl+1…8</code> navegar tabs sin soltar el teclado.</p>
-      </div>
-
-      <div class="card-hover rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <div class="feature-icon mb-3">🖥️</div>
-        <h3 class="font-bold text-rc-text mb-2">Hardware del equipo</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.7">OS, CPU, núcleos, frecuencia y RAM total visibles en el tab Resumen y en el tab Acerca del producto.</p>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ── HOW IT WORKS ───────────────────────────────────────────────────────── -->
-<section id="how-it-works" class="py-20 px-6 border-t border-rc-border" style="background:#0a0f14">
-  <div class="max-w-5xl mx-auto">
-    <div class="text-center mb-14">
-      <p class="section-label mb-2">Cómo funciona</p>
-      <h2 class="text-3xl font-bold text-rc-text">Dos capas de diagnóstico</h2>
-    </div>
-
-    <div class="grid md:grid-cols-2 gap-8">
-
-      <!-- Capa 1 -->
-      <div class="rounded-xl p-7 border" style="background:#161b22;border-color:#3fb95033">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold" style="background:#3fb95022;color:#3fb950;border:1px solid #3fb95066">1</div>
-          <h3 class="font-bold text-rc-text text-lg">Modo operativo liviano</h3>
-        </div>
-        <p class="text-rc-muted text-sm mb-4" style="line-height:1.8">El modo principal. Bajo consumo. Útil para observación frecuente sin añadir carga al sistema.</p>
-        <ul class="space-y-2 text-sm text-rc-muted">
-          <li class="flex gap-2"><span style="color:#3fb950">▸</span> Semáforo general del estado del equipo</li>
-          <li class="flex gap-2"><span style="color:#3fb950">▸</span> Sparklines de CPU · RAM · I/O en tiempo real</li>
-          <li class="flex gap-2"><span style="color:#3fb950">▸</span> Top de procesos con severidad y puntaje</li>
-          <li class="flex gap-2"><span style="color:#3fb950">▸</span> Escaneo de cachés y temporales de Windows</li>
-          <li class="flex gap-2"><span style="color:#3fb950">▸</span> Conexiones activas con correlación a IP</li>
-          <li class="flex gap-2"><span style="color:#3fb950">▸</span> Historial SQLite + comparación A vs B</li>
-          <li class="flex gap-2"><span style="color:#3fb950">▸</span> Exportación JSON de evidencia</li>
-        </ul>
-      </div>
-
-      <!-- Capa 2 -->
-      <div class="rounded-xl p-7 border" style="background:#161b22;border-color:#58a6ff33">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold" style="background:#1f6feb22;color:#58a6ff;border:1px solid #58a6ff55">2</div>
-          <h3 class="font-bold text-rc-text text-lg">Modo de precisión ETW/WPR</h3>
-        </div>
-        <p class="text-rc-muted text-sm mb-4" style="line-height:1.8">Para cuando la observación liviana no basta. Captura y resume trazas ETL del sistema sin salir de la app.</p>
-        <ul class="space-y-2 text-sm text-rc-muted">
-          <li class="flex gap-2"><span style="color:#58a6ff">▸</span> Iniciar / detener / cancelar captura WPR</li>
-          <li class="flex gap-2"><span style="color:#58a6ff">▸</span> Registrar contexto del problema</li>
-          <li class="flex gap-2"><span style="color:#58a6ff">▸</span> Resumir último ETL con <code>tracerpt</code></li>
-          <li class="flex gap-2"><span style="color:#58a6ff">▸</span> Barra visual de proveedores ETW activos</li>
-          <li class="flex gap-2"><span style="color:#58a6ff">▸</span> Exportar <code>trace-analysis.json</code></li>
-          <li class="flex gap-2"><span style="color:#58a6ff">▸</span> Ruta clara a WPA para análisis profundo</li>
-        </ul>
-      </div>
-
-    </div>
-
-    <!-- Flujo -->
-    <div class="mt-12 rounded-xl p-7 border border-rc-border" style="background:#161b22">
-      <h3 class="font-bold text-rc-text mb-5 text-center">Flujo recomendado ante lentitud</h3>
-      <div class="flex flex-wrap justify-center gap-2 items-center text-sm">
-        <div class="px-4 py-2 rounded-lg" style="background:#1e252e;border:1px solid #30363d;color:#e6edf3">🔍 Observar</div>
-        <span style="color:#30363d">→</span>
-        <div class="px-4 py-2 rounded-lg" style="background:#1e252e;border:1px solid #30363d;color:#e6edf3">📊 Identificar</div>
-        <span style="color:#30363d">→</span>
-        <div class="px-4 py-2 rounded-lg" style="background:#1e252e;border:1px solid #30363d;color:#e6edf3">📜 Documentar</div>
-        <span style="color:#30363d">→</span>
-        <div class="px-4 py-2 rounded-lg" style="background:#1e252e;border:1px solid #58a6ff44;color:#58a6ff">⚡ Intervenir</div>
-        <span style="color:#30363d">→</span>
-        <div class="px-4 py-2 rounded-lg" style="background:#1e252e;border:1px solid #3fb95044;color:#3fb950">✅ Validar</div>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<section id="security-evolution" class="py-20 px-6 border-t border-rc-border">
-  <div class="max-w-5xl mx-auto">
-    <div class="text-center mb-12">
-      <p class="section-label mb-2">Evolución</p>
-      <h2 class="text-3xl font-bold text-rc-text">Seguridad y resiliencia con enfoque realista</h2>
-      <p class="text-rc-muted mt-3 max-w-3xl mx-auto" style="line-height:1.8">
-        RootCause nació para observabilidad y diagnóstico del endpoint. Su hoja de ruta también contempla
-        detección de señales anómalas compatibles con actividad no autorizada y mayor resiliencia del propio agente,
-        sin venderse como antivirus ni como EDR completo.
-      </p>
-    </div>
-
-    <div class="grid md:grid-cols-2 gap-6">
-      <div class="rounded-xl p-7 border border-rc-border" style="background:#161b22">
-        <p class="section-label mb-3">Implementado</p>
-        <h3 class="font-bold text-rc-text text-lg mb-3">Detección avanzada de actividad anómala</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.8">
-          V1 ya integrada para correlacionar procesos, consumo de recursos, conexiones salientes, persistencia y
-          rutas de ejecución sospechosas. El objetivo es destacar comportamientos que merecen revisión de seguridad
-          sin sustituir una solución antivirus o EDR especializada.
-        </p>
-      </div>
-
-      <div class="rounded-xl p-7 border border-rc-border" style="background:#161b22">
-        <p class="section-label mb-3">Implementación inicial</p>
-        <h3 class="font-bold text-rc-text text-lg mb-3">Resiliencia del agente RootCause</h3>
-        <p class="text-rc-muted text-sm" style="line-height:1.8">
-          Heartbeat local, detección de cierre abrupto previo, evidencia de integridad de configuración y
-          recuperación visible en GUI/CLI. Busca continuidad operativa y trazabilidad, sin prometer invulnerabilidad
-          ni reemplazar un supervisor persistente de nivel servicio.
-        </p>
-      </div>
-    </div>
-
-    <div class="mt-8 rounded-xl p-6 border border-rc-border" style="background:#0a0f14">
-      <p class="text-sm text-rc-muted" style="line-height:1.8">
-        Estas capacidades forman parte de la evolución documentada del producto. RootCause sigue centrado en explicar
-        causas dominantes, dejar evidencia útil y ayudar a resolver problemas reales del endpoint.
-      </p>
-    </div>
-  </div>
-</section>
-
-<!-- ── CLI ────────────────────────────────────────────────────────────────── -->
-<section class="py-20 px-6 border-t border-rc-border">
-  <div class="max-w-5xl mx-auto">
-    <div class="text-center mb-12">
-      <p class="section-label mb-2">CLI</p>
-      <h2 class="text-3xl font-bold text-rc-text">Funciona también desde la consola</h2>
-      <p class="text-rc-muted mt-3">El mismo binario que la GUI. Sin instalación adicional.</p>
-    </div>
-
-    <div class="grid md:grid-cols-2 gap-6">
-      <div class="terminal">
-        <div class="terminal-bar">
-          <div class="dot" style="background:#f85149"></div>
-          <div class="dot" style="background:#d29922"></div>
-          <div class="dot" style="background:#3fb950"></div>
-          <span class="ml-3 text-rc-muted" style="font-size:.72rem">Diagnóstico</span>
-        </div>
-<pre style="font-size:.78rem"><span style="color:#8b949e"># Estado rápido</span>
-<span style="color:#58a6ff">rootcause</span> status
-
-<span style="color:#8b949e"># Snapshot completo a JSON</span>
-<span style="color:#58a6ff">rootcause</span> snapshot
-
-<span style="color:#8b949e"># Últimas 20 capturas del historial</span>
-<span style="color:#58a6ff">rootcause</span> history 20
-
-<span style="color:#8b949e"># Exportar evidencia</span>
-<span style="color:#58a6ff">rootcause</span> export</pre>
-      </div>
-
-      <div class="terminal">
-        <div class="terminal-bar">
-          <div class="dot" style="background:#f85149"></div>
-          <div class="dot" style="background:#d29922"></div>
-          <div class="dot" style="background:#3fb950"></div>
-          <span class="ml-3 text-rc-muted" style="font-size:.72rem">Intervención + WPR</span>
-        </div>
-<pre style="font-size:.78rem"><span style="color:#8b949e"># Finalizar proceso</span>
-<span style="color:#58a6ff">rootcause</span> kill 4892
-
-<span style="color:#8b949e"># Bloquear IP vía firewall</span>
-<span style="color:#58a6ff">rootcause</span> block-ip 185.220.101.14
-
-<span style="color:#8b949e"># Captura ETL</span>
-<span style="color:#58a6ff">rootcause</span> wpr start --note <span style="color:#3fb950">"disco al 100%"</span>
-<span style="color:#58a6ff">rootcause</span> wpr stop
-<span style="color:#58a6ff">rootcause</span> wpr analyze</pre>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── REQUIREMENTS ───────────────────────────────────────────────────────── -->
-<section id="requirements" class="py-20 px-6 border-t border-rc-border" style="background:#0a0f14">
-  <div class="max-w-4xl mx-auto">
-    <div class="text-center mb-12">
-      <p class="section-label mb-2">Requisitos</p>
-      <h2 class="text-3xl font-bold text-rc-text">Qué necesitas para correrlo</h2>
-    </div>
-
-    <div class="grid md:grid-cols-2 gap-6">
-
-      <div class="rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <h3 class="font-bold text-rc-text mb-4 text-base">⚙️ Sistema mínimo</h3>
-        <ul class="space-y-2 text-sm text-rc-muted">
-          <li class="flex gap-3"><span style="color:#3fb950">✓</span> Windows 10 x64 o Windows 11 x64</li>
-          <li class="flex gap-3"><span style="color:#3fb950">✓</span> 2 núcleos de CPU</li>
-          <li class="flex gap-3"><span style="color:#3fb950">✓</span> 8 GB RAM</li>
-          <li class="flex gap-3"><span style="color:#3fb950">✓</span> 2 GB libres en disco (SSD recomendado)</li>
-          <li class="flex gap-3"><span style="color:#3fb950">✓</span> 1366×768 como mínimo funcional</li>
-          <li class="flex gap-3"><span style="color:#d29922">△</span> Administrador para bloquear IP o detener servicios</li>
-        </ul>
-      </div>
-
-      <div class="rounded-xl p-6 border border-rc-border" style="background:#161b22">
-        <h3 class="font-bold text-rc-text mb-4 text-base">🚀 Recomendado</h3>
-        <ul class="space-y-2 text-sm text-rc-muted">
-          <li class="flex gap-3"><span style="color:#58a6ff">✦</span> Windows 11 x64 actualizado</li>
-          <li class="flex gap-3"><span style="color:#58a6ff">✦</span> 4+ núcleos de CPU</li>
-          <li class="flex gap-3"><span style="color:#58a6ff">✦</span> 16 GB RAM o más</li>
-          <li class="flex gap-3"><span style="color:#58a6ff">✦</span> SSD NVMe · 10 GB libres</li>
-          <li class="flex gap-3"><span style="color:#58a6ff">✦</span> 1920×1080 o mayor</li>
-          <li class="flex gap-3"><span style="color:#58a6ff">✦</span> WPT instalado para modo precisión ETW</li>
-        </ul>
-      </div>
-
-      <div class="rounded-xl p-6 border border-rc-border md:col-span-2" style="background:#161b22">
-        <h3 class="font-bold text-rc-text mb-4 text-base">🔨 Para compilar desde fuente</h3>
-        <div class="grid sm:grid-cols-3 gap-4 text-sm text-rc-muted">
-          <div>
-            <p class="text-rc-text font-semibold mb-2">Obligatorio</p>
-            <ul class="space-y-1">
-              <li>• Rust estable (rustup)</li>
-              <li>• Toolchain MSVC</li>
-              <li>• Visual Studio Build Tools</li>
-            </ul>
-          </div>
-          <div>
-            <p class="text-rc-text font-semibold mb-2">Recomendado</p>
-            <ul class="space-y-1">
-              <li>• PowerShell 5+</li>
-              <li>• Git</li>
-              <li>• cargo fmt / clippy</li>
-            </ul>
-          </div>
-          <div>
-            <p class="text-rc-text font-semibold mb-2">Para empaquetado</p>
-            <ul class="space-y-1">
-              <li>• Inno Setup (iscc.exe)</li>
-              <li>• wpr.exe (modo ETW)</li>
-              <li>• tracerpt.exe (resumen ETL)</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ── INSTALL ─────────────────────────────────────────────────────────────── -->
-<section id="install" class="py-20 px-6 border-t border-rc-border">
-  <div class="max-w-4xl mx-auto">
-    <div class="text-center mb-12">
-      <p class="section-label mb-2">Instalación</p>
-      <h2 class="text-3xl font-bold text-rc-text">Tres formas de empezar</h2>
-    </div>
-
-    <div class="space-y-6">
-
-      <!-- Opción A -->
-      <div class="rounded-xl border border-rc-border overflow-hidden" style="background:#161b22">
-        <div class="px-6 py-4 border-b border-rc-border flex items-center gap-3">
-          <span class="pill" style="background:#3fb95022;color:#3fb950;border:1px solid #3fb95044">Más fácil</span>
-          <h3 class="font-bold text-rc-text">Instalador Inno Setup</h3>
-        </div>
-        <div class="p-6">
-          <ol class="space-y-3 text-sm text-rc-muted">
-            <li class="flex gap-3"><span class="text-rc-blue font-bold">1.</span> Descarga <code style="color:#58a6ff">RootCause-Setup.exe</code> desde la sección de Descargas</li>
-            <li class="flex gap-3"><span class="text-rc-blue font-bold">2.</span> Ejecuta el instalador (o modo silencioso con <code style="color:#58a6ff">/VERYSILENT /SUPPRESSMSGBOXES /NORESTART</code>)</li>
-            <li class="flex gap-3"><span class="text-rc-blue font-bold">3.</span> Busca <strong class="text-rc-text">RootCause</strong> en el menú Inicio</li>
-          </ol>
-        </div>
-      </div>
-
-      <!-- Opción B -->
-      <div class="rounded-xl border border-rc-border overflow-hidden" style="background:#161b22">
-        <div class="px-6 py-4 border-b border-rc-border flex items-center gap-3">
-          <span class="pill" style="background:#58a6ff22;color:#58a6ff;border:1px solid #58a6ff44">Portable</span>
-          <h3 class="font-bold text-rc-text">ZIP portable</h3>
-        </div>
-        <div class="terminal m-4">
-          <div class="terminal-bar">
-            <div class="dot" style="background:#f85149"></div>
-            <div class="dot" style="background:#d29922"></div>
-            <div class="dot" style="background:#3fb950"></div>
-          </div>
-<pre style="font-size:.8rem"><span style="color:#8b949e"># Extrae el ZIP y ejecuta directamente</span>
-<span style="color:#e6edf3">.\rootcause.exe</span>
-
-<span style="color:#8b949e"># O desde consola</span>
-<span style="color:#e6edf3">.\rootcause.exe --help</span></pre>
-        </div>
-      </div>
-
-      <!-- Opción C -->
-      <div class="rounded-xl border border-rc-border overflow-hidden" style="background:#161b22">
-        <div class="px-6 py-4 border-b border-rc-border flex items-center gap-3">
-          <span class="pill" style="background:#d2992222;color:#d29922;border:1px solid #d2992244">Desde fuente</span>
-          <h3 class="font-bold text-rc-text">Compilar con Cargo</h3>
-        </div>
-        <div class="terminal m-4">
-          <div class="terminal-bar">
-            <div class="dot" style="background:#f85149"></div>
-            <div class="dot" style="background:#d29922"></div>
-            <div class="dot" style="background:#3fb950"></div>
-          </div>
-<pre style="font-size:.8rem"><span style="color:#8b949e"># Verificar entorno</span>
-<span style="color:#e6edf3">.\scripts\verify-environment.ps1</span>
-
-<span style="color:#8b949e"># Compilar release</span>
-<span style="color:#e6edf3">cargo build --release</span>
-
-<span style="color:#8b949e"># Ejecutar (algunos features requieren administrador)</span>
-<span style="color:#e6edf3">.\target\release\rootcause.exe</span>
-
-<span style="color:#8b949e"># Empaquetar como instalador</span>
-<span style="color:#e6edf3">.\scripts\package-inno.ps1</span></pre>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-<!-- ── KEYBOARD ───────────────────────────────────────────────────────────── -->
-<section class="py-16 px-6 border-t border-rc-border" style="background:#0a0f14">
-  <div class="max-w-3xl mx-auto text-center">
-    <p class="section-label mb-2">Atajos</p>
-    <h2 class="text-2xl font-bold text-rc-text mb-8">Teclado primero</h2>
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-      <div class="flex items-center gap-3 p-3 rounded-lg border border-rc-border" style="background:#161b22">
-        <kbd class="px-2 py-1 rounded font-mono font-bold text-rc-blue" style="background:#1f6feb22;border:1px solid #1f6feb44">F5</kbd>
-        <span class="text-rc-muted">Actualizar</span>
-      </div>
-      <div class="flex items-center gap-3 p-3 rounded-lg border border-rc-border" style="background:#161b22">
-        <kbd class="px-2 py-1 rounded font-mono font-bold text-rc-blue" style="background:#1f6feb22;border:1px solid #1f6feb44">Ctrl+E</kbd>
-        <span class="text-rc-muted">Exportar JSON</span>
-      </div>
-      <div class="flex items-center gap-3 p-3 rounded-lg border border-rc-border" style="background:#161b22">
-        <kbd class="px-2 py-1 rounded font-mono font-bold text-rc-blue" style="background:#1f6feb22;border:1px solid #1f6feb44">Ctrl+1</kbd>
-        <span class="text-rc-muted">Tab Resumen</span>
-      </div>
-      <div class="flex items-center gap-3 p-3 rounded-lg border border-rc-border" style="background:#161b22">
-        <kbd class="px-2 py-1 rounded font-mono font-bold text-rc-blue" style="background:#1f6feb22;border:1px solid #1f6feb44">Ctrl+2</kbd>
-        <span class="text-rc-muted">Tab Procesos</span>
-      </div>
-      <div class="flex items-center gap-3 p-3 rounded-lg border border-rc-border" style="background:#161b22">
-        <kbd class="px-2 py-1 rounded font-mono font-bold text-rc-blue" style="background:#1f6feb22;border:1px solid #1f6feb44">Ctrl+7</kbd>
-        <span class="text-rc-muted">Tab Historial</span>
-      </div>
-      <div class="flex items-center gap-3 p-3 rounded-lg border border-rc-border" style="background:#161b22">
-        <kbd class="px-2 py-1 rounded font-mono font-bold text-rc-blue" style="background:#1f6feb22;border:1px solid #1f6feb44">Ctrl+8</kbd>
-        <span class="text-rc-muted">Tab Acerca</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── DOWNLOAD ───────────────────────────────────────────────────────────── -->
-<section id="download" class="py-20 px-6 border-t border-rc-border">
-  <div class="max-w-3xl mx-auto text-center">
-    <p class="section-label mb-2">Descarga</p>
-    <h2 class="text-3xl font-bold text-rc-text mb-4">RootCause v0.9.0</h2>
-    <p class="text-rc-muted mb-10">Disponible como instalador, ZIP portable o compilable desde fuente.</p>
-
-    <div class="grid sm:grid-cols-2 gap-4 mb-10">
-
-      <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest"
-         target="_blank"
-         class="flex flex-col items-center gap-3 p-6 rounded-xl border card-hover"
-         style="background:#161b22;border-color:#1f6feb55">
-        <span style="font-size:2rem">🔧</span>
-        <span class="font-bold text-rc-text">Instalador .exe</span>
-        <span class="text-rc-muted text-sm">RootCause-Setup.exe</span>
-        <span class="pill" style="background:#1f6feb22;color:#58a6ff;border:1px solid #1f6feb44">Recomendado</span>
-      </a>
-
-      <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest"
-         target="_blank"
-         class="flex flex-col items-center gap-3 p-6 rounded-xl border card-hover"
-         style="background:#161b22;border-color:#30363d">
-        <span style="font-size:2rem">📦</span>
-        <span class="font-bold text-rc-text">ZIP Portable</span>
-        <span class="text-rc-muted text-sm">RootCause-portable.zip</span>
-        <span class="pill" style="background:#8b949e22;color:#8b949e;border:1px solid #8b949e44">Sin instalación</span>
-      </a>
-    </div>
-
-    <div class="text-sm text-rc-muted p-4 rounded-lg border border-rc-border" style="background:#161b22">
-      <strong class="text-rc-text">¿Por qué no hay .exe precompilado con firma digital?</strong><br>
-      <span style="line-height:1.8">Facilita auditoría del código, evita binarios opacos y deja ruta limpia a firma digital futura. El código es completamente auditable.</span>
-    </div>
-  </div>
-</section>
-
-<!-- ── TECH STACK ─────────────────────────────────────────────────────────── -->
-<section class="py-16 px-6 border-t border-rc-border" style="background:#0a0f14">
-  <div class="max-w-4xl mx-auto text-center">
-    <p class="section-label mb-6">Stack técnico</p>
-    <div class="flex flex-wrap justify-center gap-4 text-sm">
-      <div class="px-4 py-2 rounded-lg border border-rc-border" style="background:#161b22">
-        <strong class="text-rc-text">🦀 Rust 2024</strong>
-        <span class="text-rc-muted ml-2">Lenguaje principal</span>
-      </div>
-      <div class="px-4 py-2 rounded-lg border border-rc-border" style="background:#161b22">
-        <strong class="text-rc-text">🖼️ egui / eframe</strong>
-        <span class="text-rc-muted ml-2">GUI nativa</span>
-      </div>
-      <div class="px-4 py-2 rounded-lg border border-rc-border" style="background:#161b22">
-        <strong class="text-rc-text">🗄️ SQLite</strong>
-        <span class="text-rc-muted ml-2">Historial local</span>
-      </div>
-      <div class="px-4 py-2 rounded-lg border border-rc-border" style="background:#161b22">
-        <strong class="text-rc-text">📡 sysinfo</strong>
-        <span class="text-rc-muted ml-2">Métricas</span>
-      </div>
-      <div class="px-4 py-2 rounded-lg border border-rc-border" style="background:#161b22">
-        <strong class="text-rc-text">🔧 WPR / tracerpt</strong>
-        <span class="text-rc-muted ml-2">Precisión ETW</span>
-      </div>
-      <div class="px-4 py-2 rounded-lg border border-rc-border" style="background:#161b22">
-        <strong class="text-rc-text">⚙️ GitHub Actions</strong>
-        <span class="text-rc-muted ml-2">CI/CD</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── FOOTER ─────────────────────────────────────────────────────────────── -->
-<footer class="border-t border-rc-border py-10 px-6" style="background:#0d1117">
-  <div class="max-w-5xl mx-auto">
-    <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-      <div class="flex items-center gap-3">
-        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-          <rect width="32" height="32" rx="6" fill="#1f6feb22" stroke="#1f6feb" stroke-width="1.5"/>
-          <text x="16" y="21" text-anchor="middle" font-family="monospace" font-weight="900" font-size="14" fill="#58a6ff">RC</text>
+  <!-- ═══════════════════════════════  NAV  ═══════════════════════════════ -->
+  <header class="nav">
+    <div class="nav-inner">
+      <span class="nav-logo">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="10" stroke="#1f6feb" stroke-width="1.5" />
+          <circle cx="11" cy="11" r="5" stroke="#1f6feb" stroke-width="1.5" />
+          <circle cx="11" cy="11" r="1.5" fill="#1f6feb" />
         </svg>
-        <div>
-          <p class="font-bold text-rc-text text-sm">RootCause Windows Inspector</p>
-          <p class="text-rc-muted" style="font-size:.72rem">Apache License 2.0</p>
+        RootCause
+      </span>
+      <nav class="nav-links">
+        <a href="#features">Características</a>
+        <a href="#editions">Ediciones</a>
+        <a href="#security-evolution">Evolución</a>
+        <a href="#requirements">Requisitos</a>
+        <a href="#install">Instalación</a>
+        <a href="#cli">CLI</a>
+        <a href="#download" class="btn-nav">Descargar</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════  HERO  ══════════════════════════════ -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="ascii-block">
+        <pre>
+██████╗  ██████╗  ██████╗ ████████╗ ██████╗  █████╗ ██╗   ██╗███████╗███████╗
+██╔══██╗██╔═══██╗██╔═══██╗╚══██╔══╝██╔════╝ ██╔══██╗██║   ██║██╔════╝██╔════╝
+███████╔╝██║   ██║██║   ██║   ██║   ██║      ███████║██║   ██║███████╗█████╗
+██╔══██╗██║   ██║██║   ██║   ██║   ██║      ██╔══██║██║   ██║╚════██║██╔══╝
+██║  ██║╚██████╔╝╚██████╔╝   ██║   ╚██████╗ ██║  ██║╚██████╔╝███████║███████╗
+╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝
+                       W I N D O W S   I N S P E C T O R
+</pre>
+      </div>
+
+      <p class="hero-sub">
+        Monitor forense ligero para Windows – descubre con claridad<br />
+        <strong>qué proceso, servicio o conexión</strong> está degradando tu equipo.
+      </p>
+
+      <div class="badges">
+        <img src="https://img.shields.io/badge/CI-passing-brightgreen.svg" alt="CI passing" />
+        <img src="https://img.shields.io/badge/rust-edition%202024-orange.svg" alt="Rust 2024" />
+        <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows 10/11" />
+        <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0" />
+        <img src="https://img.shields.io/badge/versión-0.11.0-brightgreen.svg" alt="v0.11.0" />
+        <img src="https://img.shields.io/badge/telemetría-cero-success.svg" alt="Telemetría cero" />
+      </div>
+
+      <div class="hero-cta">
+        <a href="#download" class="btn-primary">⬇ Descargar v0.11.0</a>
+        <a href="#install" class="btn-ghost">📖 Instrucciones</a>
+      </div>
+
+      <p class="hero-tagline"><em>Diagnóstico primero. Intervención después.</em></p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════  FEATURES  ══════════════════════════ -->
+  <section id="features" class="section">
+    <div class="container">
+      <h2 class="section-title">⚡ Características</h2>
+      <p class="section-sub">Todo lo que necesitas para diagnosticar Windows sin herramientas externas.</p>
+
+      <div class="feature-grid">
+
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Resumen con sparklines</h3>
+          <p>CPU, RAM e I/O en tiempo real con gráficos de línea inline. Historial de 60 muestras en memoria – sin
+            dependencias.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⚙</div>
+          <h3>Análisis de procesos</h3>
+          <p>Severidad automática por heurísticas (CPU, RAM, escritura I/O, ruta temporal, patrones de instalador).
+            Filtro por nivel de riesgo.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">◎</div>
+          <h3>Conexiones de red</h3>
+          <p>Netstat enriquecido con nombre de proceso y ruta. Bloqueo directo de IP vía firewall de Windows. Filtro IPs
+            públicas.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">▤</div>
+          <h3>Archivos temporales</h3>
+          <p>Escaneo de <code>%TEMP%</code>, <code>SoftwareDistribution</code> y carpetas de descarga. Conteo, tamaño y
+            sugerencia de limpieza.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">◉</div>
+          <h3>Modo de precisión ETW / WPR</h3>
+          <p>Inicia, detiene y analiza trazas ETL desde la propia interfaz. Resumen con heurísticas locales usando
+            <code>tracerpt</code>. Sin WPA obligatorio.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">◧</div>
+          <h3>Servicios de Windows</h3>
+          <p>Vista de servicios relevantes (BITS, Windows Update, SysMain…). Detención controlada desde la UI con
+            política de seguridad local.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">◑</div>
+          <h3>Historial + comparación A/B</h3>
+          <p>Persistencia SQLite local. Compara dos capturas pasadas para ver evolución. Filtro por texto y exportación
+            JSON.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">💻</div>
+          <h3>CLI completa</h3>
+          <p>Usa <code>rootcause --help</code> desde la consola de Windows. Comandos: <code>status</code>,
+            <code>snapshot</code>, <code>history</code>, <code>export</code>, <code>wpr</code>, <code>kill</code>,
+            <code>block-ip</code>…
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🖥</div>
+          <h3>Info del hardware</h3>
+          <p>Muestra OS, hostname, CPU (marca, núcleos, frecuencia), RAM total y arquitectura – recopilado una sola vez
+            al iniciar.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">◫</div>
+          <h3>Tab Autostart</h3>
+          <p>Muestra entradas de registro Run (usuario y sistema), carpetas Startup y tareas programadas. Severidad heurística, indicador de existencia en disco y tooltip con ruta completa.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⚙</div>
+          <h3>Configuración editable inline</h3>
+          <p>Ajusta umbrales de CPU, RAM e I/O directamente desde el tab Acerca y guarda sin reiniciar. Los cambios se persisten en <code>rootcause-config.json</code> al instante.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⌨</div>
+          <h3>Atajos de teclado</h3>
+          <p><kbd>F5</kbd> refresca · <kbd>Ctrl+E</kbd> exporta · <kbd>Ctrl+1…9</kbd> cambia de pestaña. Todo sin ratón.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔔</div>
+          <h3>Notificaciones toast</h3>
+          <p>Alerta nativa de Windows cuando el equipo pasa a estado Crítico. Sin frameworks adicionales – PowerShell
+            puro.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🛡</div>
+          <h3>Telemetría: cero</h3>
+          <p>Sin red saliente. Sin analytics. Sin licencias en línea. Todo corre localmente. El código fuente es
+            auditable. Verificable en <code>Cargo.toml</code>.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════  TABS  ══════════════════════════════ -->
+  <section class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">📊 Pestañas de la interfaz</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pestaña</th>
+              <th>Qué muestra</th>
+              <th>Acciones disponibles</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>◈ Resumen</code></td>
+              <td>CPU · RAM · I/O · Red · Alertas · Sparklines · Hardware</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>⚙ Procesos</code></td>
+              <td>Lista con severidad, PID, CPU, RAM, I/O, cmdline</td>
+              <td>Finalizar proceso</td>
+            </tr>
+            <tr>
+              <td><code>◎ Conexiones</code></td>
+              <td>Netstat enriquecido, IPs públicas</td>
+              <td>Bloquear IP</td>
+            </tr>
+            <tr>
+              <td><code>▤ Temporales</code></td>
+              <td>Carpetas temp por tamaño</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>◉ ETW / WPR</code></td>
+              <td>Estado de captura, última traza, análisis</td>
+              <td>Iniciar · Detener · Cancelar · Analizar</td>
+            </tr>
+            <tr>
+              <td><code>◧ Servicios</code></td>
+              <td>Servicios relevantes y su estado</td>
+              <td>Detener servicio</td>
+            </tr>
+            <tr>
+              <td><code>◫ Autostart</code></td>
+              <td>Registro Run, carpetas Startup, tareas programadas</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>◑ Historial</code></td>
+              <td>Últimas capturas desde SQLite</td>
+              <td>Comparar A/B</td>
+            </tr>
+            <tr>
+              <td><code>ℹ Acerca</code></td>
+              <td>Versión, autor, links, tech stack, atajos, umbrales</td>
+              <td>Editar y guardar config</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════  EDITIONS  ══════════════════════════ -->
+  <section id="editions" class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">📦 Ediciones del producto</h2>
+      <p class="section-sub">Un único código fuente en Rust, múltiples formas de usarlo según tu flujo de trabajo.</p>
+
+      <div class="feature-grid">
+
+        <div class="feature-card">
+          <div class="feature-icon">🪟</div>
+          <h3>GUI – Aplicación de escritorio</h3>
+          <p>Interfaz gráfica completa con 9 pestañas, sparklines, historial, panel ETW/WPR y tab Autostart. La edición principal para diagnóstico interactivo. <strong>~18 MB.</strong></p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">💻</div>
+          <h3>CLI-only – Consola ligera</h3>
+          <p>Compilado sin egui (<code>--no-default-features</code>). Ideal para scripts, Windows Server Core y
+            pipelines CI. Todos los comandos disponibles. <strong>~4 MB.</strong></p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>PowerShell Module</h3>
+          <p>Adaptador sobre <code>rootcause.exe</code>. Expone 9 cmdlets nativos para automatización, pero requiere
+            RootCause instalado o disponible en <code>PATH</code>.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🧩</div>
+          <h3>VS Code Extension</h3>
+          <p>Adaptador para VS Code con barra de estado, alertas y panel de snapshot. Requiere
+            <code>rootcause.exe</code> instalado o configurado en <code>rootcause.executablePath</code>.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔔</div>
+          <h3>Tray icon <span style="font-size:0.75em;opacity:0.6">(próximamente)</span></h3>
+          <p>Ícono de bandeja del sistema que cambia de color según la severidad. Monitor proactivo: te avisa cuando hay
+            un problema sin que tengas que abrir nada.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⚙</div>
+          <h3>Windows Service <span style="font-size:0.75em;opacity:0.6">(próximamente)</span></h3>
+          <p>Captura en background sin usuario logueado. Historial continuo 24/7. Diagnóstico de problemas nocturnos y
+            de arranque. Instalación via <code>sc.exe</code>.</p>
+        </div>
+
+      </div>
+
+      <div class="install-block" style="margin-top:2rem">
+        <h3>📦 Instalar via gestor de paquetes</h3>
+        <pre><code class="shell"># Scoop (desarrolladores)
+scoop install rootcause
+
+# Winget (usuarios técnicos)
+winget install VladimirAcuna.RootCause
+
+# Chocolatey (sysadmins enterprise)
+choco install rootcause-windows-inspector</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════  REQUIREMENTS  ══════════════════════ -->
+  <section id="security-evolution" class="section">
+    <div class="container">
+      <h2 class="section-title">🛡 Evolución de seguridad y resiliencia</h2>
+      <p class="section-sub">v0.9–v0.11 incorporan autoprotección del agente, tab Autostart con heurística de severidad para entradas de registro y tareas programadas, y edición inline de umbrales — sin convertir RootCause en un antivirus.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">💓</div>
+          <h3>Heartbeat local del agente</h3>
+          <p>Registro liviano del estado operativo para distinguir mejor entre ejecución saludable, degradada o recuperada.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🧱</div>
+          <h3>Señales de integridad</h3>
+          <p>Huella básica de configuración y detección de cierre abrupto previo para dejar evidencia útil cuando algo cambia entre ejecuciones.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔄</div>
+          <h3>Recuperación prudente</h3>
+          <p>Base de resiliencia para reinicios repetidos y recomendaciones de backoff. Es una evolución honesta del producto, no una promesa de detección perfecta.</p>
         </div>
       </div>
-      <div class="flex items-center gap-6 text-sm text-rc-muted">
-        <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
-           target="_blank" class="hover:text-rc-blue transition-colors">GitHub</a>
-        <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases"
-           target="_blank" class="hover:text-rc-blue transition-colors">Releases</a>
-        <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/OPERACION.md"
-           target="_blank" class="hover:text-rc-blue transition-colors">Docs</a>
-        <a href="https://github.com/vladimiracunadev-create"
-           target="_blank" class="hover:text-rc-blue transition-colors">@vladimiracunadev-create</a>
+    </div>
+  </section>
+
+  <section id="requirements" class="section">
+    <div class="container">
+      <h2 class="section-title">📋 Requisitos del sistema</h2>
+      <div class="req-grid">
+        <div class="req-card">
+          <h3>🟢 Mínimos</h3>
+          <ul>
+            <li>Windows 10 x64 o Windows 11 x64</li>
+            <li>2 núcleos CPU</li>
+            <li>8 GB RAM</li>
+            <li>2 GB espacio libre</li>
+            <li>Pantalla 1366×768</li>
+            <li>Usuario estándar (observación)</li>
+          </ul>
+        </div>
+        <div class="req-card">
+          <h3>⭐ Recomendados</h3>
+          <ul>
+            <li>Windows 11 x64 actualizado</li>
+            <li>4+ núcleos CPU</li>
+            <li>16 GB RAM</li>
+            <li>SSD con 5 GB libres</li>
+            <li>Pantalla 1920×1080</li>
+            <li>Permisos de administrador</li>
+          </ul>
+        </div>
+        <div class="req-card">
+          <h3>🔬 Modo precisión</h3>
+          <ul>
+            <li>Windows Performance Toolkit</li>
+            <li><code>wpr.exe</code> en PATH</li>
+            <li><code>tracerpt.exe</code> (incluido en Windows)</li>
+            <li>WPA opcional (visualización avanzada)</li>
+            <li>Administrador para captura ETW</li>
+          </ul>
+        </div>
       </div>
     </div>
-    <div class="mt-6 pt-6 border-t border-rc-border text-center text-rc-muted" style="font-size:.72rem">
-      Hecho con 🦀 Rust por Vladimir Acuña · 2024–2026
+  </section>
+
+  <!-- ═══════════════════════════════  INSTALL  ═══════════════════════════ -->
+  <section id="install" class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">🚀 Instalación</h2>
+
+      <div class="install-tabs">
+
+        <div class="install-block">
+          <h3>🪟 Opción A — Instalador Windows (recomendado)</h3>
+          <pre><code class="shell"># Descarga el instalador principal y ejecútalo
+RootCause-Setup.exe
+
+# O instalación desatendida (corporativo)
+RootCause-Setup.exe /SILENT /SUPPRESSMSGBOXES /NORESTART</code></pre>
+          <p class="install-note">Instala la edición principal GUI + CLI y agrega <code>rootcause</code> al PATH.</p>
+        </div>
+
+        <div class="install-block">
+          <h3>📦 Opción B — Portable GUI</h3>
+          <pre><code class="shell"># Descarga y extrae el portable principal
+RootCause-Portable.zip
+
+# Ejecuta la aplicación
+.\rootcause.exe</code></pre>
+          <p class="install-note">Portable del build principal: incluye la app GUI y también la CLI.</p>
+        </div>
+
+        <div class="install-block">
+          <h3>💻 Opción C — CLI-only</h3>
+          <pre><code class="shell"># Descarga y extrae el artefacto ligero
+RootCause-CLI-Portable.zip
+
+# Usa la CLI
+.\rootcause.exe --help</code></pre>
+          <p class="install-note">Ideal para scripts, Windows Server Core y pipelines CI. No incluye GUI.</p>
+        </div>
+
+        <div class="install-block">
+          <h3>📦 Opción D — Gestores de paquetes</h3>
+          <pre><code class="shell"># Scoop
+scoop install rootcause
+
+# Winget
+winget install VladimirAcuna.RootCause
+
+# Chocolatey
+choco install rootcause-windows-inspector</code></pre>
+        </div>
+
+        <div class="install-block">
+          <h3>⚡ Opción E — PowerShell Module</h3>
+          <pre><code class="shell"># 1) Instala RootCause por Setup o portable
+# 2) Descarga RootCause.psm1
+Import-Module .\RootCause.psm1
+Get-RootCauseStatus
+Get-RootCauseProcesses | Where-Object Severity -eq "Critical"</code></pre>
+          <p class="install-note">El módulo es una integración: requiere <code>rootcause.exe</code> en PATH o junto al
+            archivo <code>.psm1</code>.</p>
+        </div>
+
+        <div class="install-block">
+          <h3>🧩 Opción F — VS Code Extension</h3>
+          <pre><code class="shell"># 1) Instala RootCause por Setup o portable
+# 2) Instala la extensión
+code --install-extension RootCause-VSCode-Extension.vsix
+
+# 3) Verifica rootcause en PATH o configura rootcause.executablePath</code></pre>
+          <p class="install-note">La extensión usa el binario real de RootCause; no es standalone.</p>
+        </div>
+
+        <div class="install-block">
+          <h3>✅ Verificar instalación</h3>
+          <pre><code class="shell">rootcause --version
+# RootCause Windows Inspector v0.11.0
+
+rootcause --help
+# muestra todos los comandos disponibles</code></pre>
+        </div>
+
+      </div>
     </div>
-  </div>
-</footer>
+  </section>
+
+  <!-- ═══════════════════════════════  CLI  ═══════════════════════════════ -->
+  <section id="cli" class="section">
+    <div class="container">
+      <h2 class="section-title">💻 Uso desde consola (CLI)</h2>
+      <p class="section-sub">RootCause funciona tanto como aplicación de escritorio como herramienta de consola.</p>
+
+      <div class="cli-grid">
+        <div class="cli-entry">
+          <code>rootcause status</code>
+          <span>Estado actual del sistema (severidad, CPU, RAM, I/O, alertas)</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause snapshot</code>
+          <span>Captura completa en JSON (stdout)</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause history [N]</code>
+          <span>Últimas N capturas del historial SQLite (por defecto 10)</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause export</code>
+          <span>Exporta snapshot a JSON en Descargas o Documentos</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause wpr start [--note NOTA]</code>
+          <span>Inicia captura ETW con WPR</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause wpr stop [--note NOTA]</code>
+          <span>Detiene la captura y guarda el ETL</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause kill &lt;PID&gt;</code>
+          <span>Finaliza un proceso (respeta política de protección)</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause block-ip &lt;IP&gt;</code>
+          <span>Bloquea una IP vía firewall de Windows</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause stop-service &lt;nombre&gt;</code>
+          <span>Detiene un servicio permitido (bits, wuauserv…)</span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause autostart [--json]</code>
+          <span>Lista entradas de autoarranque: registro Run, Startup y tareas programadas</span>
+        </div>
+      </div>
+
+      <div class="terminal-demo">
+        <pre><span class="t-prompt">C:\&gt;</span> rootcause status
+
+<span class="t-box">┌─────────────────────────────────────────────────┐
+│  RootCause Windows Inspector  v0.11.0           │
+│  Estado del sistema                             │
+├─────────────────────────────────────────────────┤
+│  Severidad  : ⚠ WARNING                        │
+│  CPU        : 34.2 %                            │
+│  RAM        :  8.1 / 16.0 GB                    │
+│  I/O Write  :  12.4 MB                          │
+│  Red RX     :   0.3 MB                          │
+│  Alertas    : 2                                 │
+├─────────────────────────────────────────────────┤
+│  Proceso dominante: MsMpEng.exe                 │
+│  Razón: CPU sostenido (34.2%)                   │
+└─────────────────────────────────────────────────┘</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════  KEYBOARD  ══════════════════════════ -->
+  <section class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">⌨ Atajos de teclado</h2>
+      <div class="kbd-grid">
+        <div class="kbd-entry"><kbd>F5</kbd><span>Refrescar datos ahora</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>E</kbd><span>Exportar snapshot a JSON</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>1</kbd><span>Ir a Resumen</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>2</kbd><span>Ir a Procesos</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>3</kbd><span>Ir a Conexiones</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>4</kbd><span>Ir a Temporales</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>5</kbd><span>Ir a ETW / WPR</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>6</kbd><span>Ir a Servicios</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>7</kbd><span>Ir a Autostart</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>8</kbd><span>Ir a Historial</span></div>
+        <div class="kbd-entry"><kbd>Ctrl</kbd>+<kbd>9</kbd><span>Ir a Acerca</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════  DOWNLOAD  ══════════════════════════ -->
+  <section id="download" class="section download-section">
+    <div class="container">
+      <h2 class="section-title">📥 Descargar</h2>
+      <p class="section-sub">Artefactos oficiales del release principal e integraciones publicadas. Telemetría: cero.
+      </p>
+
+      <div class="download-grid">
+        <div class="download-card primary">
+          <div class="dl-badge">Recomendado · v0.11.0</div>
+          <h3>📦 Portable ZIP (GUI)</h3>
+          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.11.0.</p>
+          <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Portable.zip"
+            class="btn-download" target="_blank" rel="noopener">
+            ⬇ RootCause-Portable.zip
+          </a>
+          <p class="dl-meta">Windows 10/11 x64 · ~7 MB · GUI + CLI</p>
+        </div>
+
+        <div class="download-card">
+          <h3>⚡ PowerShell Module</h3>
+          <p>Módulo <code>RootCause.psm1</code> con 9 cmdlets nativos. Requiere <code>rootcause.exe</code> instalado o
+            en PATH.</p>
+          <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause.psm1"
+            class="btn-download-ghost" target="_blank" rel="noopener">
+            ⬇ RootCause.psm1
+          </a>
+          <p class="dl-meta">PowerShell 5.1+ · integración</p>
+        </div>
+
+        <div class="download-card">
+          <h3>🔐 Hashes SHA-256</h3>
+          <p>Verifica integridad de los artefactos antes de ejecutar.</p>
+          <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/SHA256SUMS.txt"
+            class="btn-download-ghost" target="_blank" rel="noopener">
+            ⬇ SHA256SUMS.txt
+          </a>
+          <p class="dl-meta">Integridad · release v0.11.0</p>
+        </div>
+
+        <div class="download-card" style="opacity:0.55">
+          <h3>🪟 Instalador Windows <span style="font-size:0.75em">(próximamente)</span></h3>
+          <p>Instalador con Inno Setup. Agrega <code>rootcause</code> al PATH y deja desinstalación limpia. Pendiente de automatización en CI.</p>
+          <span class="btn-download-ghost" style="cursor:default;opacity:0.5">⬇ RootCause-Setup.exe</span>
+          <p class="dl-meta">Disponible en la próxima release de CI</p>
+        </div>
+
+        <div class="download-card" style="opacity:0.55">
+          <h3>💻 CLI-only <span style="font-size:0.75em">(próximamente)</span></h3>
+          <p>Build ligero sin GUI (~4 MB). Pendiente de step CLI en CI.</p>
+          <span class="btn-download-ghost" style="cursor:default;opacity:0.5">⬇ RootCause-CLI-Portable.zip</span>
+          <p class="dl-meta">Disponible en la próxima release de CI</p>
+        </div>
+
+        <div class="download-card" style="opacity:0.55">
+          <h3>🧩 VS Code Extension <span style="font-size:0.75em">(próximamente)</span></h3>
+          <p>Extensión para usar RootCause desde VS Code. Requiere <code>rootcause.exe</code> instalado o configurable.
+          </p>
+          <span class="btn-download-ghost" style="cursor:default;opacity:0.5">⬋ RootCause-VSCode-Extension.vsix</span>
+          <p class="dl-meta">Disponible en la próxima release de CI</p>
+        </div>
+
+      </div>
+
+      <p class="download-note">
+        ⚠ El Portable ZIP contiene el binario real compilado por CI (v0.11.0). El instalador, CLI-only y VS Code Extension se publicarán en la siguiente release automatizada de CI.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════  FOOTER  ════════════════════════════ -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-col">
+        <span class="nav-logo">
+          <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="10" stroke="#1f6feb" stroke-width="1.5" />
+            <circle cx="11" cy="11" r="5" stroke="#1f6feb" stroke-width="1.5" />
+            <circle cx="11" cy="11" r="1.5" fill="#1f6feb" />
+          </svg>
+          RootCause Windows Inspector
+        </span>
+        <p>Monitor forense ligero para Windows.<br />Escrito en Rust. Telemetría: cero. Apache 2.0.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Producto</h4>
+        <ul>
+          <li><a href="#features">Características</a></li>
+          <li><a href="#editions">Ediciones</a></li>
+          <li><a href="#requirements">Requisitos</a></li>
+          <li><a href="#install">Instalación</a></li>
+          <li><a href="#download">Descarga</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Autor</h4>
+        <ul>
+          <li><a href="https://github.com/vladimiracunadev-create" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://gitlab.com/vladimiracunadev-create" target="_blank" rel="noopener">GitLab</a></li>
+          <li><a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest" target="_blank"
+              rel="noopener">Releases</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Vladimir Acuña · Apache License 2.0</p>
+    </div>
+  </footer>
 
 </body>
+
 </html>

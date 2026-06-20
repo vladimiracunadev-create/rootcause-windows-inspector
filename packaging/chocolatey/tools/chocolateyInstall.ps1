@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $packageName = 'rootcause-windows-inspector'
 $installerType = 'exe'
-$url64 = 'https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest/download/RootCause-Setup.exe'
+$url64 = 'https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Setup.exe'
 $checksum64 = 'UPDATE_SHA256_ON_RELEASE'
 $checksumType = 'sha256'
 

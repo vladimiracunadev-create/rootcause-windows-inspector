@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $buildDir = Join-Path $root 'build'
 $privateRepo = 'vladimiracunadev-create/rootcause-windows-inspector'
-$publicRepo = 'vladimiracunadev-create/rootcause-landing'
+$publicRepo = 'vladimiracunadev-create/rootcause-windows-inspector'
 
 function Write-Step([string]$Message) {
     Write-Host "`n==> $Message" -ForegroundColor Cyan
@@ -180,7 +180,7 @@ Monitor forense ligero para Windows. Detecta que proceso, servicio o conexion es
 
 ---
 
-Landing: https://vladimiracunadev-create.github.io/rootcause-landing/
+Landing: https://vladimiracunadev-create.github.io/rootcause-windows-inspector/
 "@ | Set-Content -Path $path -Encoding UTF8
     return $path
 }

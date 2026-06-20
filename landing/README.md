@@ -1,98 +1,86 @@
-# RootCause — Landing Page
+﻿# RootCause Windows Inspector - Landing Page
 
-Landing page oficial del producto **RootCause Windows Inspector**.
+Pagina web publica del producto [RootCause Windows Inspector](https://github.com/vladimiracunadev-create/rootcause-windows-inspector).
 
----
+Ver online: https://vladimiracunadev-create.github.io/rootcause-windows-inspector
 
-## Cómo publicarla en GitHub Pages (repo público separado)
-
-### Paso 1 — Crear el repo público
-
-En GitHub, crea un nuevo repositorio **público**:
-
-```
-Nombre sugerido: rootcause-landing
-Visibilidad:     Public
-```
-
-### Paso 2 — Copiar archivos al nuevo repo
-
-Copia el **contenido de esta carpeta** (`landing/`) a la raíz del nuevo repo:
-
-```
-rootcause-landing/
-├── index.html                        ← landing page
-├── README.md                         ← este archivo
-└── .github/
-    └── workflows/
-        └── deploy.yml                ← auto-deploy en cada push
-```
-
-> El código fuente del producto se queda en el repo privado.
-> Solo `index.html` es público.
-
-### Paso 3 — Activar GitHub Pages
-
-En el repo público:
-
-```
-Settings → Pages → Source → GitHub Actions
-```
-
-### Paso 4 — Hacer push
-
-```bash
-git push origin main
-```
-
-El workflow `deploy.yml` se ejecuta y publica la página automáticamente.
-
-### URL resultante
-
-```
-https://<tu-usuario>.github.io/rootcause-landing/
-```
-
-O si usas el repo especial `<usuario>.github.io`:
-
-```
-https://<tu-usuario>.github.io/
-```
+**Version actual:** v0.9.0
 
 ---
 
-## Dominio personalizado (opcional)
+## Estructura
 
-Si tienes un dominio propio:
+```text
+landing/                    <- subdirectorio servido por GitHub Pages
+|-- index.html              <- pagina principal (hero, features, editions, install, cli, download)
+|-- assets/
+|   |-- style.css           <- estilos
+|   `-- favicon.svg         <- icono
+`-- README.md               <- este archivo
 
-1. En el repo público → Settings → Pages → Custom domain → escribe tu dominio
-2. Agrega un registro `CNAME` en tu DNS apuntando a `<usuario>.github.io`
-3. Activa "Enforce HTTPS"
-
----
-
-## Actualizar la versión en la landing
-
-Busca y reemplaza en `index.html`:
-
-```
-v0.8.1  →  v0.9.0   (o la versión que corresponda)
+# El workflow de deploy vive en ../.github/workflows/deploy-landing.yml
 ```
 
-Luego `git push` y GitHub Actions despliega automáticamente.
+## Taxonomia de producto que debe respetar la landing
 
----
+- **nucleo publicado hoy:** GUI Desktop y CLI-only
+- **integraciones publicadas hoy:** PowerShell Module y VS Code Extension
+- **experimental / skeleton:** Tray icon y Windows Service
+- **perfil alternativo:** RootCause Demo
 
-## Bloque publico de seguridad y resiliencia
+La landing no debe volver a mezclar:
+- `Portable ZIP` con `CLI-only`
+- integraciones con motores standalone
+- demo con edicion principal
 
-La landing debe mantener un bloque breve y estrategico sobre dos lineas documentadas del producto:
+## Secciones de la landing
 
-- deteccion de actividad anomala compatible con problemas de seguridad;
-- resiliencia del propio agente ante detencion, manipulacion o corrupcion.
+| Seccion | Ancla | Descripcion |
+|---|---|---|
+| Hero | - | Titulo, badges, boton de descarga |
+| Caracteristicas | `#features` | Features del producto principal |
+| Ediciones | `#editions` | Modalidades reales + estado |
+| Pestañas | - | Tabla de las 8 pestañas de la GUI |
+| Requisitos | `#requirements` | Minimos, recomendados, modo precision |
+| Instalacion | `#install` | GUI, portable, CLI-only, PowerShell y VS Code |
+| CLI | `#cli` | Referencia de comandos + demo terminal |
+| Atajos | - | Tabla de atajos |
+| Descargar | `#download` | Artefactos reales publicados por release |
 
-Reglas de redaccion para ese bloque:
+## Releases y descargas
 
-- no publicar heuristicas internas detalladas ni material que facilite evasion;
-- no vender RootCause como antivirus, proteccion total o EDR completo;
-- aclarar que se trata de evolucion del producto y no de una promesa de deteccion perfecta;
-- mantener el tono serio, tecnico y honesto.
+Los botones de descarga apuntan a artefactos directos en:
+
+```text
+https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/
+```
+
+Artefactos esperados del release principal:
+- `RootCause-Setup.exe`
+- `RootCause-Portable.zip`
+- `RootCause-CLI-Portable.zip`
+- `RootCause.psm1`
+- `RootCause-VSCode-Extension.vsix`
+- `SHA256SUMS.txt`
+
+## Reglas de instalacion que deben quedar claras
+
+- `RootCause-Setup.exe`: instala la app principal GUI + CLI
+- `RootCause-Portable.zip`: portable del build principal GUI + CLI
+- `RootCause-CLI-Portable.zip`: runtime CLI-only
+- `RootCause.psm1`: integracion; requiere `rootcause.exe`
+- `RootCause-VSCode-Extension.vsix`: integracion; requiere `rootcause.exe`
+
+## Evolucion visible en la landing para v0.9.0
+
+- mantener un bloque breve sobre seguridad y resiliencia del agente
+- mencionar heartbeat local, integridad basica de configuracion y deteccion de cierre abrupto previo
+- no presentar RootCause como antivirus, EDR completo ni proteccion perfecta
+- conservar el look & feel existente del repo publico
+
+## Notas
+
+- Este repo es **publico** para usar GitHub Pages gratis.
+- El codigo fuente del producto vive en el repo `rootcause-windows-inspector`.
+- Telemetria: cero.
+

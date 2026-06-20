@@ -19,7 +19,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
 [![Version](https://img.shields.io/badge/version-0.11.0-green.svg)](docs/ROADMAP.md)
 
-🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-landing/)**
+🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-windows-inspector/)**
 
 ---
 
@@ -357,7 +357,7 @@ rootcause-windows-inspector/
 ├── LICENSE               ← Apache 2.0
 ├── SECURITY.md
 ├── docs/                 ← 25+ documentos de arquitectura, operación y producto
-├── [rootcause-landing]   ← Repo público: landing page + releases públicos
+├── landing/              ← Landing page (servida por GitHub Pages desde este repo)
 ├── packaging/
 │   ├── windows/          ← Inno Setup .iss (instalador GUI)
 │   ├── powershell/       ← RootCause.psm1 (módulo PowerShell, 9 cmdlets)

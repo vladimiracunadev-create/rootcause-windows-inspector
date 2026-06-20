@@ -58,28 +58,18 @@ Pensado para etiquetar releases o ejecutar manualmente:
 - publica el módulo PowerShell,
 - empaqueta la extensión VS Code,
 - genera hashes SHA-256,
-- publica el GitHub Release en el **repo privado** (copia interna),
-- **publica copia pública** en `rootcause-landing` (binarios descargables por cualquier persona),
-- sube `RootCause-Setup.exe`, `RootCause-Portable.zip`, `RootCause-CLI-Portable.zip`, `RootCause.psm1`, `RootCause-VSCode-Extension.vsix` y `SHA256SUMS.txt` en ambos repos.
+- publica el GitHub Release en este repo (público) con todos los binarios:
+  `RootCause-Setup.exe`, `RootCause-Portable.zip`, `RootCause-CLI-Portable.zip`,
+  `RootCause.psm1`, `RootCause-VSCode-Extension.vsix` y `SHA256SUMS.txt`.
 
-#### Configurar LANDING_RELEASE_TOKEN
-
-Para que el step de publicación pública funcione, necesitas un **Personal Access Token (PAT)**
-con acceso al repo público `rootcause-landing`:
-
-1. Ir a GitHub → Settings → Developer settings → **Personal access tokens → Tokens (classic)**
-2. Crear token con scope **`repo`** (acceso completo a repositorios)
-3. Copiar el token generado
-4. Ir al repo privado → Settings → Secrets and variables → **Actions**
-5. Crear secreto llamado exactamente **`LANDING_RELEASE_TOKEN`** con el token
-
-Una vez configurado, cada push de un tag `v*` publicará automáticamente los binarios en:
+Los binarios quedan disponibles en:
 ```
-https://github.com/vladimiracunadev-create/rootcause-landing/releases/latest
+https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest
 ```
 
-> Si el secreto no está configurado (`LANDING_RELEASE_TOKEN` vacío), el step se omite
-> automáticamente sin romper el pipeline.
+> Nota histórica: hasta v0.11.0 existía un repo público separado `rootcause-landing` con
+> una copia de los releases (publicada vía un secreto `LANDING_RELEASE_TOKEN`). Tras la
+> apertura pública de este repo, la duplicación se eliminó.
 
 ---
 

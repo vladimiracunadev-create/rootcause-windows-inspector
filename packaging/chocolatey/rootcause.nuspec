@@ -6,7 +6,7 @@
     <title>RootCause Windows Inspector</title>
     <authors>Vladimir Acuña</authors>
     <owners>vladimircunadev-create</owners>
-    <projectUrl>https://vladimiracunadev-create.github.io/rootcause-landing/</projectUrl>
+    <projectUrl>https://vladimiracunadev-create.github.io/rootcause-windows-inspector/</projectUrl>
     <licenseUrl>https://www.apache.org/licenses/LICENSE-2.0</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>
@@ -27,7 +27,7 @@ Características:
     <summary>Monitor forense ligero para Windows — diagnóstico de causa raíz</summary>
     <tags>windows diagnostico procesos rendimiento forense monitor cli rust</tags>
     <copyright>Copyright 2025 Vladimir Acuña</copyright>
-    <releaseNotes>https://github.com/vladimiracunadev-create/rootcause-landing/releases</releaseNotes>
+    <releaseNotes>https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases</releaseNotes>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />

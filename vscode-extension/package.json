@@ -6,7 +6,7 @@
   "publisher": "vladimiracunadev-create",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
-  "homepage": "https://vladimiracunadev-create.github.io/rootcause-landing/",
+  "homepage": "https://vladimiracunadev-create.github.io/rootcause-windows-inspector/",
   "repository": {
     "type": "git",
     "url": "https://github.com/vladimiracunadev-create/rootcause-windows-inspector"
