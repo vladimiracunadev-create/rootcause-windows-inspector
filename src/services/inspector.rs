@@ -5,19 +5,20 @@
 
 use crate::config::{ConfigManager, RootCauseConfig};
 use crate::models::{
-    AiIncidentAdvice, Alert, AuditRecord, HardwareInfo, IncidentSummary, PrecisionStatus,
-    ProcessInsight, Severity, SnapshotRow, SystemOverview, SystemSnapshot, TraceAnalysisSummary,
+    AiIncidentAdvice, Alert, AnomalyEvent, AuditRecord, HardwareInfo, IncidentSummary,
+    PersistenceChange, PersistenceEntry, PrecisionStatus, ProcessInsight, Severity, SnapshotRow,
+    SystemOverview, SystemSnapshot, TraceAnalysisSummary,
 };
 use crate::services::{
     ai::AiAdvisor,
-    anomaly::{AnomalyTracker, DetectionInput},
+    anomaly::{AnomalyTracker, DetectionInput, persistence_change_event},
     etl, network,
-    persistence::PersistenceStore,
+    persistence::{PersistenceStore, persistence_entry_key},
     resilience::ResilienceMonitor,
     rules, temp_scan, windows,
 };
 use anyhow::{Context, Result, anyhow};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fs;
@@ -338,7 +339,11 @@ impl InspectorService {
         let temp = temp_scan::scan_temp_overview(&self.config.thresholds.temp).unwrap_or_default();
         let events = windows::recent_system_events(18).unwrap_or_default();
         let services = windows::relevant_services().unwrap_or_default();
-        let persistence_entries = windows::persistence_entries().unwrap_or_default();
+        let mut persistence_entries = windows::persistence_entries().unwrap_or_default();
+        // Compara contra la baseline conocida: anota NUEVA/MODIFICADA/ELIMINADA,
+        // agrega entradas sintéticas eliminadas y devuelve eventos por cada cambio.
+        let persistence_change_events =
+            self.detect_persistence_changes(collected_at, &mut persistence_entries);
         let trace_analysis = self.load_last_trace_analysis().ok().flatten();
         let precision = self.precision_status();
 
@@ -368,7 +373,7 @@ impl InspectorService {
             primary_reason: "Sin señales fuertes en esta muestra".to_owned(),
         };
 
-        let anomalies = self.anomaly_tracker.analyze(DetectionInput {
+        let mut anomalies = self.anomaly_tracker.analyze(DetectionInput {
             collected_at,
             processes: &processes,
             connections: &connections,
@@ -376,6 +381,18 @@ impl InspectorService {
             persistence_entries: &persistence_entries,
             config: &self.config.anomaly,
         });
+        // Añade los cambios de autoarranque y re-ordena por severidad/score para
+        // que un cambio de alta severidad no quede fuera del recorte de alertas.
+        if !persistence_change_events.is_empty() {
+            anomalies.extend(persistence_change_events);
+            anomalies.sort_by(|left, right| {
+                right
+                    .severity
+                    .cmp(&left.severity)
+                    .then_with(|| right.score.cmp(&left.score))
+                    .then_with(|| left.kind.cmp(&right.kind))
+            });
+        }
 
         let mut alerts = rules::build_alerts(
             rules::AlertBuildInputs {
@@ -758,6 +775,86 @@ impl InspectorService {
             .with_context(|| format!("No se pudo leer {}", path.display()))?;
         let analysis = serde_json::from_str::<TraceAnalysisSummary>(&text)?;
         Ok(Some(analysis))
+    }
+
+    /// Compara `entries` contra la baseline conocida y los anota con su estado
+    /// de cambio. Si la baseline está vacía (primera ejecución), la siembra con
+    /// el estado actual y no marca nada como cambio (primera foto = estado bueno).
+    /// Devuelve `true` si había una baseline previa contra la que comparar.
+    fn diff_persistence_baseline(&self, entries: &mut Vec<PersistenceEntry>) -> bool {
+        let baseline = match self.store.load_persistence_baseline() {
+            Ok(baseline) => baseline,
+            Err(_) => return false,
+        };
+
+        if baseline.is_empty() {
+            // Primera foto: aceptar todo como baseline "buena conocida".
+            let _ = self.store.replace_persistence_baseline(entries);
+            return false;
+        }
+
+        let mut current_keys = HashSet::new();
+        for entry in entries.iter_mut() {
+            let key = persistence_entry_key(entry);
+            current_keys.insert(key.clone());
+            entry.change_status = match baseline.get(&key) {
+                None => PersistenceChange::Added,
+                Some(base) if base.command != entry.command => PersistenceChange::Modified,
+                Some(_) => PersistenceChange::Unchanged,
+            };
+        }
+
+        // Entradas que estaban en la baseline y ya no aparecen: sintéticas eliminadas.
+        for (key, base) in &baseline {
+            if !current_keys.contains(key) {
+                let mut removed = base.clone();
+                removed.change_status = PersistenceChange::Removed;
+                removed.note = "Estaba en la baseline y ya no aparece.".to_owned();
+                entries.push(removed);
+            }
+        }
+
+        true
+    }
+
+    /// Ejecuta la comparación con la baseline y genera un evento por cada cambio.
+    fn detect_persistence_changes(
+        &self,
+        collected_at: DateTime<Utc>,
+        entries: &mut Vec<PersistenceEntry>,
+    ) -> Vec<AnomalyEvent> {
+        let had_baseline = self.diff_persistence_baseline(entries);
+        if !had_baseline || !self.config.anomaly.watch_persistence {
+            return Vec::new();
+        }
+        entries
+            .iter()
+            .filter(|entry| entry.change_status.is_change())
+            .filter_map(|entry| persistence_change_event(collected_at, entry))
+            .collect()
+    }
+
+    /// Reconoce el estado actual de autoarranque como la nueva baseline "buena".
+    /// A partir de aquí, los cambios previos dejan de reportarse.
+    pub fn accept_persistence_baseline(&self) -> Result<usize> {
+        let entries = windows::persistence_entries().unwrap_or_default();
+        let count = entries.len();
+        self.store.replace_persistence_baseline(&entries)?;
+        self.audit_action(
+            "accept-persistence-baseline",
+            &format!("{count} entradas"),
+            Some("Baseline de autoarranque actualizada"),
+            None,
+        );
+        Ok(count)
+    }
+
+    /// Lista las entradas de autoarranque anotadas con su estado de cambio
+    /// respecto a la baseline conocida. Uso principal: CLI.
+    pub fn autostart_entries_with_changes(&self) -> Vec<PersistenceEntry> {
+        let mut entries = windows::persistence_entries().unwrap_or_default();
+        self.diff_persistence_baseline(&mut entries);
+        entries
     }
 
     fn audit_action(

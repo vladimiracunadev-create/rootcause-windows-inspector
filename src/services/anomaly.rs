@@ -9,8 +9,8 @@
 
 use crate::config::AnomalyConfig;
 use crate::models::{
-    AnomalyEvent, ConnectionInsight, IncidentEvidence, PersistenceEntry, ProcessInsight, RiskLevel,
-    ServiceState,
+    AnomalyEvent, ConnectionInsight, IncidentEvidence, PersistenceChange, PersistenceEntry,
+    ProcessInsight, RiskLevel, ServiceState,
 };
 use crate::services::network;
 use chrono::{DateTime, Duration, Utc};
@@ -664,6 +664,10 @@ fn persistence_event(
     entry: &PersistenceEntry,
     config: &AnomalyConfig,
 ) -> Option<AnomalyEvent> {
+    // Las entradas sintéticas "eliminadas" no representan persistencia activa.
+    if entry.change_status == PersistenceChange::Removed {
+        return None;
+    }
     let command_lower = entry.command.to_ascii_lowercase();
     let path_lower = entry
         .target_path
@@ -720,6 +724,78 @@ fn persistence_event(
         evidence: vec![
             metric_evidence("location", "Ubicacion", entry.location.clone()),
             metric_evidence("command", "Comando", entry.command.clone()),
+        ],
+    })
+}
+
+/// Genera un evento cuando una entrada de autoarranque cambia respecto a la
+/// baseline conocida (nueva, modificada o eliminada). A diferencia de
+/// `persistence_event`, no depende de heurísticas de "sospecha": cualquier
+/// cambio se reporta para que el usuario tenga control explícito.
+pub fn persistence_change_event(
+    detected_at: DateTime<Utc>,
+    entry: &PersistenceEntry,
+) -> Option<AnomalyEvent> {
+    let (severity, score, title, verb) = match entry.change_status {
+        PersistenceChange::Added => (RiskLevel::High, 70_u16, "Autoarranque nuevo", "apareció"),
+        PersistenceChange::Modified => (
+            RiskLevel::High,
+            68,
+            "Autoarranque modificado",
+            "cambió de comando",
+        ),
+        PersistenceChange::Removed => (
+            RiskLevel::Medium,
+            45,
+            "Autoarranque eliminado",
+            "desapareció",
+        ),
+        PersistenceChange::Unchanged => return None,
+    };
+
+    Some(AnomalyEvent {
+        event_id: format!(
+            "anom-{}-persistchg-{}-{}",
+            detected_at.timestamp_millis(),
+            entry.change_status.label(),
+            entry.name
+        ),
+        detected_at,
+        severity,
+        score,
+        status: "open".to_owned(),
+        kind: "persistence-change".to_owned(),
+        title: title.to_owned(),
+        process_name: None,
+        pid: None,
+        parent_pid: None,
+        parent_name: None,
+        user: None,
+        exe_path: entry.target_path.clone(),
+        sha256: None,
+        cpu_percent: None,
+        memory_mb: None,
+        io_write_mb_delta: None,
+        unique_public_remotes: None,
+        unique_private_remotes: None,
+        summary: format!(
+            "La entrada '{}' en {} ({}) {} respecto a la baseline conocida.",
+            entry.name, entry.location, entry.entry_kind, verb
+        ),
+        root_cause_hypothesis:
+            "cambio en un punto de autoarranque respecto al estado bueno conocido".to_owned(),
+        recommended_action: match entry.change_status {
+            PersistenceChange::Removed =>
+                "Confirmar si corresponde a una desinstalación esperada; si no, investigar."
+                    .to_owned(),
+            _ =>
+                "Verificar el origen del binario/comando y aceptar como baseline solo si es legítimo."
+                    .to_owned(),
+        },
+        evidence: vec![
+            metric_evidence("location", "Ubicacion", entry.location.clone()),
+            metric_evidence("command", "Comando", entry.command.clone()),
+            metric_evidence("change", "Cambio", entry.change_status.label().to_owned()),
         ],
     })
 }

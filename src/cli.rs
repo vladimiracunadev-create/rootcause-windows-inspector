@@ -2,7 +2,7 @@
 
 use crate::meta;
 use crate::models::{AiIncidentAdvice, IncidentSummary, SnapshotRow, SystemSnapshot};
-use crate::services::{inspector::InspectorService, windows};
+use crate::services::inspector::InspectorService;
 use serde::Serialize;
 use std::fs;
 
@@ -82,7 +82,8 @@ MODO DE PRECISIÓN WPR/ETW:
   rootcause wpr analyze                   Resumir el último ETL capturado
 
 AUTOSTART Y PERSISTENCIA:
-  rootcause autostart [--json]            Entradas Registro Run + Startup + Tareas programadas
+  rootcause autostart [--json]            Entradas Registro Run + Startup + Tareas (marca cambios vs baseline)
+  rootcause autostart --accept            Fija el estado actual como baseline "buena conocida"
 
 CONFIGURACIÓN E IA OPCIONAL:
   rootcause config show [--json]          Ver ruta y configuración efectiva
@@ -522,50 +523,93 @@ fn cmd_config(args: &[String]) -> i32 {
 
 fn cmd_autostart(args: &[String]) -> i32 {
     let json_mode = has_flag(args, "--json");
-    match windows::persistence_entries() {
-        Ok(entries) => {
-            if json_mode {
-                return print_json(&entries);
+    let accept_mode = has_flag(args, "--accept");
+
+    let insp = match init_inspector() {
+        Ok(i) => i,
+        Err(c) => return c,
+    };
+
+    if accept_mode {
+        return match insp.accept_persistence_baseline() {
+            Ok(count) => {
+                println!(
+                    "Baseline de autoarranque actualizada: {count} entrada(s) marcadas como \
+                     estado bueno conocido."
+                );
+                0
             }
-            if entries.is_empty() {
-                println!("No se encontraron entradas de autostart.");
-                return 0;
+            Err(e) => {
+                eprintln!("No se pudo aceptar la baseline: {e}");
+                1
             }
-            println!("{:<32}  {:<26}  Comando / Ruta", "Nombre", "Tipo");
-            println!("{}", "─".repeat(100));
-            for e in &entries {
-                let kind_short = if e.entry_kind.contains("RunOnce") {
-                    "RunOnce"
-                } else if e.entry_kind.contains("HKLM") {
-                    "Registro (Sistema)"
-                } else if e.entry_kind.contains("HKCU") {
-                    "Registro (Usuario)"
-                } else if e.entry_kind.contains("Scheduled") {
-                    "Tarea programada"
-                } else if e.entry_kind.contains("All Users") {
-                    "Startup (Todos)"
-                } else {
-                    "Startup (Usuario)"
-                };
-                let disk = if e.exists_on_disk { "✓" } else { "✗" };
-                let name_col: String = e.name.chars().take(31).collect();
-                let cmd_col: String = e.command.chars().take(55).collect();
-                println!("{:<32}  {:<26}  {} {}", name_col, kind_short, disk, cmd_col);
-            }
-            println!();
-            let missing = entries.iter().filter(|e| !e.exists_on_disk).count();
-            println!(
-                "{} entrada(s) total — {} sin archivo en disco",
-                entries.len(),
-                missing
-            );
-            0
-        }
-        Err(e) => {
-            eprintln!("Error al leer entradas de autostart: {e}");
-            1
-        }
+        };
     }
+
+    // Lista anotada con el estado de cambio vs la baseline conocida.
+    let entries = insp.autostart_entries_with_changes();
+    if json_mode {
+        return print_json(&entries);
+    }
+    if entries.is_empty() {
+        println!("No se encontraron entradas de autostart.");
+        return 0;
+    }
+
+    println!(
+        "{:<12}  {:<30}  {:<26}  Comando / Ruta",
+        "Cambio", "Nombre", "Tipo"
+    );
+    println!("{}", "─".repeat(104));
+    for e in &entries {
+        let kind_short = if e.entry_kind.contains("RunOnce") {
+            "RunOnce"
+        } else if e.entry_kind.contains("HKLM") {
+            "Registro (Sistema)"
+        } else if e.entry_kind.contains("HKCU") {
+            "Registro (Usuario)"
+        } else if e.entry_kind.contains("Scheduled") {
+            "Tarea programada"
+        } else if e.entry_kind.contains("All Users") {
+            "Startup (Todos)"
+        } else {
+            "Startup (Usuario)"
+        };
+        let change_col = match e.change_status {
+            crate::models::PersistenceChange::Added => "[NUEVA]",
+            crate::models::PersistenceChange::Modified => "[MODIFIC.]",
+            crate::models::PersistenceChange::Removed => "[ELIMIN.]",
+            crate::models::PersistenceChange::Unchanged => "",
+        };
+        let disk = if e.exists_on_disk { "✓" } else { "✗" };
+        let name_col: String = e.name.chars().take(29).collect();
+        let cmd_col: String = e.command.chars().take(55).collect();
+        println!(
+            "{:<12}  {:<30}  {:<26}  {} {}",
+            change_col, name_col, kind_short, disk, cmd_col
+        );
+    }
+    println!();
+
+    let missing = entries.iter().filter(|e| !e.exists_on_disk).count();
+    let changes = entries
+        .iter()
+        .filter(|e| e.change_status.is_change())
+        .count();
+    let active = entries
+        .iter()
+        .filter(|e| e.change_status != crate::models::PersistenceChange::Removed)
+        .count();
+    println!("{active} entrada(s) activa(s) — {missing} sin archivo en disco");
+    if changes > 0 {
+        println!(
+            "{changes} cambio(s) vs baseline conocida. Revísalos y ejecuta \
+             `rootcause autostart --accept` para fijar el estado actual como bueno."
+        );
+    } else {
+        println!("Sin cambios respecto a la baseline conocida.");
+    }
+    0
 }
 
 fn print_history_row(row: &SnapshotRow) {

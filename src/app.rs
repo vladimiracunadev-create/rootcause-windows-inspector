@@ -7,9 +7,9 @@
 use crate::config::RootCauseConfig;
 use crate::meta;
 use crate::models::{
-    AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, PersistenceEntry, ProcessInsight,
-    RiskLevel, ServiceState, Severity, SnapshotRow, SystemSnapshot, TraceAnalysisSummary,
-    TracePathSummary, TraceProcessSummary,
+    AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, PersistenceChange, PersistenceEntry,
+    ProcessInsight, RiskLevel, ServiceState, Severity, SnapshotRow, SystemSnapshot,
+    TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
 };
 use crate::services::inspector::InspectorService;
 use crate::services::windows;
@@ -373,6 +373,28 @@ impl RootCauseApp {
             }
         }
     }
+
+    fn accept_persistence_baseline(&mut self) {
+        let Some(insp) = self.inspector.as_ref() else {
+            return;
+        };
+        match insp.accept_persistence_baseline() {
+            Ok(count) => {
+                self.status_line = format!(
+                    "Baseline de autoarranque actualizada ({count} entradas). \
+                     Los cambios previos ya no se marcarán."
+                );
+                self.status_is_error = false;
+                // Fuerza un refresco para re-evaluar contra la nueva baseline.
+                self.last_refresh_at =
+                    Instant::now() - Duration::from_secs(self.refresh_interval_secs);
+            }
+            Err(e) => {
+                self.status_line = format!("No se pudo aceptar la baseline: {e}");
+                self.status_is_error = true;
+            }
+        }
+    }
 }
 
 // ── Loop principal ─────────────────────────────────────────────────────────────
@@ -499,6 +521,7 @@ impl eframe::App for RootCauseApp {
                         let mut pid_to_kill: Option<u32> = None;
                         let mut ip_to_block: Option<String> = None;
                         let mut svc_to_stop: Option<String> = None;
+                        let mut accept_baseline = false;
                         // Option<Option<Severity>>: outer=changed, inner=new value
                         let mut sev_filter_change: Option<Option<Severity>> = None;
 
@@ -539,7 +562,12 @@ impl eframe::App for RootCauseApp {
                                 svc_to_stop = Some(svc.to_owned())
                             }),
                             Tab::Autostart => {
-                                draw_tab_autostart(ui, &snapshot, &self.filter_text);
+                                draw_tab_autostart(
+                                    ui,
+                                    &snapshot,
+                                    &self.filter_text,
+                                    &mut accept_baseline,
+                                );
                             }
                             Tab::History => draw_tab_history(
                                 ui,
@@ -567,6 +595,9 @@ impl eframe::App for RootCauseApp {
                         }
                         if let Some(svc) = svc_to_stop {
                             self.stop_service(&svc);
+                        }
+                        if accept_baseline {
+                            self.accept_persistence_baseline();
                         }
                         if let Some(new_sev) = sev_filter_change {
                             self.proc_severity_filter = new_sev;
@@ -2517,7 +2548,12 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
 
 // ── Tab: Autostart ────────────────────────────────────────────────────────────
 
-fn draw_tab_autostart(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
+fn draw_tab_autostart(
+    ui: &mut egui::Ui,
+    snap: &SystemSnapshot,
+    filter: &str,
+    accept_baseline: &mut bool,
+) {
     section_header(
         ui,
         "◫  Autostart  ·  entradas de registro Run, carpetas Startup y tareas programadas",
@@ -2579,10 +2615,26 @@ fn draw_tab_autostart(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
         .filter(|e| matches!(e.severity, RiskLevel::Medium))
         .count();
 
+    // Conteo de cambios respecto a la baseline conocida
+    let n_added = entries
+        .iter()
+        .filter(|e| e.change_status == PersistenceChange::Added)
+        .count();
+    let n_modified = entries
+        .iter()
+        .filter(|e| e.change_status == PersistenceChange::Modified)
+        .count();
+    let n_removed = entries
+        .iter()
+        .filter(|e| e.change_status == PersistenceChange::Removed)
+        .count();
+    let n_changes = n_added + n_modified + n_removed;
+    let n_active = entries.len() - n_removed;
+
     ui.horizontal_wrapped(|ui| {
         pill(
             ui,
-            &format!("{} entradas totales", entries.len()),
+            &format!("{} entradas activas", n_active),
             TEXT_SEC,
             BG_CARD,
         );
@@ -2607,6 +2659,76 @@ fn draw_tab_autostart(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
         }
     });
     ui.add_space(8.0);
+
+    // Banner de cambios vs baseline conocida + acción para aceptar el estado actual
+    if n_changes > 0 {
+        egui::Frame::none()
+            .fill(C_CR_BG)
+            .stroke(Stroke::new(1.0, C_CR_FG.linear_multiply(0.4)))
+            .rounding(Rounding::same(6.0))
+            .inner_margin(Margin::same(10.0))
+            .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(RichText::new("⚠").color(C_CR_FG).size(14.0));
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(format!(
+                            "{n_changes} cambio(s) de autoarranque vs baseline conocida:",
+                        ))
+                        .size(12.0)
+                        .strong()
+                        .color(TEXT_PRI),
+                    );
+                    if n_added > 0 {
+                        pill(ui, &format!("+{n_added} nuevas"), C_CR_FG, C_CR_BG);
+                    }
+                    if n_modified > 0 {
+                        pill(ui, &format!("~{n_modified} modificadas"), C_WN_FG, C_WN_BG);
+                    }
+                    if n_removed > 0 {
+                        pill(ui, &format!("−{n_removed} eliminadas"), TEXT_MUT, BG_CARD);
+                    }
+                });
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(egui::Button::new(
+                            RichText::new("✓ Aceptar estado actual como baseline")
+                                .size(12.0)
+                                .color(TEXT_PRI),
+                        ))
+                        .on_hover_text(
+                            "Marca el estado actual de autoarranque como \"bueno conocido\". \
+                             Los cambios listados dejarán de reportarse.",
+                        )
+                        .clicked()
+                    {
+                        *accept_baseline = true;
+                    }
+                    ui.label(
+                        RichText::new(
+                            "Revisa cada cambio antes de aceptar: una entrada nueva puede ser \
+                             persistencia de malware.",
+                        )
+                        .size(10.5)
+                        .color(TEXT_MUT),
+                    );
+                });
+            });
+        ui.add_space(8.0);
+    } else if n_active > 0 {
+        // Sin cambios: confirmación tranquila de que hay baseline y coincide.
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("✓").color(C_OK_FG).size(12.0));
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new("Sin cambios respecto a la baseline conocida.")
+                    .size(11.0)
+                    .color(TEXT_MUT),
+            );
+        });
+        ui.add_space(6.0);
+    }
 
     // Cabecera de columnas
     table_header(
@@ -2652,6 +2774,18 @@ fn draw_tab_autostart(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
                             );
                             if entry.name.len() > 24 {
                                 name_resp.on_hover_text(&entry.name);
+                            }
+
+                            // Badge de cambio vs baseline (NUEVA / MODIFICADA / ELIMINADA)
+                            if entry.change_status.is_change() {
+                                let (cfg, cbg) = match entry.change_status {
+                                    PersistenceChange::Added => (C_CR_FG, C_CR_BG),
+                                    PersistenceChange::Modified => (C_WN_FG, C_WN_BG),
+                                    PersistenceChange::Removed | PersistenceChange::Unchanged => {
+                                        (TEXT_MUT, BG_CARD)
+                                    }
+                                };
+                                pill(ui, entry.change_status.label(), cfg, cbg);
                             }
 
                             // Tipo (pill con origen)

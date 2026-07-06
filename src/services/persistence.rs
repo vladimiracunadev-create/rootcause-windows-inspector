@@ -5,12 +5,25 @@
 //! 2. incidentes resumidos para correlación/evidencia,
 //! 3. auditoría de acciones manuales o automáticas.
 
-use crate::models::{AiIncidentAdvice, AuditRecord, IncidentSummary, SnapshotRow, SystemSnapshot};
+use crate::models::{
+    AiIncidentAdvice, AuditRecord, IncidentSummary, PersistenceEntry, SnapshotRow, SystemSnapshot,
+};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, params};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// Clave estable que identifica una entrada de autoarranque a lo largo del tiempo.
+/// No incluye el comando: un cambio de comando en la misma ubicación/nombre se
+/// interpreta como *modificación*, no como par eliminada+nueva.
+pub fn persistence_entry_key(entry: &PersistenceEntry) -> String {
+    format!(
+        "{}\u{1f}{}\u{1f}{}",
+        entry.entry_kind, entry.location, entry.name
+    )
+}
 
 /// Adaptador pequeño sobre SQLite.
 pub struct PersistenceStore {
@@ -404,8 +417,82 @@ impl PersistenceStore {
                 detail TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS persistence_baseline (
+                entry_key TEXT PRIMARY KEY,
+                entry_kind TEXT NOT NULL,
+                location TEXT NOT NULL,
+                name TEXT NOT NULL,
+                command TEXT NOT NULL,
+                target_path TEXT,
+                first_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             "#,
         )?;
+        Ok(())
+    }
+
+    /// Carga la baseline de autoarranque conocida, indexada por clave estable.
+    /// Las entradas reconstruidas traen `entry_kind`, `location`, `name`,
+    /// `command` y `target_path`; el resto de campos quedan por defecto.
+    pub fn load_persistence_baseline(&self) -> Result<HashMap<String, PersistenceEntry>> {
+        let connection = Connection::open(&self.db_path)?;
+        let mut statement = connection.prepare(
+            "SELECT entry_key, entry_kind, location, name, command, target_path \
+             FROM persistence_baseline",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let key: String = row.get(0)?;
+            let entry = PersistenceEntry {
+                entry_kind: row.get(1)?,
+                location: row.get(2)?,
+                name: row.get(3)?,
+                command: row.get(4)?,
+                target_path: row.get(5)?,
+                ..Default::default()
+            };
+            Ok((key, entry))
+        })?;
+
+        let mut baseline = HashMap::new();
+        for row in rows {
+            let (key, entry) = row?;
+            baseline.insert(key, entry);
+        }
+        Ok(baseline)
+    }
+
+    /// Reemplaza por completo la baseline con el estado actual de autoarranque.
+    /// Se usa para sembrar la primera foto y para "aceptar" cambios como buenos.
+    pub fn replace_persistence_baseline(&self, entries: &[PersistenceEntry]) -> Result<()> {
+        let mut connection = Connection::open(&self.db_path)?;
+        let transaction = connection.transaction()?;
+        transaction.execute("DELETE FROM persistence_baseline", [])?;
+        {
+            let mut statement = transaction.prepare(
+                "INSERT OR REPLACE INTO persistence_baseline \
+                 (entry_key, entry_kind, location, name, command, target_path) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )?;
+            for entry in entries {
+                if matches!(
+                    entry.change_status,
+                    crate::models::PersistenceChange::Removed
+                ) {
+                    // Nunca sembrar entradas sintéticas de tipo "eliminada".
+                    continue;
+                }
+                statement.execute(params![
+                    persistence_entry_key(entry),
+                    entry.entry_kind,
+                    entry.location,
+                    entry.name,
+                    entry.command,
+                    entry.target_path,
+                ])?;
+            }
+        }
+        transaction.commit()?;
         Ok(())
     }
 }

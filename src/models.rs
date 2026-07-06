@@ -165,6 +165,38 @@ pub struct IncidentEvidence {
     pub value: String,
 }
 
+/// Estado de una entrada de autoarranque respecto a la baseline conocida.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PersistenceChange {
+    /// Igual que en la baseline (o sin baseline todavía).
+    #[default]
+    Unchanged,
+    /// Entrada nueva que no estaba en la baseline.
+    Added,
+    /// Entrada que existía pero cambió de comando.
+    Modified,
+    /// Entrada que estaba en la baseline y ya no aparece.
+    Removed,
+}
+
+impl PersistenceChange {
+    /// Etiqueta corta para UI/CLI.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Unchanged => "",
+            Self::Added => "NUEVA",
+            Self::Modified => "MODIFICADA",
+            Self::Removed => "ELIMINADA",
+        }
+    }
+
+    /// `true` si representa un cambio respecto a la baseline.
+    pub fn is_change(self) -> bool {
+        !matches!(self, Self::Unchanged)
+    }
+}
+
 /// Entrada observable de persistencia básica en Windows.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PersistenceEntry {
@@ -180,6 +212,9 @@ pub struct PersistenceEntry {
     pub severity: RiskLevel,
     #[serde(default)]
     pub note: String,
+    /// Estado de cambio respecto a la baseline de autoarranque conocida.
+    #[serde(default)]
+    pub change_status: PersistenceChange,
 }
 
 /// Evento atómico del módulo de detección anómala.
