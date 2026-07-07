@@ -254,7 +254,7 @@ choco push rootcause-windows-inspector.X.Y.Z.nupkg --source https://push.chocola
 choco install rootcause-windows-inspector
 ```
 
-> **Prerequisito para los tres gestores:** tener al menos un release público con los artefactos en `rootcause-landing/releases`. Actualizar los campos `UPDATE_SHA256_ON_RELEASE` con los hashes SHA-256 reales de cada release.
+> **Prerequisito para los tres gestores:** tener al menos un release público con los artefactos en las releases de este repo (ya disponible desde v0.12.0). Actualizar los campos `UPDATE_SHA256_ON_RELEASE` con los hashes SHA-256 reales de cada release.
 
 ---
 

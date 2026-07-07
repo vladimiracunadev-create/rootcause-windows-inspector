@@ -610,32 +610,41 @@ rootcause --help
           <p class="dl-meta">Integridad · release v0.12.0</p>
         </div>
 
-        <div class="download-card" style="opacity:0.55">
-          <h3>🪟 Instalador Windows <span style="font-size:0.75em">(próximamente)</span></h3>
-          <p>Instalador con Inno Setup. Agrega <code>rootcause</code> al PATH y deja desinstalación limpia. Pendiente de automatización en CI.</p>
-          <span class="btn-download-ghost" style="cursor:default;opacity:0.5">⬇ RootCause-Setup.exe</span>
-          <p class="dl-meta">Disponible en la próxima release de CI</p>
+        <div class="download-card">
+          <h3>🪟 Instalador Windows</h3>
+          <p>Instalador con Inno Setup. Agrega <code>rootcause</code> al PATH y deja desinstalación limpia.</p>
+          <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Setup.exe"
+            class="btn-download-ghost" target="_blank" rel="noopener">
+            ⬇ RootCause-Setup.exe
+          </a>
+          <p class="dl-meta">Windows 10/11 x64 · ~4.9 MB · GUI + CLI</p>
         </div>
 
-        <div class="download-card" style="opacity:0.55">
-          <h3>💻 CLI-only <span style="font-size:0.75em">(próximamente)</span></h3>
-          <p>Build ligero sin GUI (~4 MB). Pendiente de step CLI en CI.</p>
-          <span class="btn-download-ghost" style="cursor:default;opacity:0.5">⬇ RootCause-CLI-Portable.zip</span>
-          <p class="dl-meta">Disponible en la próxima release de CI</p>
+        <div class="download-card">
+          <h3>💻 CLI-only</h3>
+          <p>Build ligero sin GUI (~2 MB). Para scripts, Server Core y CI.</p>
+          <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-CLI-Portable.zip"
+            class="btn-download-ghost" target="_blank" rel="noopener">
+            ⬇ RootCause-CLI-Portable.zip
+          </a>
+          <p class="dl-meta">Windows 10/11 x64 · ~2 MB · solo CLI</p>
         </div>
 
-        <div class="download-card" style="opacity:0.55">
-          <h3>🧩 VS Code Extension <span style="font-size:0.75em">(próximamente)</span></h3>
+        <div class="download-card">
+          <h3>🧩 VS Code Extension</h3>
           <p>Extensión para usar RootCause desde VS Code. Requiere <code>rootcause.exe</code> instalado o configurable.
           </p>
-          <span class="btn-download-ghost" style="cursor:default;opacity:0.5">⬋ RootCause-VSCode-Extension.vsix</span>
-          <p class="dl-meta">Disponible en la próxima release de CI</p>
+          <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-VSCode-Extension.vsix"
+            class="btn-download-ghost" target="_blank" rel="noopener">
+            ⬋ RootCause-VSCode-Extension.vsix
+          </a>
+          <p class="dl-meta">VS Code · integración</p>
         </div>
 
       </div>
 
       <p class="download-note">
-        ⚠ El Portable ZIP contiene el binario real compilado por CI (v0.12.0). El instalador, CLI-only y VS Code Extension se publicarán en la siguiente release automatizada de CI.
+        ⚠ Todos los artefactos son builds reales compilados por CI (v0.12.0) y verificados con SHA-256. El binario no tiene firma digital todavía, por lo que Windows puede mostrar una advertencia de SmartScreen (More info → Run anyway).
       </p>
     </div>
   </section>

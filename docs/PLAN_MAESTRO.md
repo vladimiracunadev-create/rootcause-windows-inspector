@@ -189,16 +189,20 @@ Implementación: cambio mínimo en `cli.rs`. Una línea.
 
 **Por qué:** el producto puede ser descubierto y usado si está en los canales correctos.
 
-#### 5.1 Auto-publicar releases en landing (paso crítico, pendiente)
-Los manifests están listos (Scoop, Winget, Chocolatey). Falta conectar el CI:
+#### 5.1 Auto-publicar releases ✅ Resuelto
+El repo es público y el pipeline ya publica releases automáticamente: al pushear un tag `vX.Y.Z`,
+`release-windows.yml` compila los 6 artefactos y crea el GitHub Release en este mismo repo.
 
 ```
-CI privado (build .exe) → gh release create --repo rootcause-landing → descarga pública
+git tag vX.Y.Z → release-windows.yml (build + package) → GitHub Release público
 ```
 
-Requiere: secret `LANDING_RELEASE_TOKEN` (PAT con permisos al repo landing) en el repo privado.
-Resultado: los botones de descarga de la landing funcionan con cada nuevo release.
-Los campos `UPDATE_SHA256_ON_RELEASE` en los manifests se rellenan con el hash real del binario.
+La landing vive en `landing/` dentro de este repo (GitHub Pages vía `deploy-landing.yml`) y sus
+botones de descarga apuntan a `releases/latest/download/`, así que funcionan con cada nuevo release
+sin pasos manuales. El antiguo repo separado `rootcause-landing` y el secret `LANDING_RELEASE_TOKEN`
+quedaron obsoletos (ver nota histórica en `docs/CI_GITHUB.md`).
+Pendiente real: rellenar los campos `UPDATE_SHA256_ON_RELEASE` de los manifests con el hash real al
+publicar en cada gestor (Scoop/Winget/Chocolatey).
 
 #### 5.2 Gestores de paquetes Windows ✅ Manifests creados
 
@@ -285,9 +289,9 @@ Pendiente:
 ### Flujo para actualizar landing
 
 ```
-1. Editar C:\dev\rootcause-landing\index.html
-2. git add index.html && git commit -m "chore: actualizar landing vX.Y.Z"
-3. git push origin main  → GitHub Pages redespliega en ~60s
+1. Editar landing/index.html (en este repo)
+2. git add landing/index.html && git commit -m "chore: actualizar landing vX.Y.Z"
+3. git push origin master  → deploy-landing.yml redespliega GitHub Pages en ~60s
 ```
 
 ### Problema de entorno local (CRÍTICO)
@@ -310,10 +314,10 @@ CI en GitHub usa `windows-latest` con el toolchain correcto — siempre compila 
 ☐ COMMANDS.md — comandos CLI nuevos
 ☐ RECLUTADORES.md — features nuevas
 ☐ INDEX.md — docs nuevos enlazados
-☐ rootcause-landing/index.html — versión + features
+☐ landing/index.html — versión + features
 ☐ run_fmt.ps1 sin errores · CI verde
-☐ git tag -a vX.Y.Z && git push origin vX.Y.Z
-☐ Publicar binarios en rootcause-landing/releases
+☐ git tag -a vX.Y.Z && git push origin vX.Y.Z  → release-windows.yml publica los binarios
+☐ Verificar release: gh release view vX.Y.Z --json assets (6 artefactos, KB > 0)
 ☐ Verificar landing en browser
 ```
 
