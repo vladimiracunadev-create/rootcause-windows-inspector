@@ -37,7 +37,7 @@ Hoy RootCause ayuda a ver sintomas, procesos dominantes y evidencia local. Este 
 - Deteccion heuristica de procesos sospechosos a partir de contexto, ruta, comportamiento y severidad.
 - Identificacion de consumo anomalo de CPU, RAM, disco o red que no calza con lineas base simples del equipo.
 - Deteccion de conexiones salientes inusuales por proceso, destino o patron temporal.
-- Observacion de persistencia sospechosa en mecanismos conocidos de inicio automatico o continuidad.
+- Observacion de persistencia sospechosa en mecanismos conocidos de inicio automatico o continuidad. Incluye deteccion de cambios contra una baseline conocida (NUEVA, MODIFICADA, ELIMINADA con severidades diferenciadas).
 - Senalizacion de rutas de ejecucion sospechosas, por ejemplo perfiles de usuario, temporales o ubicaciones no esperadas.
 - Correlacion de multiples senales para elevar severidad, consolidar evidencia y proponer una hipotesis de causa raiz.
 - Presentacion de evidencia tecnica y sugerencias de mitigacion no destructivas.
@@ -95,7 +95,7 @@ La oportunidad tecnica no es convertir RootCause en otra categoria de producto, 
 - Persistencia local de incidentes e historial.
 - Configuracion operativa para umbrales y politicas.
 - Recoleccion de procesos, red, servicios, temporales y, cuando aplique, ETW/WPR.
-- Futuras capacidades de autostart, tray o service pueden ampliar cobertura, pero no son requisito para documentar ni iniciar esta linea.
+- Futuras capacidades de tray o service pueden ampliar cobertura, pero no son requisito para documentar ni iniciar esta linea. La capacidad de autostart ya esta implementada e incluye una baseline de persistencia con cambios clasificados (NUEVA, MODIFICADA, ELIMINADA).
 
 ## 14. Impacto en arquitectura
 
@@ -142,7 +142,7 @@ No requiere reescritura completa de la arquitectura actual, pero si una evolucio
 ### Fase 2 - Nuevas fuentes y correlacion minima viable
 
 - Incorporar verificacion de rutas de ejecucion sospechosas.
-- Incorporar observacion de persistencia sospechosa.
+- Incorporar observacion de persistencia sospechosa. Ya implementado: ademas de la heuristica de "parece sospechoso ahora", existe una baseline de persistencia en SQLite con cambios clasificados (NUEVA, MODIFICADA, ELIMINADA con severidades diferenciadas), emitidos como kind `persistence-change`.
 - Correlacionar procesos, red y anomalias de consumo con evidencia historica simple.
 
 ### Fase 3 - UX, CLI y exportacion
@@ -166,7 +166,7 @@ No requiere reescritura completa de la arquitectura actual, pero si una evolucio
 ## 19. Roadmap sugerido
 
 - `Post-v1.0`: formalizar catalogo de senales, scoring y nomenclatura de incidentes.
-- `Phase 2`: correlacionar procesos, red, persistencia y rutas sospechosas en el endpoint.
+- `Phase 2`: correlacionar procesos, red, persistencia y rutas sospechosas en el endpoint. Ya implementada la baseline de persistencia con cambios clasificados (`persistence-change`).
 - `Phase 3`: enriquecer interfaz, exportaciones y sugerencias de mitigacion.
 - `Phase 4`: validar escenarios, medir ruido y documentar limites operativos.
 

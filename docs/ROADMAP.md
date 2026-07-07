@@ -61,7 +61,7 @@
 - mejoras profesionales a la interfaz: barra RAM normalizada a RAM real, tooltips Ctrl+N en tabs
 - version bump a 0.10.0
 
-## v0.11 Entregado (version actual)
+## v0.11 Entregado
 - tareas programadas no-Microsoft integradas en el tab Autostart
 - notas contextuales por tipo de entrada (RunOnce, HKLM, Scheduled Task, Startup)
 - CLI `rootcause autostart [--json]` — lista entradas de persistencia desde consola
@@ -69,6 +69,16 @@
 - boton Guardar persiste cambios a `rootcause-config.json` sin reiniciar via `save_config()` en InspectorService
 - manifests Scoop/Winget/Chocolatey actualizados a 0.11.0
 - version bump a 0.11.0
+
+## v0.12 Entregado (version actual)
+- deteccion de cambios de autoarranque contra baseline conocida: da control explicito para saber si cambian los puntos de autoarranque de Windows
+- baseline persistida en SQLite (tabla `persistence_baseline`) de las entradas de autoarranque (Registro Run/RunOnce HKCU/HKLM, carpetas Startup, tareas programadas no-Microsoft)
+- clasificacion de cada entrada como NUEVA / MODIFICADA / ELIMINADA contra la baseline; primera foto = estado bueno conocido (silenciosa), cambios pegajosos hasta aceptar
+- alertas kind `persistence-change` — Alta para nuevas/modificadas, Media para eliminadas
+- aceptacion de baseline via UI (boton "✓ Aceptar estado actual como baseline" en el tab Autostart) y CLI (`rootcause autostart --accept`)
+- `rootcause autostart --json` incluye el campo `change_status` por entrada
+- manifests Scoop/Winget/Chocolatey actualizados a 0.12.0
+- version bump a 0.12.0
 
 ## v1.0 Objetivo de distribucion formal
 - tray icon activo (monitor proactivo en bandeja del sistema)

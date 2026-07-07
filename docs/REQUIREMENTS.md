@@ -190,6 +190,9 @@ Es útil, pero no reemplaza herramientas más especializadas.
 ### Detener servicios o procesos no es una solución universal
 Se usa como mitigación puntual y validación de causa, no como receta automática.
 
+### La baseline de autoarranque se almacena localmente en SQLite (no sincronizada)
+La foto de estado bueno conocido de los puntos de autoarranque vive en la tabla `persistence_baseline`, en la carpeta de datos del usuario. No se replica ni sincroniza entre equipos. Los cambios (NUEVA/MODIFICADA/ELIMINADA) se detectan en el siguiente escaneo, no en tiempo real; aceptar la baseline redefine el estado bueno conocido y limpia las alertas `persistence-change` pendientes.
+
 ---
 
 ## 11) Huella esperada del software

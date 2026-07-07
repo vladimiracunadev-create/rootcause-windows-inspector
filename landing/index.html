@@ -64,12 +64,12 @@
         <img src="https://img.shields.io/badge/rust-edition%202024-orange.svg" alt="Rust 2024" />
         <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows 10/11" />
         <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0" />
-        <img src="https://img.shields.io/badge/versión-0.11.0-brightgreen.svg" alt="v0.11.0" />
+        <img src="https://img.shields.io/badge/versión-0.12.0-brightgreen.svg" alt="v0.12.0" />
         <img src="https://img.shields.io/badge/telemetría-cero-success.svg" alt="Telemetría cero" />
       </div>
 
       <div class="hero-cta">
-        <a href="#download" class="btn-primary">⬇ Descargar v0.11.0</a>
+        <a href="#download" class="btn-primary">⬇ Descargar v0.12.0</a>
         <a href="#install" class="btn-ghost">📖 Instrucciones</a>
       </div>
 
@@ -154,7 +154,13 @@
         <div class="feature-card">
           <div class="feature-icon">◫</div>
           <h3>Tab Autostart</h3>
-          <p>Muestra entradas de registro Run (usuario y sistema), carpetas Startup y tareas programadas. Severidad heurística, indicador de existencia en disco y tooltip con ruta completa.</p>
+          <p>Muestra entradas de registro Run (usuario y sistema), carpetas Startup y tareas programadas. Severidad heurística, indicador de existencia en disco y tooltip con ruta completa. Compara contra una baseline en SQLite y detecta entradas NUEVA / MODIFICADA / ELIMINADA, generando alertas <code>persistence-change</code>.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🧬</div>
+          <h3>Baseline de autoarranque</h3>
+          <p>La primera foto de las entradas de autoarranque se guarda como estado bueno conocido en SQLite. Cada scan clasifica los cambios (NUEVA / MODIFICADA / ELIMINADA) y son pegajosos hasta que aceptas la nueva baseline con <code>rootcause autostart --accept</code>.</p>
         </div>
 
         <div class="feature-card">
@@ -234,8 +240,8 @@
             </tr>
             <tr>
               <td><code>◫ Autostart</code></td>
-              <td>Registro Run, carpetas Startup, tareas programadas</td>
-              <td>—</td>
+              <td>Registro Run, carpetas Startup, tareas programadas · badge de cambios vs baseline</td>
+              <td>Aceptar baseline</td>
             </tr>
             <tr>
               <td><code>◑ Historial</code></td>
@@ -323,7 +329,7 @@ choco install rootcause-windows-inspector</code></pre>
   <section id="security-evolution" class="section">
     <div class="container">
       <h2 class="section-title">🛡 Evolución de seguridad y resiliencia</h2>
-      <p class="section-sub">v0.9–v0.11 incorporan autoprotección del agente, tab Autostart con heurística de severidad para entradas de registro y tareas programadas, y edición inline de umbrales — sin convertir RootCause en un antivirus.</p>
+      <p class="section-sub">v0.9–v0.12 incorporan autoprotección del agente, tab Autostart con heurística de severidad y baseline en SQLite que detecta cambios de persistencia (NUEVA / MODIFICADA / ELIMINADA), y edición inline de umbrales — sin convertir RootCause en un antivirus.</p>
 
       <div class="feature-grid">
         <div class="feature-card">
@@ -460,7 +466,7 @@ code --install-extension RootCause-VSCode-Extension.vsix
         <div class="install-block">
           <h3>✅ Verificar instalación</h3>
           <pre><code class="shell">rootcause --version
-# RootCause Windows Inspector v0.11.0
+# RootCause Windows Inspector v0.12.0
 
 rootcause --help
 # muestra todos los comandos disponibles</code></pre>
@@ -515,7 +521,11 @@ rootcause --help
         </div>
         <div class="cli-entry">
           <code>rootcause autostart [--json]</code>
-          <span>Lista entradas de autoarranque: registro Run, Startup y tareas programadas</span>
+          <span>Lista entradas de autoarranque (registro Run, Startup y tareas programadas) y marca cambios vs baseline. Con <code>--json</code> incluye <code>change_status</code></span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause autostart --accept</code>
+          <span>Fija el estado actual de autoarranque como baseline conocida</span>
         </div>
       </div>
 
@@ -523,7 +533,7 @@ rootcause --help
         <pre><span class="t-prompt">C:\&gt;</span> rootcause status
 
 <span class="t-box">┌─────────────────────────────────────────────────┐
-│  RootCause Windows Inspector  v0.11.0           │
+│  RootCause Windows Inspector  v0.12.0           │
 │  Estado del sistema                             │
 ├─────────────────────────────────────────────────┤
 │  Severidad  : ⚠ WARNING                        │
@@ -569,9 +579,9 @@ rootcause --help
 
       <div class="download-grid">
         <div class="download-card primary">
-          <div class="dl-badge">Recomendado · v0.11.0</div>
+          <div class="dl-badge">Recomendado · v0.12.0</div>
           <h3>📦 Portable ZIP (GUI)</h3>
-          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.11.0.</p>
+          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.12.0.</p>
           <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Portable.zip"
             class="btn-download" target="_blank" rel="noopener">
             ⬇ RootCause-Portable.zip
@@ -597,7 +607,7 @@ rootcause --help
             class="btn-download-ghost" target="_blank" rel="noopener">
             ⬇ SHA256SUMS.txt
           </a>
-          <p class="dl-meta">Integridad · release v0.11.0</p>
+          <p class="dl-meta">Integridad · release v0.12.0</p>
         </div>
 
         <div class="download-card" style="opacity:0.55">
@@ -625,7 +635,7 @@ rootcause --help
       </div>
 
       <p class="download-note">
-        ⚠ El Portable ZIP contiene el binario real compilado por CI (v0.11.0). El instalador, CLI-only y VS Code Extension se publicarán en la siguiente release automatizada de CI.
+        ⚠ El Portable ZIP contiene el binario real compilado por CI (v0.12.0). El instalador, CLI-only y VS Code Extension se publicarán en la siguiente release automatizada de CI.
       </p>
     </div>
   </section>

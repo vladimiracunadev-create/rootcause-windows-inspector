@@ -105,6 +105,9 @@ No se propone reescritura. Se propone separar responsabilidades usando el mismo 
   - incidentes resumidos, deduplicados por fingerprint inmediato
 - `audit_log`
   - registro de acciones y enriquecimientos IA
+- `persistence_baseline`
+  - baseline conocida de autoarranque (Run/RunOnce HKCU/HKLM, carpetas Startup, tareas programadas no-Microsoft)
+  - permite clasificar cada entrada como NUEVA, MODIFICADA o ELIMINADA respecto a la baseline sembrada
 
 ### CLI reforzada
 - `rootcause status --json`
@@ -129,7 +132,7 @@ No se propone reescritura. Se propone separar responsabilidades usando el mismo 
 - enriquecer configuración desde la propia interfaz
 
 ### Fase 3
-- correlación temporal con baseline por ventana
+- correlación temporal con baseline por ventana (aún futura; distinta de la baseline de persistencia `persistence_baseline`, que ya existe y clasifica cambios de autoarranque NUEVA/MODIFICADA/ELIMINADA)
 - reglas específicas para deploy reciente, colas y degradación de servicios
 - severidad basada en tendencia, no solo en muestra instantánea
 

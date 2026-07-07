@@ -103,7 +103,7 @@ Responsabilidades:
 - sparklines de CPU / RAM / I/O (ring buffer `VecDeque<MetricSample>`, max 60 muestras),
 - sección "Características del equipo" en tab Resumen (datos de `HardwareInfo`),
 - filtro de severidad por tab de procesos,
-- tab Autostart: tabla de entradas de registro Run (HKCU/HKLM) y carpetas Startup con severidad heurística,
+- tab Autostart: tabla de entradas de registro Run (HKCU/HKLM), carpetas Startup y tareas programadas no-Microsoft con severidad heurística, comparadas contra la baseline conocida (`persistence_baseline`) para señalar cambios (`persistence-change`) NUEVA / MODIFICADA / ELIMINADA,
 - tab de Historial con tabla SQLite y comparación A vs B,
 - notificaciones toast vía PowerShell (non-blocking),
 - tab Acerca con versión, autor, links, atajos y hardware del equipo,
@@ -168,7 +168,7 @@ Responsabilidades:
 - `tracerpt`,
 - `show_toast_notification()` vía WinRT/PowerShell (non-blocking),
 - `batch_process_cmdlines()` vía `Get-CimInstance Win32_Process` en batch,
-- `persistence_entries()` — recopila entradas de registro Run (HKCU/HKLM) y carpetas Startup vía PowerShell,
+- `persistence_entries()` — recopila entradas de registro Run/RunOnce (HKCU/HKLM), carpetas Startup y tareas programadas no-Microsoft vía PowerShell; `InspectorService::detect_persistence_changes()` las compara contra la baseline y clasifica cada entrada como NUEVA / MODIFICADA / ELIMINADA o sin cambios,
 - `is_valid_firewall_ip()` — validación estricta de IPv4/IPv6 antes de construir scripts PowerShell (defensa contra command injection).
 
 ### `services/etl.rs`
@@ -187,7 +187,9 @@ Responsabilidades:
 - guardar snapshots,
 - guardar incidentes resumidos,
 - registrar auditoría de acciones y de IA,
+- mantener el esquema SQLite: `snapshots`, `incidents`, `audit_log` y `persistence_baseline` (baseline conocida de autoarranque con `entry_key`, `entry_kind`, `location`, `name`, `command`, `target_path` y `first_seen`),
 - `load_recent(limit)` — devuelve últimas N filas como `Vec<SnapshotRow>`,
+- `load_persistence_baseline()` / `replace_persistence_baseline()` — leen y siembran/reemplazan la baseline de autoarranque para la detección de cambios,
 - parsea `alerts_json` para derivar `alerts_count` y `has_critical`.
 
 ### `services/ai.rs`

@@ -147,9 +147,19 @@ La IA es opcional. Si no la habilitas en `rootcause-config.json`, RootCause sigu
 
 ### Autostart y persistencia
 ```
-rootcause autostart               # lista entradas Registro Run + Startup + Tareas programadas
-rootcause autostart --json        # lo mismo en JSON para integraciones
+rootcause autostart               # lista entradas Registro Run + Startup + Tareas programadas, marca cambios [NUEVA]/[MODIFIC.]/[ELIMIN.]
+rootcause autostart --json        # lo mismo en JSON para integraciones (incluye campo change_status por entrada)
+rootcause autostart --accept      # fija el estado actual como baseline buena conocida
 ```
+
+Cada scan compara las entradas contra una baseline conocida guardada en SQLite y clasifica cada
+una como **NUEVA** (no estaba), **MODIFICADA** (cambió el comando) o **ELIMINADA** (estaba y ya no
+aparece). La primera vez, con la baseline vacía, se siembra en silencio como "estado bueno conocido"
+y no se marca ningún cambio. Los cambios son **pegajosos**: se siguen mostrando hasta que los aceptas
+con `rootcause autostart --accept`, que fija el estado actual como nueva baseline. La aceptación queda
+auditada en `audit_log` con la acción `accept-persistence-baseline`. Cada cambio detectado genera además
+una anomalía de kind `persistence-change` (Alta para NUEVA/MODIFICADA, Media para ELIMINADA), gobernada
+por el flag de configuración `watch_persistence`.
 
 ### Acciones de intervención
 ```
@@ -256,6 +266,16 @@ El tab **Autostart** (Ctrl+7) muestra qué programas se configuran para ejecutar
 | Tipo         | Origen: Registro (Usuario/Sistema) o Startup (Usuario/Todos)        |
 | Comando/Ruta | Ejecutable o script configurado — tooltip muestra ruta completa     |
 | En disco     | ✓ = el archivo existe · ✗ = el archivo ya no existe                |
+| Cambio       | Estado respecto a la baseline conocida: badge **NUEVA**, **MODIFICADA**, **ELIMINADA** o sin badge (sin cambios) |
+
+### Detección de cambios contra la baseline
+
+En cada scan la tabla se compara contra una baseline conocida guardada en SQLite. Sobre la tabla
+aparece un banner con el conteo de cambios (**+N nuevas, ~N modificadas, −N eliminadas**) y cada fila
+afectada lleva un badge **NUEVA** / **MODIFICADA** / **ELIMINADA**. Si no hay diferencias, el banner
+muestra "Sin cambios respecto a la baseline conocida". Los cambios son pegajosos: permanecen hasta que
+los aceptas. La primera vez, con la baseline vacía, se siembra en silencio como "estado bueno conocido"
+sin marcar cambios.
 
 ### Qué hacer con entradas "✗ No"
 Las entradas que no existen en disco son residuos de software desinstalado. Se pueden limpiar manualmente desde el Editor del Registro (`regedit`) o desde `msconfig` → pestaña Inicio.
@@ -265,6 +285,19 @@ Requieren privilegios de administrador para modificarse. Son más difíciles de 
 
 ### Tareas programadas (v0.11)
 Las entradas de tipo **Scheduled Task** son tareas de `Task Scheduler` fuera del espacio `\Microsoft\*` y no deshabilitadas. Se muestran en amarillo como "a revisar". No se pueden eliminar desde aquí — usa `taskschd.msc` para gestionarlas.
+
+### Aceptar el estado actual como baseline (v0.12)
+
+Cuando revisaste los cambios marcados y confirmas que el estado actual es correcto, fijas una nueva
+baseline buena conocida:
+
+- **En la GUI**: pulsa el botón **✓ Aceptar estado actual como baseline** en el tab Autostart. El banner
+  y los badges de cambio desaparecen hasta que aparezca una nueva diferencia.
+- **En la CLI**: ejecuta `rootcause autostart --accept`.
+
+En ambos casos el estado actual queda guardado como baseline y la aceptación se audita en `audit_log`
+con la acción `accept-persistence-baseline`. Mientras no aceptes, los cambios son pegajosos y se siguen
+mostrando en cada scan.
 
 ---
 

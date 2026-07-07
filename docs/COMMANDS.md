@@ -305,6 +305,24 @@ rootcause config show --json
 rootcause config init
 ```
 
+### Autostart y persistencia
+
+```powershell
+rootcause autostart          # lista Run + Startup + Tareas programadas y marca cambios [NUEVA]/[MODIFIC.]/[ELIMIN.]
+rootcause autostart --json   # lo mismo en JSON, incluye campo change_status por entrada
+rootcause autostart --accept # fija el estado actual como baseline buena conocida
+```
+
+Notas:
+- Cada scan compara las entradas contra una baseline conocida guardada en SQLite y clasifica
+  cada una como **[NUEVA]** (no estaba antes), **[MODIFIC.]** (cambió el comando) o
+  **[ELIMIN.]** (estaba y ya no aparece).
+- En la salida `--json` cada entrada lleva el campo `change_status` con uno de estos valores:
+  `unchanged`, `added`, `modified`, `removed`.
+- Los cambios son pegajosos: se siguen marcando hasta que ejecutas `rootcause autostart --accept`,
+  que fija el estado actual como nueva baseline y registra la acción `accept-persistence-baseline`
+  en `audit_log`.
+
 ### IA opcional por API
 
 ```powershell

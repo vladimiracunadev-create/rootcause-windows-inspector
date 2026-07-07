@@ -68,7 +68,7 @@ Este proyecto demuestra capacidades en varias áreas al mismo tiempo:
 - atajos de teclado en la GUI (`Ctrl+1…9`),
 - tab Acerca con metadatos del producto,
 - información de hardware del equipo,
-- tab Autostart integrado: registro Run y carpetas Startup con severidad heurística — diferenciador clave frente a herramientas equivalentes gratuitas.
+- tab Autostart integrado: registro Run y carpetas Startup con severidad heurística, y **detección de cambios de autoarranque contra una baseline conocida** (persistida en SQLite) que clasifica cada entrada como nueva, modificada o eliminada y levanta alertas `persistence-change` — diferenciador técnico clave frente a herramientas equivalentes gratuitas.
 
 ### Escalabilidad técnica
 - ruta clara para crecer a análisis más fino,
@@ -225,4 +225,4 @@ La ruta de escalamiento se desarrolla con más detalle en `docs/ARQUITECTURA_ESC
 
 ## 11. Versión actual
 
-**v0.9.0** — ediciones GUI/CLI-only, módulo PowerShell, manifests Scoop/Winget/Chocolatey, extensión VS Code, configuración local segura, historial SQLite con incidentes y auditoría, correlación técnica ligera, alertas nativas, detección heurística de comportamiento anómalo y posible actividad maliciosa (V1), salud del agente con heartbeat local, detección de cierre abrupto previo, integridad básica de configuración, backoff recomendado y catálogo de artefactos/publicación alineado entre repo, release y landing.
+**v0.12.0** — ediciones GUI/CLI-only, módulo PowerShell, manifests Scoop/Winget/Chocolatey, extensión VS Code, configuración local segura, historial SQLite con incidentes y auditoría, correlación técnica ligera, alertas nativas, detección heurística de comportamiento anómalo y posible actividad maliciosa (V1), salud del agente con heartbeat local, detección de cierre abrupto previo, integridad básica de configuración, backoff recomendado, tab Autostart con tareas programadas y umbrales editables inline, detección de cambios de autoarranque (baseline SQLite, clasificación NUEVA/MODIFICADA/ELIMINADA, alertas `persistence-change`, aceptación via UI y CLI) y catálogo de artefactos/publicación alineado entre repo, release y landing.

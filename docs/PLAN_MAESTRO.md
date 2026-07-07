@@ -1,10 +1,10 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.11.0 · **Actualizado:** 2026-04-29
+**Versión base:** v0.12.0 · **Actualizado:** 2026-04-29
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
-> Estado del entorno: CI debe estar verde — v0.11.0 completada. Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
+> Estado del entorno: CI debe estar verde — v0.12.0 completada. Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
 
 ---
 
@@ -33,7 +33,7 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 
 | Desventaja | Plan de ataque |
 |---|---|
-| No monitorea entradas de autostart/registro | → Fase 4: Tab Autostart |
+| ~~No monitorea entradas de autostart/registro~~ ✅ **Resuelto** — Tab Autostart (v0.10) + tareas programadas (v0.11) + detección de cambios contra baseline (v0.12) | Entregado |
 | Sin firma digital → SmartScreen en primera ejecución | → Fase 6: firma digital |
 | Solo 1 test unitario | → Fase 3: tests para funciones críticas |
 | Sin configuración de umbrales por el usuario | → Fase 4: archivo `rootcause.toml` |
@@ -164,6 +164,12 @@ Datos: nombre, tipo de origen (pill diferenciado), comando completo con tooltip,
 Pill amarillo en UI, CLI muestra "Tarea programada". Nota contextual al pie por tipo.
 Próximo: filtrar también por `TaskPath` raíz no-Microsoft para reducir ruido.
 
+#### 4.2b Detección de cambios de autoarranque (baseline SQLite) ✅ Completado en v0.12.0
+Qué hace: da control explícito para saber si cambian los puntos de autoarranque de Windows (Registro Run/RunOnce HKCU/HKLM, carpetas Startup, tareas programadas no-Microsoft).
+Cómo: baseline persistida en SQLite (tabla `persistence_baseline`). La primera foto se toma como estado bueno conocido (silenciosa, sin alertas). En escaneos posteriores cada entrada se clasifica **NUEVA / MODIFICADA / ELIMINADA** contra la baseline; los cambios son pegajosos hasta que el usuario los acepte.
+Alertas: genera alertas kind `persistence-change` — **Alta** para entradas nuevas/modificadas, **Media** para eliminadas.
+Aceptación: botón en el tab Autostart ("✓ Aceptar estado actual como baseline") o CLI `rootcause autostart --accept`. `rootcause autostart --json` incluye el campo `change_status` por entrada.
+
 #### 4.3 Tray icon (monitor proactivo)
 Qué hace: ícono en bandeja del sistema. Cambia de color (verde/amarillo/rojo) según severidad. Click abre la ventana completa. El programa corre en segundo plano sin que el usuario lo vea.
 Por qué importa: transforma RootCause de herramienta reactiva (abro cuando hay problema) a monitor proactivo (me avisa cuando hay problema).
@@ -228,12 +234,12 @@ En orden de impacto potencial:
 ## IV. Mapa de versiones del producto
 
 ```
-v0.6  ✅   v0.7 ✅               v0.9 ✅   v0.10 ✅          v0.11 ✅              v1.0 ⏳               v2.0+ ⏳
-──────────  ────────────────────  ────────  ──────────────────  ────────────────────  ──────────────────── ──────────────────
-GUI+CLI+    CLI-only binary ✅    Agente    Tab Autostart ✅    Tareas programadas ✅  Tray icon activo      Windows Service
-SQLite+     PowerShell module ✅  salud ✅  UI profesional ✅   CLI autostart ✅       Firma digital         Edición Seguridad
-historial   Scoop/Winget/Choco✅  heartb.✅ RAM pbar real ✅    Umbrales editables ✅  Scoop/Winget publis.  Edición Enterprise
-            VS Code Extension ✅  backoff✅ Ctrl+1..9 ✅        save_config() ✅       EMAIL+GitLab meta.rs  MSIX / Store
+v0.6  ✅   v0.7 ✅               v0.9 ✅   v0.10 ✅          v0.11 ✅              v0.12 ✅                v1.0 ⏳               v2.0+ ⏳
+──────────  ────────────────────  ────────  ──────────────────  ────────────────────  ─────────────────────  ──────────────────── ──────────────────
+GUI+CLI+    CLI-only binary ✅    Agente    Tab Autostart ✅    Tareas programadas ✅  Baseline autostart ✅   Tray icon activo      Windows Service
+SQLite+     PowerShell module ✅  salud ✅  UI profesional ✅   CLI autostart ✅       Cambios NUEVA/MOD/ELIM  Firma digital         Edición Seguridad
+historial   Scoop/Winget/Choco✅  heartb.✅ RAM pbar real ✅    Umbrales editables ✅  persistence-change ✅   Scoop/Winget publis.  Edición Enterprise
+            VS Code Extension ✅  backoff✅ Ctrl+1..9 ✅        save_config() ✅       --accept baseline ✅    EMAIL+GitLab meta.rs  MSIX / Store
             Tray skeleton ✅                                     Manifests 0.11.0 ✅
             Service skeleton ✅
             SQLite retención ✅

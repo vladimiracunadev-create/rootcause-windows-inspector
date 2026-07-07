@@ -9,7 +9,7 @@
 ║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝      ║
 ║                                                                                   ║
 ║                     W I N D O W S   I N S P E C T O R                             ║
-║               Forensic diagnostics · Built in Rust · v0.11.0                      ║
+║               Forensic diagnostics · Built in Rust · v0.12.0                      ║
 ╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -17,7 +17,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
-[![Version](https://img.shields.io/badge/version-0.11.0-green.svg)](docs/ROADMAP.md)
+[![Version](https://img.shields.io/badge/version-0.12.0-green.svg)](docs/ROADMAP.md)
 
 🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-windows-inspector/)**
 
@@ -79,7 +79,7 @@ El modo principal. Bajo consumo, útil para observación frecuente.
 - 🔔 Notificaciones toast cuando aparece proceso Critical
 - ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…9` cambio de tab
 - 🖥️ Info de hardware del equipo: OS, CPU, núcleos, frecuencia, RAM
-- ◫  Tab Autostart: registro Run (HKCU/HKLM) y carpetas Startup con severidad y verificación en disco
+- ◫  Tab Autostart: registro Run (HKCU/HKLM) y carpetas Startup con severidad y verificación en disco — detecta cambios contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) y genera alertas `persistence-change`
 - 💻 CLI completa: `rootcause --help` con todos los comandos desde consola
 
 ### 2 · Modo de precisión ETW/WPR
@@ -269,7 +269,7 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 - Historial SQLite con últimas 60 capturas
 - Comparación A vs B con deltas de CPU / RAM / I/O / Alertas
 - Incidentes resumidos persistidos con causas probables y evidencia correlacionada
-- Auditoría local de acciones (`kill`, `block-ip`, `stop-service`, WPR, IA opcional)
+- Auditoría local de acciones (`kill`, `block-ip`, `stop-service`, `accept-persistence-baseline`, WPR, IA opcional)
 - Exportación JSON · Carpeta trazas ETL y análisis
 
 </details>
@@ -302,7 +302,7 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 
 - Heuristicas locales para CPU sostenido, crecimiento de memoria, escritura agresiva y trafico saliente inusual
 - Rutas sospechosas, baseline confiable configurable y relacion padre-hijo sospechosa
-- Persistencia basica en Run/RunOnce/Startup y servicios de seguridad relevantes
+- Persistencia basica en Run/RunOnce/Startup y servicios de seguridad relevantes, con comparacion contra una baseline conocida y clasificacion de cambios (NUEVA/MODIFICADA/ELIMINADA) que emite anomalias `persistence-change`
 - Correlacion simple de senales con score, severidad, hipotesis de causa y recomendacion sugerida
 - Exposicion del incidente dominante en GUI, CLI, export JSON e historial persistido
 - Posicionamiento honesto: complementa observabilidad y diagnostico; no reemplaza antivirus o EDR

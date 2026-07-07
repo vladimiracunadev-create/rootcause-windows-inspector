@@ -10,7 +10,7 @@ RootCause complementa observabilidad y diagnostico del endpoint, pudiendo detect
 
 - Estado: `V1 inicial implementada en el repositorio`
 - Alcance actual: heuristicas locales, correlacion basica, scoring, evidencia, incidentes resumidos, persistencia JSON/SQLite, salida GUI y CLI.
-- Alcance pendiente: baseline mas madura, cobertura de persistencia ampliada, hashes opcionales, supervisores de larga duracion y hardening del propio agente.
+- Alcance pendiente: baseline mas madura para otras senales, hashes opcionales, supervisores de larga duracion y hardening del propio agente.
 
 ## Que hace hoy
 
@@ -20,6 +20,8 @@ RootCause complementa observabilidad y diagnostico del endpoint, pudiendo detect
   - `HKCU/HKLM\...\Run`
   - `HKCU/HKLM\...\RunOnce`
   - carpeta `Startup` del usuario y global
+  - tareas programadas no-Microsoft
+- Mantiene una baseline conocida de autoarranque en SQLite (`persistence_baseline`). La primera foto siembra la baseline en silencio; a partir de ahi cada scan compara contra ella y clasifica cada entrada como NUEVA, MODIFICADA (cambio de `command`), ELIMINADA o sin cambios. Los cambios quedan pegajosos hasta que el usuario los acepta (UI o `rootcause autostart --accept`).
 - Revisa servicios relevantes de operacion y seguridad:
   - `wuauserv`, `BITS`, `DoSvc`, `TrustedInstaller`, `SysMain`
   - `WinDefend`, `WdNisSvc`, `MpsSvc`, `wscsvc`, `Sense`
@@ -43,26 +45,28 @@ RootCause complementa observabilidad y diagnostico del endpoint, pudiendo detect
 4. Multiples destinos salientes publicos en una misma ventana.
 5. Ejecucion desde rutas sospechosas como `Temp`, `Downloads` o rutas de usuario no confiables.
 6. Proceso fuera de linea confiable local.
-7. Persistencia sospechosa en Run/RunOnce/Startup.
+7. Persistencia sospechosa en Run/RunOnce/Startup (`suspicious-persistence`, heuristica de "parece sospechoso ahora").
 8. Reaparicion rapida de proceso.
 9. Relacion padre-hijo sospechosa.
 10. Ejecucion repetitiva de scripts o comandos.
 11. Comandos compatibles con alteracion de seguridad local.
 12. Patron de exploracion agresiva en red local.
 13. Correlacion basica de multiples senales sobre el mismo proceso o contexto.
+14. Cambio de autoarranque contra baseline conocida, emitido como `persistence-change` (severidad `High` para NUEVA/MODIFICADA, `Medium` para ELIMINADA). Coexiste con `suspicious-persistence`: uno compara contra la baseline, el otro evalua si la entrada parece sospechosa ahora.
 
 ## Flujo aplicado
 
-1. `InspectorService` recopila procesos, red, temporales, servicios, eventos y persistencia.
-2. `services/anomaly.rs` evalua reglas heuristicas locales con un estado incremental ligero.
-3. Cada hallazgo genera un `AnomalyEvent`.
-4. `services/rules.rs` traduce las anomalias a alertas visibles y a un `IncidentSummary`.
-5. El snapshot conserva:
+1. `InspectorService` recopila procesos, red, temporales, servicios, eventos y persistencia (`persistence_entries()`).
+2. `InspectorService::detect_persistence_changes()` compara la persistencia observada contra `persistence_baseline` y anota los cambios; `persistence_change_event()` en `anomaly.rs` crea el `AnomalyEvent` correspondiente.
+3. `services/anomaly.rs` evalua reglas heuristicas locales con un estado incremental ligero.
+4. Cada hallazgo genera un `AnomalyEvent`.
+5. `services/rules.rs` traduce las anomalias a alertas visibles y a un `IncidentSummary`.
+6. El snapshot conserva:
    - `anomalies`
    - `incident`
    - `persistence_entries`
-6. La GUI muestra riesgo, hipotesis, evidencia y anomalias destacadas en `Overview`.
-7. CLI y exportacion JSON exponen el mismo resultado sin depender de IA remota.
+7. La GUI muestra riesgo, hipotesis, evidencia y anomalias destacadas en `Overview`.
+8. CLI y exportacion JSON exponen el mismo resultado sin depender de IA remota.
 
 ## Arquitectura aplicada
 
@@ -72,13 +76,18 @@ RootCause complementa observabilidad y diagnostico del endpoint, pudiendo detect
   - motor heuristico local
   - correlacion basica
   - estado incremental de CPU, memoria, respawn y scripts
+  - `persistence_change_event()` construye el `AnomalyEvent` de tipo `persistence-change`
 - `src/services/inspector.rs`
   - orquestacion del snapshot
   - integracion con persistencia, UI y CLI
+  - `detect_persistence_changes()` compara la persistencia observada contra la baseline y anota los cambios
 - `src/services/windows.rs`
   - servicios relevantes
-  - persistencia observable en Windows
+  - persistencia observable en Windows (`persistence_entries()`)
   - captura de `command line`
+- `src/services/persistence.rs`
+  - baseline de autoarranque en SQLite (`persistence_baseline`)
+  - `load_persistence_baseline()` / `replace_persistence_baseline()`
 - `src/services/rules.rs`
   - traduccion a alertas e incidentes
 - `src/models.rs`
@@ -101,7 +110,7 @@ Cada `AnomalyEvent` intenta incluir, cuando la captura lo permite:
 - `detected_at`
 - `severity`
 - `score`
-- `kind`
+- `kind` (por ejemplo `correlated-anomaly`, `suspicious-persistence` o `persistence-change`)
 - `title`
 - `process_name`
 - `pid`
@@ -134,6 +143,19 @@ Cada `AnomalyEvent` intenta incluir, cuando la captura lo permite:
 }
 ```
 
+Ejemplo de cambio de autoarranque contra baseline:
+
+```json
+{
+  "kind": "persistence-change",
+  "title": "Nueva entrada de autoarranque no vista en la baseline",
+  "severity": "High",
+  "summary": "Aparecio una entrada Run (HKCU) que no estaba en la baseline conocida.",
+  "root_cause_hypothesis": "persistencia NUEVA respecto a la baseline sembrada en el primer scan",
+  "recommended_action": "Revisar el origen de la entrada y aceptarla en la baseline si es legitima (UI o `rootcause autostart --accept`)."
+}
+```
+
 ## Configuracion base
 
 La configuracion vive en `rootcause-config.json`, dentro del bloque `anomaly`.
@@ -158,6 +180,8 @@ Claves principales:
 - `suspicious_parent_names`
 - `security_service_names`
 - `watch_persistence`
+
+`watch_persistence` (bool, `true` por defecto) habilita la observacion de persistencia, la comparacion contra la baseline `persistence_baseline` y la emision de eventos `persistence-change`. Con `false` no se siembra ni compara baseline.
 
 Ejemplo orientativo:
 

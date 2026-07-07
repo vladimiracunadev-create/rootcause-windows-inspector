@@ -95,7 +95,29 @@ No se marcan como “malos” por defecto. Se usan para responder:
 
 ---
 
-## 6) Construcción del semáforo general
+## 6) Cambios de autoarranque contra baseline
+
+Además de juzgar si una entrada de autoarranque "parece sospechosa ahora", el proyecto mantiene una **baseline conocida** de persistencia: registro Run/RunOnce (HKCU/HKLM), carpetas Startup (usuario y global) y tareas programadas no-Microsoft.
+
+### Siembra de la baseline
+El primer scan con baseline vacía siembra las entradas observadas en silencio. Esa primera foto no marca cambios: solo establece el punto de referencia.
+
+### Clasificación de cambios
+En cada scan posterior se compara la persistencia observada contra la baseline y cada entrada se clasifica:
+
+- **NUEVA** — apareció una entrada que no estaba en la baseline.
+- **MODIFICADA** — la entrada existe, pero su comando cambió.
+- **ELIMINADA** — la entrada estaba en la baseline y ya no aparece.
+- **sin cambios** — coincide con la baseline.
+
+Los cambios son pegajosos: siguen visibles hasta que el usuario los acepta e incorpora a la baseline.
+
+### Severidad diferenciada
+La aparición (NUEVA) y la modificación (MODIFICADA) reciben severidad más alta porque son la forma en que un mecanismo no autorizado se instala o muta para persistir. La eliminación (ELIMINADA) recibe severidad menor: quitar una entrada rara vez es un vector de ataque y suele corresponder a una desinstalación o limpieza legítima, aunque sigue siendo un cambio que conviene notar.
+
+---
+
+## 7) Construcción del semáforo general
 
 ### Verde
 No hay una causa dominante fuerte.
@@ -108,7 +130,7 @@ Hay causa dominante o correlación fuerte entre señales.
 
 ---
 
-## 7) Cuándo escalar a WPR
+## 8) Cuándo escalar a WPR
 
 Escala a WPR cuando:
 
@@ -119,7 +141,7 @@ Escala a WPR cuando:
 
 ---
 
-## 8) Límite deliberado de la heurística
+## 9) Límite deliberado de la heurística
 
 La heurística base no pretende reemplazar:
 

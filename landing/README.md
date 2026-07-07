@@ -4,7 +4,7 @@ Pagina web publica del producto [RootCause Windows Inspector](https://github.com
 
 Ver online: https://vladimiracunadev-create.github.io/rootcause-windows-inspector
 
-**Version actual:** v0.9.0
+**Version actual:** v0.12.0
 
 ---
 
@@ -71,10 +71,11 @@ Artefactos esperados del release principal:
 - `RootCause.psm1`: integracion; requiere `rootcause.exe`
 - `RootCause-VSCode-Extension.vsix`: integracion; requiere `rootcause.exe`
 
-## Evolucion visible en la landing para v0.9.0
+## Evolucion visible en la landing para v0.12.0
 
 - mantener un bloque breve sobre seguridad y resiliencia del agente
 - mencionar heartbeat local, integridad basica de configuracion y deteccion de cierre abrupto previo
+- Tab Autostart con baseline en SQLite y deteccion de cambios de persistencia (`persistence-change`): entradas NUEVA / MODIFICADA / ELIMINADA, aceptables con `rootcause autostart --accept`
 - no presentar RootCause como antivirus, EDR completo ni proteccion perfecta
 - conservar el look & feel existente del repo publico
 
