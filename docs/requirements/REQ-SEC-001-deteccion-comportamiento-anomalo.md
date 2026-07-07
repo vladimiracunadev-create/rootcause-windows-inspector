@@ -165,10 +165,12 @@ No requiere reescritura completa de la arquitectura actual, pero si una evolucio
 
 ## 19. Roadmap sugerido
 
-- `Post-v1.0`: formalizar catalogo de senales, scoring y nomenclatura de incidentes.
-- `Phase 2`: correlacionar procesos, red, persistencia y rutas sospechosas en el endpoint. Ya implementada la baseline de persistencia con cambios clasificados (`persistence-change`).
-- `Phase 3`: enriquecer interfaz, exportaciones y sugerencias de mitigacion.
-- `Phase 4`: validar escenarios, medir ruido y documentar limites operativos.
+| Hito | Objetivo |
+|---|---|
+| `Post-v1.0` | formalizar catalogo de senales, scoring y nomenclatura de incidentes. |
+| `Phase 2` | correlacionar procesos, red, persistencia y rutas sospechosas en el endpoint. Ya implementada la baseline de persistencia con cambios clasificados (`persistence-change`). |
+| `Phase 3` | enriquecer interfaz, exportaciones y sugerencias de mitigacion. |
+| `Phase 4` | validar escenarios, medir ruido y documentar limites operativos. |
 
 ## 20. Metricas o senales de validacion
 
@@ -184,7 +186,7 @@ Este requerimiento encaja con la vision del producto porque parte del mismo prin
 
 ## 22. Nota de posicionamiento comercial honesto
 
-RootCause puede evolucionar para detectar señales compatibles con actividad maliciosa o no autorizada, sin reemplazar una solucion antivirus o EDR especializada.
+> RootCause puede evolucionar para detectar señales compatibles con actividad maliciosa o no autorizada, sin reemplazar una solucion antivirus o EDR especializada.
 
 ## 23. Trazabilidad documental
 

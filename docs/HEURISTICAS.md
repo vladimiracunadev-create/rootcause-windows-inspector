@@ -17,45 +17,23 @@ Las heurísticas **no son verdad absoluta**. Son un sistema práctico para:
 
 ## 2) Señales por proceso
 
-### CPU
-Sube severidad cuando el proceso domina la ventana observada.
-
-### RAM
-Sube severidad cuando el consumo ya es material para el equipo.
-
-### Escritura de disco
-Es una de las señales más valiosas del proyecto.
-
-### Ruta del ejecutable
-Gana peso si el ejecutable está en:
-
-- `%TEMP%`
-- `AppData\Local\Temp`
-- rutas transitorias
-- staging de instaladores
-
-### Nombre del proceso
-Sube contexto si contiene patrones como:
-
-- `update`
-- `setup`
-- `installer`
-- `msiexec`
-- `trustedinstaller`
-- `dism`
+| Señal | Cuándo sube severidad |
+|---|---|
+| CPU | Cuando el proceso domina la ventana observada. |
+| RAM | Cuando el consumo ya es material para el equipo. |
+| Escritura de disco | Es una de las señales más valiosas del proyecto. |
+| Ruta del ejecutable | Gana peso si el ejecutable está en `%TEMP%`, `AppData\Local\Temp`, rutas transitorias o staging de instaladores. |
+| Nombre del proceso | Sube contexto si contiene patrones como `update`, `setup`, `installer`, `msiexec`, `trustedinstaller`, `dism`. |
 
 ---
 
 ## 3) Señales por red
 
-### IP pública
-No implica riesgo por sí sola, pero exige validación.
-
-### Ruta temporal + IP pública
-Es una combinación más seria.
-
-### Conexión establecida
-Tiene mayor peso que un estado irrelevante o residual.
+| Señal | Cuándo sube severidad |
+|---|---|
+| IP pública | No implica riesgo por sí sola, pero exige validación. |
+| Ruta temporal + IP pública | Es una combinación más seria. |
+| Conexión establecida | Tiene mayor peso que un estado irrelevante o residual. |
 
 ---
 
@@ -105,10 +83,12 @@ El primer scan con baseline vacía siembra las entradas observadas en silencio. 
 ### Clasificación de cambios
 En cada scan posterior se compara la persistencia observada contra la baseline y cada entrada se clasifica:
 
-- **NUEVA** — apareció una entrada que no estaba en la baseline.
-- **MODIFICADA** — la entrada existe, pero su comando cambió.
-- **ELIMINADA** — la entrada estaba en la baseline y ya no aparece.
-- **sin cambios** — coincide con la baseline.
+| Clasificación | Significado |
+|---|---|
+| **NUEVA** | Apareció una entrada que no estaba en la baseline. |
+| **MODIFICADA** | La entrada existe, pero su comando cambió. |
+| **ELIMINADA** | La entrada estaba en la baseline y ya no aparece. |
+| **sin cambios** | Coincide con la baseline. |
 
 Los cambios son pegajosos: siguen visibles hasta que el usuario los acepta e incorpora a la baseline.
 
@@ -124,14 +104,11 @@ La primera superficie sobre ese motor es **Servicios**. Vigila el par `StartMode
 
 ## 7) Construcción del semáforo general
 
-### Verde
-No hay una causa dominante fuerte.
-
-### Amarillo
-Hay presión relevante o patrón que merece vigilancia.
-
-### Rojo
-Hay causa dominante o correlación fuerte entre señales.
+| Color | Cuándo se enciende |
+|---|---|
+| 🟢 Verde | No hay una causa dominante fuerte. |
+| 🟡 Amarillo | Hay presión relevante o patrón que merece vigilancia. |
+| 🔴 Rojo | Hay causa dominante o correlación fuerte entre señales. |
 
 ---
 

@@ -27,9 +27,11 @@ Los requerimientos ya no estan en el mismo punto:
 
 ## Mensajes obligatorios que este registro preserva
 
-- RootCause puede evolucionar para detectar señales compatibles con actividad maliciosa o no autorizada, sin reemplazar una solucion antivirus o EDR especializada.
-- RootCause tambien debe contemplar la resiliencia de su propio agente, ya que una herramienta de diagnostico puede convertirse en objetivo de manipulacion en escenarios reales.
-- La documentacion de estos requerimientos queda visible y enlazada, no como una nota aislada, sino como parte explicita del roadmap tecnico del producto.
+> RootCause puede evolucionar para detectar señales compatibles con actividad maliciosa o no autorizada, sin reemplazar una solucion antivirus o EDR especializada.
+
+> RootCause tambien debe contemplar la resiliencia de su propio agente, ya que una herramienta de diagnostico puede convertirse en objetivo de manipulacion en escenarios reales.
+
+> La documentacion de estos requerimientos queda visible y enlazada, no como una nota aislada, sino como parte explicita del roadmap tecnico del producto.
 
 ## Trazabilidad documental
 

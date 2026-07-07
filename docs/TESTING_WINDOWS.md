@@ -21,52 +21,42 @@ Comprobar, en una máquina Windows real, que el software:
 ## 2) Ambientes mínimos a probar
 
 ### A. Usuario estándar
-- ejecutar la app
-- refrescar snapshot
-- exportar JSON
-- revisar procesos, temporales, conexiones y eventos
+- [ ] ejecutar la app
+- [ ] refrescar snapshot
+- [ ] exportar JSON
+- [ ] revisar procesos, temporales, conexiones y eventos
 
 ### B. Administrador
-- finalizar un proceso de prueba
-- bloquear una IP de laboratorio
-- detener un servicio permitido de laboratorio
-- iniciar y detener WPR si WPT está instalado
+- [ ] finalizar un proceso de prueba
+- [ ] bloquear una IP de laboratorio
+- [ ] detener un servicio permitido de laboratorio
+- [ ] iniciar y detener WPR si WPT está instalado
 
 ---
 
 ## 3) Smoke test mínimo
 
-1. `cargo build --release`
-2. abrir `target\release\rootcause.exe`
-3. verificar que la ventana aparezca sin crash
-4. pulsar `Actualizar ahora`
-5. confirmar que cambia la línea de estado
-6. pulsar `Exportar JSON`
-7. confirmar que aparece el archivo exportado
-8. cerrar y reabrir la aplicación
-9. confirmar que el historial SQLite no rompe el arranque
+- [ ] 1. `cargo build --release`
+- [ ] 2. abrir `target\release\rootcause.exe`
+- [ ] 3. verificar que la ventana aparezca sin crash
+- [ ] 4. pulsar `Actualizar ahora`
+- [ ] 5. confirmar que cambia la línea de estado
+- [ ] 6. pulsar `Exportar JSON`
+- [ ] 7. confirmar que aparece el archivo exportado
+- [ ] 8. cerrar y reabrir la aplicación
+- [ ] 9. confirmar que el historial SQLite no rompe el arranque
 
 ---
 
 ## 4) Validación funcional
 
-### Procesos dominantes
-- abrir una copia pesada de archivos o descompresión
-- comprobar si el proceso sube en ranking
-
-### Temporales
-- copiar un archivo grande a `%TEMP%`
-- validar que aparezca reflejado en el escaneo
-
-### Red
-- abrir una descarga o navegador
-- validar que existan conexiones con PID y proceso
-
-### Eventos
-- confirmar que la sección de eventos no queda vacía cuando el sistema sí tiene warnings/errors recientes
-
-### Servicios
-- comprobar estado de `BITS`, `DoSvc`, `wuauserv`, `SysMain`
+| Área | Acción de prueba | Qué validar |
+|---|---|---|
+| Procesos dominantes | Abrir una copia pesada de archivos o descompresión | El proceso sube en ranking |
+| Temporales | Copiar un archivo grande a `%TEMP%` | Que aparezca reflejado en el escaneo |
+| Red | Abrir una descarga o navegador | Que existan conexiones con PID y proceso |
+| Eventos | Sistema con warnings/errors recientes | Que la sección de eventos no quede vacía |
+| Servicios | Comprobar estado de `BITS`, `DoSvc`, `wuauserv`, `SysMain` | — |
 
 ---
 
@@ -77,29 +67,29 @@ Comprobar, en una máquina Windows real, que el software:
 - opcionalmente WPA y tracerpt
 
 ### Caso básico
-1. iniciar captura
-2. reproducir síntoma durante 1 a 3 minutos
-3. detener captura
-4. confirmar generación del `.etl`
-5. resumir el ETL
-6. validar que exista `trace-analysis.json`
-7. abrir el ETL en WPA si corresponde
+- [ ] 1. iniciar captura
+- [ ] 2. reproducir síntoma durante 1 a 3 minutos
+- [ ] 3. detener captura
+- [ ] 4. confirmar generación del `.etl`
+- [ ] 5. resumir el ETL
+- [ ] 6. validar que exista `trace-analysis.json`
+- [ ] 7. abrir el ETL en WPA si corresponde
 
 ---
 
 ## 6) Validación de empaquetado
 
 ### Portable
-- ejecutar `scripts\package-portable.ps1`
-- abrir el ZIP
-- validar que incluya `.exe`, docs y scripts
+- [ ] ejecutar `scripts\package-portable.ps1`
+- [ ] abrir el ZIP
+- [ ] validar que incluya `.exe`, docs y scripts
 
 ### Instalador
-- ejecutar `scripts\package-inno.ps1`
-- instalar en máquina de prueba
-- abrir desde acceso directo
-- desinstalar
-- validar que no queden residuos inesperados fuera de la carpeta de datos del usuario
+- [ ] ejecutar `scripts\package-inno.ps1`
+- [ ] instalar en máquina de prueba
+- [ ] abrir desde acceso directo
+- [ ] desinstalar
+- [ ] validar que no queden residuos inesperados fuera de la carpeta de datos del usuario
 
 ---
 
@@ -107,9 +97,9 @@ Comprobar, en una máquina Windows real, que el software:
 
 Se puede considerar que el repositorio está en estado profesional aceptable cuando:
 
-- CI en GitHub Actions está en verde,
-- el smoke test en Windows real pasa,
-- el `.exe` abre y exporta JSON,
-- el ZIP portable se genera,
-- el instalador se genera e instala,
-- los límites y requisitos quedaron documentados con honestidad.
+- [ ] CI en GitHub Actions está en verde,
+- [ ] el smoke test en Windows real pasa,
+- [ ] el `.exe` abre y exporta JSON,
+- [ ] el ZIP portable se genera,
+- [ ] el instalador se genera e instala,
+- [ ] los límites y requisitos quedaron documentados con honestidad.

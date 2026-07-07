@@ -1,4 +1,23 @@
-# Roadmap
+# 🗺️ Roadmap
+
+> Historial de versiones entregadas y objetivos futuros de RootCause. El detalle de cada versión se conserva más abajo; esta tabla es solo un resumen de navegación.
+
+## Resumen de versiones
+
+| Versión | Estado | Hito principal |
+|---|---|---|
+| [v0.5](#v05-entregado--primer-release-publicado-consolida-el-trabajo-previo) | ✅ Entregado | Primer release publicado: integración WPR, CI y pipeline de release |
+| [v0.6](#v06-entregado) | ✅ Entregado | Sparklines, tab Historial con SQLite y comparación A/B |
+| [v0.7](#v07-entregado) | ✅ Entregado | Feature flags GUI/CLI, módulo PowerShell y manifests |
+| [v0.8](#v08-entregado) | ✅ Entregado | Módulo V1 de detección de comportamiento anómalo |
+| [v0.9](#v09-entregado) | ✅ Entregado | Salud del agente: heartbeat, recuperación y backoff |
+| [v0.11](#v011-entregado-incluye-el-trabajo-previo-del-tab-autostart) | ✅ Entregado | Tab Autostart + umbrales editables inline |
+| [v0.12](#v012-entregado) | ✅ Entregado | Detección de cambios de autoarranque contra baseline |
+| [v0.13](#v013-entregado-version-actual) | ✅ **Actual** | Detección de cambios en servicios + motor genérico de baseline |
+| [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: tray icon, firma digital, publicación |
+| [v2.0+](#v20-largo-plazo) | 🔭 Largo plazo | Windows Service 24/7, ediciones Seguridad y Enterprise |
+
+---
 
 ## v0.5 Entregado — primer release publicado (consolida el trabajo previo)
 - integracion WPR desde la UI

@@ -1,8 +1,8 @@
-# Guía de uso previa de RootCause Demo
+# 📖 Guía de uso previa de RootCause Demo
 
 Lee esto antes de ejecutar la demo.
 
-## 1. Qué hace
+## 1. ✅ Qué hace
 
 RootCause Demo observa el equipo y trata de responder preguntas como:
 
@@ -12,7 +12,7 @@ RootCause Demo observa el equipo y trata de responder preguntas como:
 - qué conexión externa aparece vinculada a un proceso,
 - si conviene capturar una traza de precisión.
 
-## 2. Qué no hace
+## 2. 🚫 Qué no hace
 
 - no acelera automáticamente Windows,
 - no reemplaza antivirus,
@@ -20,7 +20,7 @@ RootCause Demo observa el equipo y trata de responder preguntas como:
 - no corrige problemas de hardware físico,
 - no garantiza identificar todos los archivos exactos en todos los escenarios.
 
-## 3. Cómo usarlo de forma segura
+## 3. 🛡️ Cómo usarlo de forma segura
 
 1. Abre RootCause Demo.
 2. Espera al menos 2 o 3 ciclos de captura.
@@ -30,7 +30,7 @@ RootCause Demo observa el equipo y trata de responder preguntas como:
 6. Exporta un JSON si quieres guardar evidencia.
 7. Solo usa acciones de cierre o bloqueo cuando entiendas qué ocurre.
 
-## 4. Cuándo usar modo de precisión
+## 4. 🔬 Cuándo usar modo de precisión
 
 Usa WPR/ETW si:
 
@@ -39,7 +39,7 @@ Usa WPR/ETW si:
 - sospechas Windows Update o instaladores en segundo plano,
 - necesitas evidencia más detallada para revisar después.
 
-## 5. Cuándo no usar acciones agresivas
+## 5. ⚠️ Cuándo no usar acciones agresivas
 
 Evita terminar procesos o detener servicios si:
 

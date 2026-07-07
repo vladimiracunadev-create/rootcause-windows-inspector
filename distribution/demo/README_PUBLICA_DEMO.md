@@ -1,22 +1,24 @@
-# RootCause Demo: texto sugerido para página oficial
+# 🌐 RootCause Demo: texto sugerido para página oficial
 
-## Título
+Copia lista para usar en la página pública de descarga de la demo.
 
-RootCause Demo
+## 🏷️ Título
 
-## Subtítulo
+> RootCause Demo
 
-Utilidad experimental para Windows orientada a descubrir causas reales de lentitud, no a vender una aceleración mágica.
+## 🧵 Subtítulo
 
-## Resumen corto
+> Utilidad experimental para Windows orientada a descubrir causas reales de lentitud, no a vender una aceleración mágica.
 
-RootCause Demo ayuda a identificar procesos pesados, temporales anómalos, servicios conflictivos, actividad de Windows Update y conexiones sospechosas. Está pensada para observar primero, exportar evidencia y actuar con criterio.
+## 📝 Resumen corto
 
-## Advertencia breve
+> RootCause Demo ayuda a identificar procesos pesados, temporales anómalos, servicios conflictivos, actividad de Windows Update y conexiones sospechosas. Está pensada para observar primero, exportar evidencia y actuar con criterio.
 
-Demo funcional. Algunas acciones avanzadas pueden requerir permisos de administrador. No reemplaza antivirus ni soporte técnico.
+## ⚠️ Advertencia breve
 
-## Botones sugeridos
+> Demo funcional. Algunas acciones avanzadas pueden requerir permisos de administrador. No reemplaza antivirus ni soporte técnico.
+
+## 🔘 Botones sugeridos
 
 - Descargar instalador demo
 - Descargar versión portable

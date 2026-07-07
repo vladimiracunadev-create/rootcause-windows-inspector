@@ -1,8 +1,8 @@
-# Limitaciones de RootCause Demo
+# ⚖️ Limitaciones de RootCause Demo
 
 Este documento existe para evitar falsas expectativas.
 
-## Limitaciones actuales
+## 🔧 Limitaciones actuales
 
 - no incluye firma digital,
 - no incluye driver,
@@ -12,20 +12,20 @@ Este documento existe para evitar falsas expectativas.
 - algunas acciones requieren permisos elevados,
 - el resumen ETL es una ayuda inicial, no reemplaza por completo a WPA.
 
-## Limitaciones de la distribución demo
+## 📦 Limitaciones de la distribución demo
 
 - el nombre visible es **RootCause Demo** para dejar claro que es una build pública de evaluación,
 - la experiencia puede cambiar entre versiones,
 - la interfaz y las heurísticas pueden refinarse,
 - la demo no promete soporte permanente.
 
-## Riesgos operativos si el usuario actúa sin criterio
+## ⚠️ Riesgos operativos si el usuario actúa sin criterio
 
 - terminar un proceso incorrecto,
 - detener un servicio útil en el momento equivocado,
 - bloquear una IP legítima,
 - asumir que una carpeta grande siempre es maliciosa.
 
-## Conclusión
+## 🧭 Conclusión
 
-La demo busca ser útil y transparente, no vender una certeza absoluta.
+> La demo busca ser útil y transparente, no vender una certeza absoluta.

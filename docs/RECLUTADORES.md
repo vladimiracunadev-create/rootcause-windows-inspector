@@ -1,4 +1,6 @@
-# Documento para reclutadores
+# 👔 Documento para reclutadores
+
+> Guía rápida para reclutadores y líderes técnicos: qué es RootCause, qué problema resuelve y qué capacidades profesionales demuestra su autor.
 
 ## 1. Resumen ejecutivo
 
@@ -6,7 +8,7 @@
 
 Está construido en **Rust** con una interfaz gráfica ligera y una arquitectura preparada para crecer hacia análisis de mayor precisión sobre trazas del sistema.
 
-No se plantea como un “limpiador mágico”, sino como una herramienta de **diagnóstico, observabilidad y toma de decisiones**.
+> No se plantea como un "limpiador mágico", sino como una herramienta de **diagnóstico, observabilidad y toma de decisiones**.
 
 ---
 
@@ -14,11 +16,11 @@ No se plantea como un “limpiador mágico”, sino como una herramienta de **di
 
 Muchos usuarios y equipos de soporte observan síntomas vagos:
 
-- “el computador está lento”,
-- “Windows se traba”,
-- “el disco vive lleno o al 100%”,
-- “internet se pone lento sin razón visible”,
-- “aparecen procesos raros o instaladores temporales”.
+- "el computador está lento",
+- "Windows se traba",
+- "el disco vive lleno o al 100%",
+- "internet se pone lento sin razón visible",
+- "aparecen procesos raros o instaladores temporales".
 
 Windows ofrece información repartida en varias herramientas, pero rara vez en una vista única, entendible y accionable.
 
@@ -68,7 +70,9 @@ Este proyecto demuestra capacidades en varias áreas al mismo tiempo:
 - atajos de teclado en la GUI (`Ctrl+1…9`),
 - tab Acerca con metadatos del producto,
 - información de hardware del equipo,
-- tab Autostart integrado: registro Run y carpetas Startup con severidad heurística, y **detección de cambios de autoarranque contra una baseline conocida** (persistida en SQLite) que clasifica cada entrada como nueva, modificada o eliminada y levanta alertas `persistence-change` — diferenciador técnico clave frente a herramientas equivalentes gratuitas.
+- tab Autostart integrado: registro Run y carpetas Startup con severidad heurística, y **detección de cambios de autoarranque contra una baseline conocida** (persistida en SQLite) que clasifica cada entrada como nueva, modificada o eliminada y levanta alertas `persistence-change`.
+
+> 💡 **Diferenciador técnico clave** frente a herramientas equivalentes gratuitas: la detección de cambios de autoarranque contra una baseline conocida y persistida.
 
 ### Escalabilidad técnica
 - ruta clara para crecer a análisis más fino,
@@ -79,72 +83,42 @@ Este proyecto demuestra capacidades en varias áreas al mismo tiempo:
 
 ## 4. Tecnologías usadas
 
-### Rust
-Lenguaje compilado, nativo y de alto rendimiento, elegido por seguridad de memoria, eficiencia y mantenibilidad.
+| Tecnología | Rol en el proyecto |
+|---|---|
+| **Rust** | Lenguaje compilado, nativo y de alto rendimiento, elegido por seguridad de memoria, eficiencia y mantenibilidad. |
+| **egui / eframe** | Bibliotecas para la interfaz gráfica de escritorio; GUI liviana y moderna sin depender de una aplicación web pesada. |
+| **SQLite** | Base de datos embebida y ligera para persistencia local. |
+| **PowerShell / herramientas Windows** | Interacción con capacidades del sistema operativo, especialmente en automatización y análisis complementario. |
+| **WPR / ETL / WPA** | Ruta de precisión para captura y análisis profundo de trazas (ver detalle abajo). |
+| **GitHub Actions** | Automatización de validaciones y build en CI. |
 
-### egui / eframe
-Bibliotecas para la interfaz gráfica de escritorio.
+### Ruta de precisión: WPR / ETL / WPA
 
-Se usaron para construir una GUI liviana y moderna sin depender de una aplicación web pesada.
-
-### SQLite
-Base de datos embebida y ligera para persistencia local.
-
-### PowerShell / herramientas Windows
-Se usan para interactuar con capacidades del sistema operativo, especialmente en automatización y análisis complementario.
-
-### WPR / ETL / WPA
-Se utilizan como ruta de precisión.
-
-- **WPR**: Windows Performance Recorder. Herramienta para capturar trazas.
-- **ETL**: Event Trace Log. Archivo de traza generado.
-- **WPA**: Windows Performance Analyzer. Herramienta para análisis profundo de trazas.
-
-### GitHub Actions
-Automatización de validaciones y build en CI.
+| Sigla | Nombre | Función |
+|---|---|---|
+| **WPR** | Windows Performance Recorder | Herramienta para capturar trazas. |
+| **ETL** | Event Trace Log | Archivo de traza generado. |
+| **WPA** | Windows Performance Analyzer | Herramienta para análisis profundo de trazas. |
 
 ---
 
 ## 5. Glosario de siglas, explicado simple
 
-### GUI
-**Graphical User Interface**. Interfaz gráfica de usuario.
-
-### CI
-**Continuous Integration**. Integración continua. Validación automática del proyecto al subir cambios.
-
-### CD
-**Continuous Delivery / Deployment**. Entrega o despliegue continuo.
-
-### YAML / YML
-Formato de texto usado para configurar pipelines, por ejemplo en GitHub Actions.
-
-### ETW
-**Event Tracing for Windows**. Tecnología de trazas del sistema operativo Windows.
-
-### WPR
-**Windows Performance Recorder**. Captura trazas del sistema.
-
-### WPA
-**Windows Performance Analyzer**. Analiza esas trazas.
-
-### ETL
-Archivo que guarda eventos trazados del sistema.
-
-### PID
-**Process Identifier**. Número identificador de un proceso.
-
-### I/O
-**Input / Output**. Lectura y escritura de datos, por ejemplo en disco o red.
-
-### JSON
-Formato estructurado de texto usado para exportar información.
-
-### SQLite
-Motor de base de datos embebido en un solo archivo.
-
-### Inno Setup
-Herramienta clásica para crear instaladores `.exe` de Windows.
+| Sigla | Significado | Explicación |
+|---|---|---|
+| **GUI** | Graphical User Interface | Interfaz gráfica de usuario. |
+| **CI** | Continuous Integration | Integración continua. Validación automática del proyecto al subir cambios. |
+| **CD** | Continuous Delivery / Deployment | Entrega o despliegue continuo. |
+| **YAML / YML** | — | Formato de texto usado para configurar pipelines, por ejemplo en GitHub Actions. |
+| **ETW** | Event Tracing for Windows | Tecnología de trazas del sistema operativo Windows. |
+| **WPR** | Windows Performance Recorder | Captura trazas del sistema. |
+| **WPA** | Windows Performance Analyzer | Analiza esas trazas. |
+| **ETL** | Event Trace Log | Archivo que guarda eventos trazados del sistema. |
+| **PID** | Process Identifier | Número identificador de un proceso. |
+| **I/O** | Input / Output | Lectura y escritura de datos, por ejemplo en disco o red. |
+| **JSON** | — | Formato estructurado de texto usado para exportar información. |
+| **SQLite** | — | Motor de base de datos embebido en un solo archivo. |
+| **Inno Setup** | — | Herramienta clásica para crear instaladores `.exe` de Windows. |
 
 ---
 
@@ -155,7 +129,7 @@ Es importante para un reclutador entender también lo que el proyecto **no** ven
 - no promete reparación mágica,
 - no reemplaza completamente herramientas forenses profundas,
 - no intenta ser un antivirus,
-- no intenta ser un “task manager bonito” sin criterio,
+- no intenta ser un "task manager bonito" sin criterio,
 - no pretende ocultar complejidad con marketing vacío.
 
 Su propuesta es más madura:
@@ -168,11 +142,13 @@ Su propuesta es más madura:
 
 El proyecto se organiza en capas:
 
-- **UI**: presenta estado, semáforos y acciones.
-- **Servicios**: inspección de procesos, temporales, red, Windows y ETL.
-- **Modelos**: contratos de datos.
-- **Persistencia**: evidencia histórica y exportación.
-- **Automatización**: scripts y workflows.
+| Capa | Responsabilidad |
+|---|---|
+| **UI** | presenta estado, semáforos y acciones. |
+| **Servicios** | inspección de procesos, temporales, red, Windows y ETL. |
+| **Modelos** | contratos de datos. |
+| **Persistencia** | evidencia histórica y exportación. |
+| **Automatización** | scripts y workflows. |
 
 Esto favorece:
 
@@ -213,13 +189,13 @@ El proyecto está bien posicionado para crecer hacia:
 - distribución profesional,
 - y compatibilidad validada en más entornos Windows.
 
-La ruta de escalamiento se desarrolla con más detalle en `docs/ARQUITECTURA_ESCALABILIDAD.md`.
+> La ruta de escalamiento se desarrolla con más detalle en `docs/ARQUITECTURA_ESCALABILIDAD.md`.
 
 ---
 
 ## 10. En una frase
 
-**RootCause es una herramienta Windows escrita en Rust que busca identificar con claridad la causa dominante de problemas de rendimiento, con una arquitectura ligera, CLI completa, GUI nativa y preparada para escalar.**
+> **RootCause es una herramienta Windows escrita en Rust que busca identificar con claridad la causa dominante de problemas de rendimiento, con una arquitectura ligera, CLI completa, GUI nativa y preparada para escalar.**
 
 ---
 

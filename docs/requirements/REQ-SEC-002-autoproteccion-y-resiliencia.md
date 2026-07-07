@@ -172,10 +172,12 @@ No exige rehacer la arquitectura completa, pero si introducir piezas nuevas o re
 
 ## 19. Roadmap sugerido
 
-- `Post-v1.0`: modelar salud del agente, eventos de parada y recuperacion.
-- `Phase 2`: supervisor basico con reinicio y backoff.
-- `Phase 3`: integridad de configuracion y binarios criticos.
-- `Phase 4`: recuperacion robusta y pruebas de sabotaje o fallo.
+| Hito | Objetivo |
+|---|---|
+| `Post-v1.0` | modelar salud del agente, eventos de parada y recuperacion. |
+| `Phase 2` | supervisor basico con reinicio y backoff. |
+| `Phase 3` | integridad de configuracion y binarios criticos. |
+| `Phase 4` | recuperacion robusta y pruebas de sabotaje o fallo. |
 
 ## 20. Metricas o senales de validacion
 
@@ -191,7 +193,7 @@ La promesa central de RootCause es ayudar a entender que esta degradando el sist
 
 ## 22. Nota de posicionamiento comercial honesto
 
-RootCause tambien debe contemplar la resiliencia de su propio agente, ya que una herramienta de diagnostico puede convertirse en objetivo de manipulacion en escenarios reales. Eso no significa invulnerabilidad: si un atacante obtiene privilegios altos, una herramienta local aislada puede verse comprometida.
+> RootCause tambien debe contemplar la resiliencia de su propio agente, ya que una herramienta de diagnostico puede convertirse en objetivo de manipulacion en escenarios reales. Eso no significa invulnerabilidad: si un atacante obtiene privilegios altos, una herramienta local aislada puede verse comprometida.
 
 ## 23. Trazabilidad documental
 

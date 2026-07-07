@@ -1,4 +1,6 @@
-# Manual para novatos: uso del proyecto sin saber de software
+# 📘 Manual para novatos: uso del proyecto sin saber de software
+
+> Guía en lenguaje simple para entender **qué hace RootCause** y **cómo se usa sin perderse**, sin necesidad de saber programar.
 
 ## 1. Para quién es este manual
 
@@ -25,13 +27,12 @@ Ejemplos de problemas que quiere detectar:
 - una conexión rara a internet,
 - un proceso que parece fuera de lugar.
 
-No está pensado para “arreglar todo automáticamente”.
-
-Está pensado para **mostrarte el problema principal con claridad**.
+> No está pensado para "arreglar todo automáticamente".
+> Está pensado para **mostrarte el problema principal con claridad**.
 
 ---
 
-## 3. Qué significa “repositorio”
+## 3. Qué significa "repositorio"
 
 Un repositorio es una carpeta organizada con:
 
@@ -42,19 +43,15 @@ Un repositorio es una carpeta organizada con:
 
 En este caso, el repositorio es la casa completa del proyecto.
 
-No es solo el programa: también incluye las instrucciones para construirlo, probarlo y entenderlo.
+> No es solo el programa: también incluye las instrucciones para construirlo, probarlo y entenderlo.
 
 ---
 
 ## 4. Qué significa que no venga el `.exe`
 
-El `.exe` es el archivo final ejecutable de Windows.
+El `.exe` es el archivo final ejecutable de Windows. Este repositorio no lo trae incluido.
 
-Este repositorio no lo trae incluido.
-
-Eso no significa que falte el proyecto.
-
-Significa que se entrega:
+Eso **no** significa que falte el proyecto. Significa que se entrega:
 
 - el código fuente,
 - la documentación,
@@ -71,29 +68,13 @@ Esto es normal cuando se quiere:
 
 ## 5. Qué partes importantes verás
 
-### `README.md`
-Es la puerta de entrada.
-
-Te explica:
-
-- qué hace el proyecto,
-- qué incluye,
-- qué no incluye,
-- y por dónde empezar.
-
-### Carpeta `docs/`
-Es la biblioteca del proyecto.
-
-Allí están los manuales y explicaciones.
-
-### Carpeta `src/`
-Es donde vive el programa.
-
-### Carpeta `scripts/`
-Son ayudas automáticas para compilar, validar o empaquetar.
-
-### Carpeta `packaging/`
-Contiene lo necesario para el instalador de Windows.
+| Parte | Qué es |
+|---|---|
+| `README.md` | La puerta de entrada. Explica qué hace el proyecto, qué incluye, qué no incluye y por dónde empezar. |
+| Carpeta `docs/` | La biblioteca del proyecto. Allí están los manuales y explicaciones. |
+| Carpeta `src/` | Donde vive el programa. |
+| Carpeta `scripts/` | Ayudas automáticas para compilar, validar o empaquetar. |
+| Carpeta `packaging/` | Lo necesario para el instalador de Windows. |
 
 ---
 
@@ -111,17 +92,17 @@ Cuando el programa corre, debería ayudarte a ver cosas como estas:
 
 La idea es que la interfaz sea clara y use colores tipo semáforo:
 
-- verde: estable,
-- amarillo: atención,
-- rojo: problema importante.
+| Color | Significado |
+|---|---|
+| 🟢 Verde | estable |
+| 🟡 Amarillo | atención |
+| 🔴 Rojo | problema importante |
 
 ---
 
-## 7. Qué significa “modo de precisión”
+## 7. Qué significa "modo de precisión"
 
-A veces un problema dura poco o no se ve claramente en la observación normal.
-
-Para eso existe el modo de precisión.
+A veces un problema dura poco o no se ve claramente en la observación normal. Para eso existe el modo de precisión.
 
 En simple:
 
@@ -131,35 +112,19 @@ En simple:
 4. se genera evidencia,
 5. luego esa evidencia se resume o se analiza con más detalle.
 
-Piensa en esto como una “caja negra” temporal del sistema.
+> Piensa en esto como una "caja negra" temporal del sistema.
 
 ---
 
 ## 8. Qué cosas podrías hacer como usuario
 
-### Caso A: el disco se pone al 100%
-Abres el programa y miras:
+Esta tabla resume, según el síntoma, qué conviene mirar primero:
 
-- procesos dominantes,
-- temporales,
-- servicios relacionados a Windows,
-- y si hace falta activas el modo de precisión.
-
-### Caso B: internet se pone lento
-Miras:
-
-- conexiones activas,
-- IP remotas,
-- proceso asociado,
-- y si parece sospechoso, revisas si bloquearlo tiene sentido.
-
-### Caso C: Windows se vuelve lento después de un rato
-Miras:
-
-- memoria,
-- rutas temporales,
-- estado de servicios,
-- y usas captura ETL cuando el problema aparezca.
+| Problema | Qué mirar |
+|---|---|
+| **A. El disco se pone al 100%** | procesos dominantes, temporales, servicios relacionados a Windows, y si hace falta activas el modo de precisión. |
+| **B. Internet se pone lento** | conexiones activas, IP remotas, proceso asociado, y si parece sospechoso, revisas si bloquearlo tiene sentido. |
+| **C. Windows se vuelve lento después de un rato** | memoria, rutas temporales, estado de servicios, y usas captura ETL cuando el problema aparezca. |
 
 ---
 
@@ -172,7 +137,7 @@ No debes esperar que el software:
 - tome decisiones perfectas siempre,
 - permita matar cualquier proceso del sistema sin riesgo.
 
-Es una herramienta de diagnóstico y apoyo a la decisión.
+> Es una herramienta de diagnóstico y apoyo a la decisión.
 
 ---
 
@@ -206,19 +171,18 @@ Eso permite verificar si:
 - pasa pruebas,
 - y está en mejor estado para ser distribuido.
 
-Eso ayuda a no depender solo de “creo que funciona”.
+> Eso ayuda a no depender solo de "creo que funciona".
 
 ---
 
 ## 12. Qué significa empaquetado e instalador
 
-### Ejecutable portable
-Es el programa listo para abrir directamente.
+| Camino | Qué es |
+|---|---|
+| **Ejecutable portable** | El programa listo para abrir directamente. |
+| **Instalador** | El paquete que guía la instalación en Windows, crea accesos y deja el programa en una carpeta ordenada. |
 
-### Instalador
-Es el paquete que guía la instalación en Windows, crea accesos y deja el programa en una carpeta ordenada.
-
-El proyecto contempla ambos caminos.
+> El proyecto contempla ambos caminos.
 
 ---
 
@@ -245,5 +209,4 @@ Su valor está en:
 - dejar evidencia,
 - y ayudar a actuar con más criterio.
 
-Aunque contiene código, también contiene manuales para que una persona no técnica pueda entender qué resuelve y por qué tiene sentido.
-
+> Aunque contiene código, también contiene manuales para que una persona no técnica pueda entender qué resuelve y por qué tiene sentido.

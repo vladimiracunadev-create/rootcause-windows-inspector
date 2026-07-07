@@ -1,8 +1,8 @@
-# Instalación transparente de RootCause Demo
+# 🧾 Instalación transparente de RootCause Demo
 
 Este documento define cómo debe sentirse la instalación pública de la demo: clara, honesta y sin sorpresas.
 
-## Principios
+## 🧭 Principios
 
 - decir qué se instala,
 - decir dónde se instala,
@@ -10,7 +10,7 @@ Este documento define cómo debe sentirse la instalación pública de la demo: c
 - explicar qué permisos podrían pedirse,
 - explicar qué no hace automáticamente.
 
-## Antes de instalar
+## ⏳ Antes de instalar
 
 El instalador debe mostrar un texto previo que explique:
 
@@ -20,7 +20,7 @@ El instalador debe mostrar un texto previo que explique:
 - que algunas funciones avanzadas pueden requerir administrador,
 - que el usuario puede cancelar la instalación si no está de acuerdo.
 
-## Durante la instalación
+## ⚙️ Durante la instalación
 
 Debe quedar claro:
 
@@ -30,7 +30,7 @@ Debe quedar claro:
 - que el anclaje en Windows 11 no se fuerza automáticamente,
 - que se instalarán documentos de uso y limitaciones.
 
-## Después de instalar
+## ✅ Después de instalar
 
 Se recomienda ofrecer:
 
@@ -39,10 +39,12 @@ Se recomienda ofrecer:
 - abrir la guía de uso previo,
 - revisar limitaciones.
 
-## Contenido mínimo que debe instalarse junto al ejecutable
+## 📁 Contenido mínimo que debe instalarse junto al ejecutable
 
-- `README.md`,
-- `LICENSE`,
-- `SECURITY.md`,
-- carpeta `docs`,
-- `LEEME-DEMO.txt`.
+| Archivo / carpeta | Contenido |
+|---|---|
+| `README.md` | Descripción general del producto. |
+| `LICENSE` | Licencia Apache 2.0. |
+| `SECURITY.md` | Política de seguridad. |
+| `docs` | Documentación de uso y limitaciones. |
+| `LEEME-DEMO.txt` | Nota de bienvenida de la demo. |

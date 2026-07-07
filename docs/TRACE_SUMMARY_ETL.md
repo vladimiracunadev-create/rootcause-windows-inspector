@@ -47,22 +47,13 @@ Esto deja el proceso auditable y revisable sin depender exclusivamente de la UI.
 
 ## 4) Qué muestra la UI
 
-### Titular de la traza
-Un encabezado corto que resume la señal dominante.
-
-### Hallazgos principales
-Hasta tres hallazgos priorizados.
-
-### Procesos repetidos
-Imágenes observadas muchas veces dentro del ETL exportado.
-
-### Rutas repetidas
-Rutas temporales, de sistema o de Windows Update que aparecen con frecuencia.
-
-### Contexto rápido
-- IPs públicas
-- indicadores resumidos
-- límites del análisis
+| Elemento | Qué muestra |
+|---|---|
+| Titular de la traza | Un encabezado corto que resume la señal dominante. |
+| Hallazgos principales | Hasta tres hallazgos priorizados. |
+| Procesos repetidos | Imágenes observadas muchas veces dentro del ETL exportado. |
+| Rutas repetidas | Rutas temporales, de sistema o de Windows Update que aparecen con frecuencia. |
+| Contexto rápido | IPs públicas, indicadores resumidos y límites del análisis. |
 
 ---
 
