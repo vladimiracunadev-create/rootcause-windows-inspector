@@ -1,6 +1,6 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.13.0 · **Actualizado:** 2026-04-29
+**Versión base:** v0.13.0 · **Actualizado:** 2026-07-07
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
@@ -41,7 +41,11 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 
 ---
 
-## II. Estado técnico — v0.7 entregada
+## II. Estado técnico — hito v0.7 (snapshot histórico)
+
+> Nota: esta sección es un registro del hito v0.7. El estado actual del producto es
+> v0.13.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
+> hasta hoy: detección de anomalías, baseline de autoarranque y de servicios).
 
 ### ✅ Completado en v0.7
 - Feature flags GUI/CLI-only en `Cargo.toml` (eframe/egui opcionales)
@@ -185,7 +189,7 @@ Implementación: requiere actualizar eframe a 0.28+ que incluye soporte de tray 
 Panel de configuración en tab Acerca con edición inline de umbrales (CPU, RAM, I/O, anomalías, refresco) y botón Guardar que persiste a `rootcause-config.json` sin reiniciar.
 `save_config(&mut self, config)` implementado en `InspectorService` y `ConfigManager::save_to_path()` en `config.rs`.
 
-#### 4.4 `--output` en CLI
+#### 4.5 `--output` en CLI ✅ Implementado
 Qué hace: `rootcause snapshot --output diagnostico.json` además de stdout.
 Implementación: cambio mínimo en `cli.rs`. Una línea.
 
@@ -288,7 +292,7 @@ Pendiente:
 2. Edit tool para cambios
 3. powershell.exe -ExecutionPolicy Bypass -File run_fmt.ps1
 4. git add <archivos específicos>
-5. git commit (mensaje en español + Co-Authored-By Claude Sonnet 4.6)
+5. git commit (mensaje en español + Co-Authored-By Claude)
 6. git push origin master
 7. Si cambia algo visible para el usuario → actualizar landing
 ```

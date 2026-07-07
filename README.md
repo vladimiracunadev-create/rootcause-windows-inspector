@@ -80,7 +80,7 @@ El modo principal. Bajo consumo, útil para observación frecuente.
 - ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…9` cambio de tab
 - 🖥️ Info de hardware del equipo: OS, CPU, núcleos, frecuencia, RAM
 - ◫  Tab Autostart: registro Run (HKCU/HKLM) y carpetas Startup con severidad y verificación en disco — detecta cambios contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) y genera alertas `persistence-change`
-- ⚙️ Detección de cambios en servicios de Windows: vigila `StartMode` + ruta del binario de cada servicio contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) y genera alertas `service-change` — captura servicios nuevos, secuestro del binario o cambios de modo de arranque (ej. deshabilitar Defender)
+- ⚙️ Detección de cambios en servicios de Windows (vía CLI `rootcause services` + alertas `service-change` en incidentes; no es un tab de la GUI): vigila `StartMode` + ruta del binario de cada servicio contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) — captura servicios nuevos, secuestro del binario o cambios de modo de arranque (ej. deshabilitar Defender)
 - 💻 CLI completa: `rootcause --help` con todos los comandos desde consola
 
 ### 2 · Modo de precisión ETW/WPR
@@ -221,6 +221,7 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 | **Temporales** | Cachés de Windows (TEMP, SoftwareDistribution, etc.) |
 | **ETW / WPR** | Captura WPR + resumen de traza ETL |
 | **Servicios** | wuauserv, BITS, DoSvc, SysMain + eventos recientes |
+| **Autostart** | Registro Run/RunOnce, carpetas Startup y tareas programadas + detección de cambios vs baseline |
 | **Historial** | Snapshots SQLite + comparación A vs B con deltas |
 | **Acerca** | Versión, autor, GitHub, atajos de teclado, hardware |
 
@@ -267,7 +268,7 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 <details>
 <summary><strong>Historial y evidencia</strong></summary>
 
-- Historial SQLite con últimas 60 capturas
+- Historial SQLite: retención de hasta 1000 filas; el tab Historial muestra y compara las últimas 60 capturas
 - Comparación A vs B con deltas de CPU / RAM / I/O / Alertas
 - Incidentes resumidos persistidos con causas probables y evidencia correlacionada
 - Auditoría local de acciones (`kill`, `block-ip`, `stop-service`, `accept-persistence-baseline`, `accept-service-baseline`, WPR, IA opcional)

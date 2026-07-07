@@ -1,6 +1,6 @@
 # RootCause Demo: distribución pública controlada
 
-Este documento define cómo publicar **RootCause Demo** como perfil público de evaluación mientras el repositorio principal permanece privado.
+Este documento define cómo publicar **RootCause Demo** como perfil público de evaluación del producto (el repositorio es público bajo Apache 2.0; la demo es un perfil de distribución con branding y mensajes orientados a evaluación).
 
 > `RootCause Demo` no es otro motor del producto: es un **perfil de distribución** sobre la edición GUI principal, con branding y mensajes más explícitos para evaluación.
 
@@ -11,7 +11,7 @@ La demo pública debe servir para:
 - mostrar valor real del producto,
 - permitir instalación y prueba guiada,
 - capturar retroalimentación sobre problemas reales de Windows,
-- demostrar enfoque profesional sin exponer el código fuente,
+- demostrar un enfoque profesional y orientado a resultados,
 - dejar claro que la demo **diagnostica antes de actuar**.
 
 ## Qué se publica

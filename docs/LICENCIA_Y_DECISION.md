@@ -35,9 +35,9 @@ Para un software Windows de diagnóstico y observación que podría tener utilid
 
 ## Estado del repositorio
 
-**El repositorio es actualmente privado.**
+**El repositorio es público bajo licencia Apache 2.0.**
 
-La visibilidad pública queda a criterio exclusivo del autor. Esta decisión de licencia aplica para cuando se haga visible o se distribuyan artefactos, pero no obliga a hacer el repositorio público.
+La licencia Apache 2.0 aplica al código y a los binarios distribuidos desde las releases de este mismo repositorio.
 
 ---
 
@@ -79,11 +79,11 @@ La decisión entre A y B depende de si el autor quiere explotar comercialmente e
 
 ## Recomendación operativa actual
 
-Para la fase actual (repositorio privado, producto en maduración):
+Para la fase actual (repositorio público bajo Apache 2.0, producto en maduración):
 
 1. **Apache 2.0 como licencia base** — protege sin restringir,
-2. **No publicar el repositorio** hasta tener criterio claro de nombre y marca,
-3. **Registrar la marca "RootCause"** antes de publicación formal si se decide ese nombre,
+2. **Repositorio público** con el nombre RootCause ya establecido,
+3. **Registrar la marca "RootCause"** si se busca protección formal adicional,
 4. **Evaluar dual license** cuando exista tracción real de usuarios o interés corporativo.
 
 ---

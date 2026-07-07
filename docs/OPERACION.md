@@ -268,7 +268,7 @@ Nueva pestaña con versión del producto, autor, enlaces a GitHub/GitLab, stack 
 
 ---
 
-## 10) Tab Autostart (v0.10)
+## 10) Tab Autostart (v0.11)
 
 El tab **Autostart** (Ctrl+7) muestra qué programas se configuran para ejecutarse con Windows:
 

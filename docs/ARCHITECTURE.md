@@ -84,6 +84,7 @@ Responsabilidades:
 - `config show/init`,
 - `ai explain-latest [--json]`,
 - `wpr start/stop/cancel/analyze [--note NOTE]`,
+- `autostart [--json] [--accept]`, `services [--json] [--accept]`,
 - `kill <PID>`, `block-ip <IP>`, `stop-service <name>`.
 
 ### `config.rs`

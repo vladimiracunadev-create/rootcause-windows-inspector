@@ -305,7 +305,7 @@ La ruta profesional recomendada es:
 8. documentar versión liberada.
 
 
-## 14) Integración con GitHub Actions
+## 16) Integración con GitHub Actions
 
 Este repositorio incluye:
 
@@ -326,7 +326,7 @@ La idea es que el build local y el build de CI se parezcan lo más posible.
 - usa build local para validar tu entorno real,
 - usa release workflow solo cuando la rama principal esté en verde.
 
-## 15) Sobre `Cargo.lock`
+## 17) Sobre `Cargo.lock`
 
 Hoy el repositorio puede construirse sin `Cargo.lock`, pero para una distribución más reproducible se recomienda generar el lockfile en el primer build local exitoso y commitearlo:
 

@@ -40,7 +40,7 @@ Checklist profesional antes de distribuir artefactos.
 - [ ] refresco funciona
 - [ ] exportación JSON funciona (GUI y CLI: `rootcause export`)
 - [ ] CLI: `rootcause --help`, `status`, `snapshot`, `history` verificados
-- [ ] atajos de teclado verificados (F5, Ctrl+E, Ctrl+1…8)
+- [ ] atajos de teclado verificados (F5, Ctrl+E, Ctrl+1…9)
 - [ ] tab Acerca muestra versión, autor y hardware del equipo correctamente
 - [ ] sección Características del equipo visible en tab Overview
 - [ ] bloqueo de IP funciona en entorno controlado

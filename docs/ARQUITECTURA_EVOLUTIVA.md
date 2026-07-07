@@ -108,6 +108,10 @@ No se propone reescritura. Se propone separar responsabilidades usando el mismo 
 - `persistence_baseline`
   - baseline conocida de autoarranque (Run/RunOnce HKCU/HKLM, carpetas Startup, tareas programadas no-Microsoft)
   - permite clasificar cada entrada como NUEVA, MODIFICADA o ELIMINADA respecto a la baseline sembrada
+- `baseline`
+  - baseline genérica por superficie vigilada (PK compuesta `surface` + `entry_key`), respalda el motor genérico
+    de detección de cambios (`services/baseline.rs`: `WatchedItem`, `diff_surface`, `surface_change_event`)
+  - primera superficie sobre este motor: Servicios de Windows (valor vigilado `StartMode|PathName`, kind `service-change`)
 
 ### CLI reforzada
 - `rootcause status --json`

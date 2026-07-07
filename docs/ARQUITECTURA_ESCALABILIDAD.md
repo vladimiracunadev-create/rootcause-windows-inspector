@@ -74,10 +74,10 @@ La evidencia debe quedar guardada y ser exportable.
 Punto de entrada. Detecta args CLI → `cli::run()` o GUI.
 
 ### `meta.rs`
-Constantes del producto: `VERSION`, `DISPLAY_NAME`, `AUTHOR`, `EMAIL`, `GITHUB`, `GITLAB`, `LICENSE`. Único lugar de verdad.
+Constantes del producto: `VERSION`, `DISPLAY_NAME`, `DESCRIPTION`, `AUTHOR`, `EMAIL`, `GITHUB`, `GITLAB`, `LICENSE`. Único lugar de verdad.
 
 ### `cli.rs`
-Interfaz de línea de comandos completa: `--help`, `--version`, `status`, `snapshot`, `history [N]`, `export`, `wpr start/stop/cancel/analyze`, `kill`, `block-ip`, `stop-service`, `--gui`.
+Interfaz de línea de comandos completa: `--help`, `--version`, `status`, `snapshot`, `history [N]`, `incidents [N]`, `export`, `config show/init`, `ai explain-latest`, `wpr start/stop/cancel/analyze`, `autostart`, `services`, `kill`, `block-ip`, `stop-service`, `--gui`.
 
 ### `app.rs`
 Capa de presentación y estado visual.
@@ -102,6 +102,21 @@ Persistencia local y soporte a evidencia.
 
 ### `services/etl.rs`
 Captura y resumen del modo de precisión.
+
+### `config.rs`
+Carga y guardado de configuración operativa (`rootcause-config.json`): umbrales y flags de detección (`watch_persistence`, `watch_service_changes`).
+
+### `services/rules.rs`
+Motor de reglas: convierte señales en alertas e incidentes.
+
+### `services/anomaly.rs`
+Motor heurístico de detección de comportamiento anómalo (kinds `suspicious-persistence`, `persistence-change`, `security-service-disabled`, `correlated-anomaly`).
+
+### `services/baseline.rs`
+Motor genérico de detección de cambios contra baseline por superficie (`WatchedItem`, `diff_surface`, `surface_change_event`; primera superficie: Servicios, kind `service-change`).
+
+### `services/ai.rs`
+Adaptador de IA opcional (endpoint estilo OpenAI), apagado por defecto.
 
 ---
 

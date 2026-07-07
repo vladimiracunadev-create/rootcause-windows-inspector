@@ -40,7 +40,7 @@ La landing no debe volver a mezclar:
 | Hero | - | Titulo, badges, boton de descarga |
 | Caracteristicas | `#features` | Features del producto principal |
 | Ediciones | `#editions` | Modalidades reales + estado |
-| Pestañas | - | Tabla de las 8 pestañas de la GUI |
+| Pestañas | - | Tabla de las 9 pestañas de la GUI |
 | Requisitos | `#requirements` | Minimos, recomendados, modo precision |
 | Instalacion | `#install` | GUI, portable, CLI-only, PowerShell y VS Code |
 | CLI | `#cli` | Referencia de comandos + demo terminal |

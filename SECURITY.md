@@ -49,4 +49,4 @@ Esto implica:
 
 Ver [`LICENSE`](LICENSE) y [`docs/LICENCIA_Y_DECISION.md`](docs/LICENCIA_Y_DECISION.md) para el razonamiento completo y la ruta futura prevista.
 
-> **Nota:** el repositorio es actualmente privado. La visibilidad pública queda a criterio del autor.
+> **Nota:** el repositorio es público bajo licencia Apache 2.0.
