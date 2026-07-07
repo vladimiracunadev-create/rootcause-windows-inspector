@@ -5,7 +5,7 @@
 //! acciones administrativas puntuales, control del modo de precisión con WPR y
 //! exportación de ETL vía tracerpt.
 
-use crate::models::{EventRecord, PersistenceEntry, ServiceState};
+use crate::models::{EventRecord, PersistenceEntry, ServiceState, WatchedItem};
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -135,6 +135,59 @@ pub fn relevant_services() -> Result<Vec<ServiceState>> {
         object => services.push(map_service(&object)),
     }
     Ok(services)
+}
+
+/// Enumera TODOS los servicios como ítems vigilados para el motor de baseline.
+/// El valor observado es `StartMode|PathName` (config que importa: el modo de
+/// arranque y el binario), no el estado en ejecución (que fluctúa y haría ruido).
+pub fn services_baseline_items() -> Result<Vec<WatchedItem>> {
+    let script = r#"
+        Get-CimInstance -ClassName Win32_Service -ErrorAction SilentlyContinue |
+            Select-Object Name, DisplayName, StartMode, PathName |
+            ConvertTo-Json -Depth 3
+    "#;
+
+    let json = powershell(script)?;
+    if json.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let value: Value = serde_json::from_str(&json)?;
+    let mut items = Vec::new();
+    match value {
+        Value::Array(entries) => items.extend(entries.iter().filter_map(map_service_item)),
+        object => items.extend(map_service_item(&object)),
+    }
+    Ok(items)
+}
+
+/// Convierte una entrada de `Win32_Service` en un `WatchedItem` de baseline.
+fn map_service_item(value: &Value) -> Option<WatchedItem> {
+    let name = value.get("Name").and_then(Value::as_str)?.trim().to_owned();
+    if name.is_empty() {
+        return None;
+    }
+    let display = value
+        .get("DisplayName")
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
+        .unwrap_or(name.as_str())
+        .to_owned();
+    let start_mode = value.get("StartMode").and_then(Value::as_str).unwrap_or("");
+    let path = value
+        .get("PathName")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_owned();
+
+    Some(WatchedItem {
+        key: name,
+        value: format!("{start_mode}|{path}"),
+        label: display,
+        detail: path,
+        ..Default::default()
+    })
 }
 
 /// Enumeracion ligera de puntos de persistencia comunes en Windows.

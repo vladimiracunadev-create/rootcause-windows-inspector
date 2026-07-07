@@ -217,6 +217,23 @@ pub struct PersistenceEntry {
     pub change_status: PersistenceChange,
 }
 
+/// Ítem observado en una superficie vigilada (servicios, autostart, hosts…).
+/// Es la unidad del motor genérico de detección de cambios contra baseline.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WatchedItem {
+    /// Clave estable que identifica el ítem a lo largo del tiempo.
+    pub key: String,
+    /// Valor cuyo cambio se detecta (comparado literal contra la baseline).
+    pub value: String,
+    /// Nombre legible para UI/CLI.
+    pub label: String,
+    /// Detalle contextual (ruta, comando, estado).
+    pub detail: String,
+    /// Estado de cambio respecto a la baseline (se rellena tras el diff).
+    #[serde(default)]
+    pub change_status: PersistenceChange,
+}
+
 /// Evento atómico del módulo de detección anómala.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnomalyEvent {

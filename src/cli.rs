@@ -42,6 +42,7 @@ pub fn run(args: &[String]) -> i32 {
         "ai" => cmd_ai(&args[1..]),
         "config" => cmd_config(&args[1..]),
         "autostart" => cmd_autostart(&args[1..]),
+        "services" => cmd_services(&args[1..]),
         other => {
             eprintln!(
                 "Comando desconocido: '{other}'\nUsa  rootcause --help  para ver todas las opciones."
@@ -84,6 +85,8 @@ MODO DE PRECISIÓN WPR/ETW:
 AUTOSTART Y PERSISTENCIA:
   rootcause autostart [--json]            Entradas Registro Run + Startup + Tareas (marca cambios vs baseline)
   rootcause autostart --accept            Fija el estado actual como baseline "buena conocida"
+  rootcause services [--json]             Servicios: detecta cambios vs baseline (nuevo/modificado/eliminado)
+  rootcause services --accept             Fija el estado actual de servicios como baseline
 
 CONFIGURACIÓN E IA OPCIONAL:
   rootcause config show [--json]          Ver ruta y configuración efectiva
@@ -605,6 +608,85 @@ fn cmd_autostart(args: &[String]) -> i32 {
         println!(
             "{changes} cambio(s) vs baseline conocida. Revísalos y ejecuta \
              `rootcause autostart --accept` para fijar el estado actual como bueno."
+        );
+    } else {
+        println!("Sin cambios respecto a la baseline conocida.");
+    }
+    0
+}
+
+fn cmd_services(args: &[String]) -> i32 {
+    let json_mode = has_flag(args, "--json");
+    let accept_mode = has_flag(args, "--accept");
+
+    let insp = match init_inspector() {
+        Ok(i) => i,
+        Err(c) => return c,
+    };
+
+    if accept_mode {
+        return match insp.accept_service_baseline() {
+            Ok(count) => {
+                println!(
+                    "Baseline de servicios actualizada: {count} servicio(s) marcados como \
+                     estado bueno conocido."
+                );
+                0
+            }
+            Err(e) => {
+                eprintln!("No se pudo aceptar la baseline de servicios: {e}");
+                1
+            }
+        };
+    }
+
+    let items = insp.service_entries_with_changes();
+    if json_mode {
+        return print_json(&items);
+    }
+    if items.is_empty() {
+        println!("No se encontraron servicios.");
+        return 0;
+    }
+
+    // Hay ~200 servicios: por defecto solo mostramos los que cambiaron.
+    let changed: Vec<_> = items
+        .iter()
+        .filter(|item| item.change_status.is_change())
+        .collect();
+
+    println!(
+        "{:<12}  {:<34}  Detalle (StartMode|ruta)",
+        "Cambio", "Servicio"
+    );
+    println!("{}", "─".repeat(96));
+    if changed.is_empty() {
+        println!("(sin cambios — {} servicios en baseline)", items.len());
+    } else {
+        for item in &changed {
+            let change_col = match item.change_status {
+                crate::models::PersistenceChange::Added => "[NUEVO]",
+                crate::models::PersistenceChange::Modified => "[MODIFIC.]",
+                crate::models::PersistenceChange::Removed => "[ELIMIN.]",
+                crate::models::PersistenceChange::Unchanged => "",
+            };
+            let name_col: String = item.label.chars().take(33).collect();
+            let detail_col: String = item.detail.chars().take(46).collect();
+            println!("{:<12}  {:<34}  {}", change_col, name_col, detail_col);
+        }
+    }
+    println!();
+
+    let changes = changed.len();
+    let active = items
+        .iter()
+        .filter(|item| item.change_status != crate::models::PersistenceChange::Removed)
+        .count();
+    println!("{active} servicio(s) en baseline");
+    if changes > 0 {
+        println!(
+            "{changes} cambio(s) vs baseline conocida. Revísalos y ejecuta \
+             `rootcause services --accept` para fijar el estado actual como bueno."
         );
     } else {
         println!("Sin cambios respecto a la baseline conocida.");

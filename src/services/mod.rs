@@ -4,6 +4,7 @@
 
 pub mod ai;
 pub mod anomaly;
+pub mod baseline;
 pub mod etl;
 pub mod inspector;
 pub mod network;

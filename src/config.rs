@@ -94,6 +94,8 @@ pub struct AnomalyConfig {
     pub security_service_names: Vec<String>,
     #[serde(default = "default_true")]
     pub watch_persistence: bool,
+    #[serde(default = "default_true")]
+    pub watch_service_changes: bool,
 }
 
 impl Default for AnomalyConfig {
@@ -117,6 +119,7 @@ impl Default for AnomalyConfig {
             suspicious_parent_names: default_suspicious_parent_names(),
             security_service_names: default_security_service_names(),
             watch_persistence: default_true(),
+            watch_service_changes: default_true(),
         }
     }
 }

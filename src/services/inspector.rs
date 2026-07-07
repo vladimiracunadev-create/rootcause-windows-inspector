@@ -7,15 +7,25 @@ use crate::config::{ConfigManager, RootCauseConfig};
 use crate::models::{
     AiIncidentAdvice, Alert, AnomalyEvent, AuditRecord, HardwareInfo, IncidentSummary,
     PersistenceChange, PersistenceEntry, PrecisionStatus, ProcessInsight, Severity, SnapshotRow,
-    SystemOverview, SystemSnapshot, TraceAnalysisSummary,
+    SystemOverview, SystemSnapshot, TraceAnalysisSummary, WatchedItem,
 };
 use crate::services::{
     ai::AiAdvisor,
     anomaly::{AnomalyTracker, DetectionInput, persistence_change_event},
+    baseline::{self, SurfaceSpec},
     etl, network,
     persistence::{PersistenceStore, persistence_entry_key},
     resilience::ResilienceMonitor,
     rules, temp_scan, windows,
+};
+
+/// Superficie vigilada: servicios de Windows (motor genérico de baseline).
+const SERVICE_SURFACE: SurfaceSpec = SurfaceSpec {
+    id: "service",
+    title_added: "Servicio nuevo detectado",
+    title_modified: "Servicio modificado",
+    title_removed: "Servicio eliminado",
+    summary_noun: "El servicio",
 };
 use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Utc};
@@ -381,10 +391,21 @@ impl InspectorService {
             persistence_entries: &persistence_entries,
             config: &self.config.anomaly,
         });
-        // Añade los cambios de autoarranque y re-ordena por severidad/score para
-        // que un cambio de alta severidad no quede fuera del recorte de alertas.
-        if !persistence_change_events.is_empty() {
-            anomalies.extend(persistence_change_events);
+        // Cambios en servicios vigilados vs baseline (superficie genérica).
+        let service_change_events = if self.config.anomaly.watch_service_changes {
+            let mut service_items = windows::services_baseline_items().unwrap_or_default();
+            self.detect_service_changes(collected_at, &mut service_items)
+        } else {
+            Vec::new()
+        };
+
+        // Añade los cambios de autoarranque y de servicios, y re-ordena por
+        // severidad/score para que un cambio de alta severidad no quede fuera
+        // del recorte de alertas.
+        let mut change_events = persistence_change_events;
+        change_events.extend(service_change_events);
+        if !change_events.is_empty() {
+            anomalies.extend(change_events);
             anomalies.sort_by(|left, right| {
                 right
                     .severity
@@ -855,6 +876,45 @@ impl InspectorService {
         let mut entries = windows::persistence_entries().unwrap_or_default();
         self.diff_persistence_baseline(&mut entries);
         entries
+    }
+
+    /// Compara los servicios actuales contra la baseline y genera un evento por
+    /// cada cambio (nuevo/modificado/eliminado). Anota `items` in situ.
+    fn detect_service_changes(
+        &self,
+        collected_at: DateTime<Utc>,
+        items: &mut Vec<WatchedItem>,
+    ) -> Vec<AnomalyEvent> {
+        let had_baseline = baseline::diff_surface(&self.store, SERVICE_SURFACE.id, items);
+        if !had_baseline {
+            return Vec::new();
+        }
+        items
+            .iter()
+            .filter(|item| item.change_status.is_change())
+            .filter_map(|item| baseline::surface_change_event(collected_at, &SERVICE_SURFACE, item))
+            .collect()
+    }
+
+    /// Reconoce el estado actual de los servicios como la nueva baseline "buena".
+    pub fn accept_service_baseline(&self) -> Result<usize> {
+        let items = windows::services_baseline_items().unwrap_or_default();
+        let count = items.len();
+        self.store.replace_baseline(SERVICE_SURFACE.id, &items)?;
+        self.audit_action(
+            "accept-service-baseline",
+            &format!("{count} servicios"),
+            Some("Baseline de servicios actualizada"),
+            None,
+        );
+        Ok(count)
+    }
+
+    /// Lista los servicios anotados con su estado de cambio vs baseline. CLI.
+    pub fn service_entries_with_changes(&self) -> Vec<WatchedItem> {
+        let mut items = windows::services_baseline_items().unwrap_or_default();
+        baseline::diff_surface(&self.store, SERVICE_SURFACE.id, &mut items);
+        items
     }
 
     fn audit_action(

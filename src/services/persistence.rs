@@ -7,6 +7,7 @@
 
 use crate::models::{
     AiIncidentAdvice, AuditRecord, IncidentSummary, PersistenceEntry, SnapshotRow, SystemSnapshot,
+    WatchedItem,
 };
 use anyhow::{Context, Result};
 use chrono::Utc;
@@ -427,6 +428,16 @@ impl PersistenceStore {
                 target_path TEXT,
                 first_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS baseline (
+                surface TEXT NOT NULL,
+                entry_key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                label TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                first_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (surface, entry_key)
+            );
             "#,
         )?;
         Ok(())
@@ -489,6 +500,66 @@ impl PersistenceStore {
                     entry.name,
                     entry.command,
                     entry.target_path,
+                ])?;
+            }
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+
+    /// Carga la baseline genérica de una superficie vigilada (servicios, hosts…),
+    /// indexada por clave estable. Motor genérico de detección de cambios.
+    pub fn load_baseline(&self, surface: &str) -> Result<HashMap<String, WatchedItem>> {
+        let connection = Connection::open(&self.db_path)?;
+        let mut statement = connection
+            .prepare("SELECT entry_key, value, label, detail FROM baseline WHERE surface = ?1")?;
+        let rows = statement.query_map([surface], |row| {
+            let key: String = row.get(0)?;
+            Ok((
+                key.clone(),
+                WatchedItem {
+                    key,
+                    value: row.get(1)?,
+                    label: row.get(2)?,
+                    detail: row.get(3)?,
+                    ..Default::default()
+                },
+            ))
+        })?;
+
+        let mut baseline = HashMap::new();
+        for row in rows {
+            let (key, item) = row?;
+            baseline.insert(key, item);
+        }
+        Ok(baseline)
+    }
+
+    /// Reemplaza por completo la baseline de una superficie con el estado actual.
+    /// Se usa para sembrar la primera foto y para "aceptar" cambios como buenos.
+    pub fn replace_baseline(&self, surface: &str, items: &[WatchedItem]) -> Result<()> {
+        let mut connection = Connection::open(&self.db_path)?;
+        let transaction = connection.transaction()?;
+        transaction.execute("DELETE FROM baseline WHERE surface = ?1", [surface])?;
+        {
+            let mut statement = transaction.prepare(
+                "INSERT OR REPLACE INTO baseline (surface, entry_key, value, label, detail) \
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+            )?;
+            for item in items {
+                if matches!(
+                    item.change_status,
+                    crate::models::PersistenceChange::Removed
+                ) {
+                    // Nunca sembrar ítems sintéticos de tipo "eliminado".
+                    continue;
+                }
+                statement.execute(params![
+                    surface,
+                    item.key,
+                    item.value,
+                    item.label,
+                    item.detail,
                 ])?;
             }
         }
