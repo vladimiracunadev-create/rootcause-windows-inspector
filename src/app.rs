@@ -81,15 +81,18 @@ enum Tab {
 }
 
 impl Tab {
+    // Iconos: emoji estándar (cubiertos por la fuente NotoEmoji que egui empaqueta
+    // por defecto) para garantizar que SIEMPRE rendericen. Los glifos geométricos
+    // anteriores (◈ ▤ ◧ ◫) no estaban en la fuente y salían como "□" (tofu).
     const ALL: &'static [(Tab, &'static str, &'static str)] = &[
-        (Tab::Overview, "◈", "Resumen"),
+        (Tab::Overview, "📊", "Resumen"),
         (Tab::Processes, "⚙", "Procesos"),
-        (Tab::Connections, "◎", "Conexiones"),
-        (Tab::TempFiles, "▤", "Temporales"),
-        (Tab::Precision, "◉", "ETW / WPR"),
-        (Tab::Services, "◧", "Servicios"),
-        (Tab::Autostart, "◫", "Autostart"),
-        (Tab::History, "◑", "Historial"),
+        (Tab::Connections, "🌐", "Conexiones"),
+        (Tab::TempFiles, "🗑", "Temporales"),
+        (Tab::Precision, "🎯", "ETW / WPR"),
+        (Tab::Services, "🧰", "Servicios"),
+        (Tab::Autostart, "🚀", "Autostart"),
+        (Tab::History, "🕒", "Historial"),
         (Tab::About, "ℹ", "Acerca"),
     ];
 }
