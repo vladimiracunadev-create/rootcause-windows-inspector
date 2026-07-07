@@ -55,8 +55,13 @@ fn launch_gui() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_title("RootCause — Windows Inspector")
             .with_icon(rootcause_icon())
-            .with_inner_size([1440.0, 900.0])
-            .with_min_inner_size([920.0, 720.0]),
+            // Tamaño "restaurado" razonable, pero se abre MAXIMIZADA para adaptarse
+            // a cualquier pantalla/escala (evita que una ventana fija de 1440x900
+            // exceda pantallas pequeñas o con escala Windows 125-150%).
+            .with_inner_size([1400.0, 880.0])
+            // Mínimo bajo para que quepa incluso en portátiles 1366x768 con escala.
+            .with_min_inner_size([760.0, 560.0])
+            .with_maximized(true),
         ..Default::default()
     };
 

@@ -618,7 +618,9 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 .inner_margin(Margin::symmetric(16.0, 10.0)),
         )
         .show(ctx, |ui| {
-            ui.horizontal(|ui| {
+            // horizontal_wrapped: los controles del header (botones, slider, buscador,
+            // badges) bajan de línea si no caben en vez de recortarse a la derecha.
+            ui.horizontal_wrapped(|ui| {
                 // Logo icon
                 draw_logo_icon(ui, 32.0);
                 ui.add_space(8.0);
@@ -722,7 +724,9 @@ fn draw_tabbar(app: &mut RootCauseApp, ctx: &egui::Context) {
                 .inner_margin(Margin::symmetric(12.0, 0.0)),
         )
         .show(ctx, |ui| {
-            ui.horizontal(|ui| {
+            // horizontal_wrapped: si los 9 tabs no caben a lo ancho, bajan de línea
+            // en vez de recortarse (antes se cortaban en pantallas angostas).
+            ui.horizontal_wrapped(|ui| {
                 for (idx, &(tab, icon, label)) in Tab::ALL.iter().enumerate() {
                     let selected = app.active_tab == tab;
                     let resp = tab_btn(ui, icon, label, selected)
