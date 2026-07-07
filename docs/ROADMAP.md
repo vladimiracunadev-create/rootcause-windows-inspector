@@ -1,19 +1,15 @@
 # Roadmap
 
-## v0.3 Entregado
+## v0.5 Entregado — primer release publicado (consolida el trabajo previo)
 - integracion WPR desde la UI
 - estado de precision dentro del snapshot
 - stop temporal de servicios permitidos
 - documentacion de build y empaquetado endurecida
 - scripts de hash y apertura WPA
-
-## v0.4 Entregado
 - abrir carpeta de trazas desde la UI
 - presets de captura mas claros
 - relacion snapshot <-> ETL mas visible
 - mejoras de whitelist local
-
-## v0.5 Entregado
 - parser resumido de ETL/metadata (`tracerpt` + `dumpfile.xml`)
 - resumen del ultimo ETL desde la propia app
 - exportacion `trace-analysis.json`
@@ -52,16 +48,13 @@
 - visibilidad del estado del agente en GUI, `status --json`, `config show` y snapshot exportado
 - documentacion, landing y manifests alineados con la version 0.9.0
 
-## v0.10 Entregado
+## v0.11 Entregado (incluye el trabajo previo del tab Autostart)
 - tab Autostart integrado en la GUI (Ctrl+7): entradas de registro HKCU/HKLM Run + carpetas Startup
 - tabla con severidad heuristica, tipo de origen, comando completo con tooltip, indicador de existencia en disco
 - chips de resumen por tipo de riesgo (sospechosas / a revisar)
 - nota informativa al pie para entradas de Sistema vs Usuario
 - atajos de teclado extendidos a Ctrl+1..9 (nuevo tab en posicion 7)
 - mejoras profesionales a la interfaz: barra RAM normalizada a RAM real, tooltips Ctrl+N en tabs
-- version bump a 0.10.0
-
-## v0.11 Entregado
 - tareas programadas no-Microsoft integradas en el tab Autostart
 - notas contextuales por tipo de entrada (RunOnce, HKLM, Scheduled Task, Startup)
 - CLI `rootcause autostart [--json]` — lista entradas de persistencia desde consola

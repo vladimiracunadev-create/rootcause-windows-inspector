@@ -33,7 +33,7 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 
 | Desventaja | Plan de ataque |
 |---|---|
-| ~~No monitorea entradas de autostart/registro~~ ✅ **Resuelto** — Tab Autostart (v0.10) + tareas programadas (v0.11) + detección de cambios contra baseline (v0.12) | Entregado |
+| ~~No monitorea entradas de autostart/registro~~ ✅ **Resuelto** — Tab Autostart + tareas programadas (v0.11) + detección de cambios contra baseline (v0.12) | Entregado |
 | Sin firma digital → SmartScreen en primera ejecución | → Fase 6: firma digital |
 | Solo 1 test unitario | → Fase 3: tests para funciones críticas |
 | Sin configuración de umbrales por el usuario | → Fase 4: archivo `rootcause.toml` |
@@ -153,7 +153,7 @@ windows-service = { version = "0.6", optional = true }
 
 Ordenadas por impacto real para el usuario:
 
-#### 4.1 Tab Autostart ✅ Completado en v0.10.0
+#### 4.1 Tab Autostart ✅ Completado en v0.11.0
 Qué hace: muestra qué arranca con Windows — entradas de registro `HKCU/HKLM\...\Run` y carpetas Startup.
 Dónde: tab "Autostart" (Ctrl+7), 9 tabs totales ahora.
 Implementación: `windows::persistence_entries()` (PowerShell) → `snap.persistence_entries` → `draw_tab_autostart()`.
@@ -233,18 +233,20 @@ En orden de impacto potencial:
 
 ## IV. Mapa de versiones del producto
 
-```
-v0.6  ✅   v0.7 ✅               v0.9 ✅   v0.10 ✅          v0.11 ✅              v0.12 ✅                v1.0 ⏳               v2.0+ ⏳
-──────────  ────────────────────  ────────  ──────────────────  ────────────────────  ─────────────────────  ──────────────────── ──────────────────
-GUI+CLI+    CLI-only binary ✅    Agente    Tab Autostart ✅    Tareas programadas ✅  Baseline autostart ✅   Tray icon activo      Windows Service
-SQLite+     PowerShell module ✅  salud ✅  UI profesional ✅   CLI autostart ✅       Cambios NUEVA/MOD/ELIM  Firma digital         Edición Seguridad
-historial   Scoop/Winget/Choco✅  heartb.✅ RAM pbar real ✅    Umbrales editables ✅  persistence-change ✅   Scoop/Winget publis.  Edición Enterprise
-            VS Code Extension ✅  backoff✅ Ctrl+1..9 ✅        save_config() ✅       --accept baseline ✅    EMAIL+GitLab meta.rs  MSIX / Store
-            Tray skeleton ✅                                     Manifests 0.11.0 ✅
-            Service skeleton ✅
-            SQLite retención ✅
-            JSON backup ✅
-```
+Entregado (coincide con los tags/releases publicados en GitHub):
+
+- **v0.5** — primer release: GUI + CLI, SQLite + historial, integración WPR/ETW, parser resumido de ETL, CI en GitHub Actions + pipeline de release (ZIP/Inno/hashes)
+- **v0.6** — sparklines CPU/RAM/IO, tab Historial con comparación A vs B, filtro de severidad, notificaciones toast, tab Acerca, landing inicial
+- **v0.7** — feature flags GUI/CLI-only, módulo PowerShell, manifests Scoop/Winget/Chocolatey, extensión VS Code, skeletons tray/service, retención SQLite + backup JSON
+- **v0.8** — módulo V1 de detección de comportamiento anómalo, incidentes correlacionados con evidencia, adaptador IA opcional desacoplado
+- **v0.9** — salud del agente (heartbeat, recuperación tras cierre abrupto, backoff, integridad básica de configuración)
+- **v0.11** — tab Autostart (Ctrl+7: Run HKCU/HKLM + Startup) y tareas programadas, CLI `autostart`, umbrales editables inline (`save_config`), UI profesional (RAM pbar real, Ctrl+1..9)
+- **v0.12** — detección de cambios de autoarranque vs baseline (NUEVA/MODIFICADA/ELIMINADA), alertas `persistence-change`, aceptar baseline (botón UI + `rootcause autostart --accept`)
+
+Pendiente:
+
+- **v1.0** ⏳ — tray icon activo, firma digital, publicación real en Scoop/Winget/Chocolatey, EMAIL + GitLab en `meta.rs`
+- **v2.0+** ⏳ — Windows Service 24/7, edición Seguridad (SOC), edición Enterprise, MSIX / Microsoft Store
 
 ---
 
