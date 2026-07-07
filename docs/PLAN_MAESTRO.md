@@ -1,10 +1,10 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.12.0 · **Actualizado:** 2026-04-29
+**Versión base:** v0.13.0 · **Actualizado:** 2026-04-29
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
-> Estado del entorno: CI debe estar verde — v0.12.0 completada. Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
+> Estado del entorno: CI debe estar verde — v0.13.0 completada. Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
 
 ---
 
@@ -170,6 +170,12 @@ Cómo: baseline persistida en SQLite (tabla `persistence_baseline`). La primera 
 Alertas: genera alertas kind `persistence-change` — **Alta** para entradas nuevas/modificadas, **Media** para eliminadas.
 Aceptación: botón en el tab Autostart ("✓ Aceptar estado actual como baseline") o CLI `rootcause autostart --accept`. `rootcause autostart --json` incluye el campo `change_status` por entrada.
 
+#### 4.2c Detección de cambios en servicios (motor genérico de baseline) ✅ Completado en v0.13.0
+Qué hace: vigila todos los servicios de Windows y detecta si cambian contra una baseline conocida — servicio **NUEVO / MODIFICADO / ELIMINADO**. El valor vigilado es **StartMode + ruta del binario** (un cambio de modo de arranque o de binario cuenta como MODIFICADO).
+Motor genérico: v0.13 generaliza el patrón de autostart de v0.12 en un **motor de baseline reutilizable**. La lógica de "primera foto = estado bueno conocido → clasificar cambios → aceptar baseline" deja de estar acoplada a autoarranque y pasa a ser un mecanismo común. Futuras superficies (archivo `hosts`, claves de registro, tareas) se añaden barato sobre este motor.
+Alertas: genera alertas kind `service-change` para servicios nuevos/modificados/eliminados.
+Aceptación y listado: CLI `rootcause services --accept` fija la baseline. `rootcause services` lista solo los cambios; `rootcause services --json` incluye el campo `change_status` por servicio.
+
 #### 4.3 Tray icon (monitor proactivo)
 Qué hace: ícono en bandeja del sistema. Cambia de color (verde/amarillo/rojo) según severidad. Click abre la ventana completa. El programa corre en segundo plano sin que el usuario lo vea.
 Por qué importa: transforma RootCause de herramienta reactiva (abro cuando hay problema) a monitor proactivo (me avisa cuando hay problema).
@@ -246,6 +252,7 @@ Entregado (coincide con los tags/releases publicados en GitHub):
 - **v0.9** — salud del agente (heartbeat, recuperación tras cierre abrupto, backoff, integridad básica de configuración)
 - **v0.11** — tab Autostart (Ctrl+7: Run HKCU/HKLM + Startup) y tareas programadas, CLI `autostart`, umbrales editables inline (`save_config`), UI profesional (RAM pbar real, Ctrl+1..9)
 - **v0.12** — detección de cambios de autoarranque vs baseline (NUEVA/MODIFICADA/ELIMINADA), alertas `persistence-change`, aceptar baseline (botón UI + `rootcause autostart --accept`)
+- **v0.13** — detección de cambios en servicios de Windows vs baseline (NUEVO/MODIFICADO/ELIMINADO por StartMode + ruta del binario) sobre un motor genérico de baseline reutilizable, alertas `service-change`, `rootcause services [--json] [--accept]`
 
 Pendiente:
 

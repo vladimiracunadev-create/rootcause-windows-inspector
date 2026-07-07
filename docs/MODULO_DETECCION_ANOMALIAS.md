@@ -22,6 +22,8 @@ RootCause complementa observabilidad y diagnostico del endpoint, pudiendo detect
   - carpeta `Startup` del usuario y global
   - tareas programadas no-Microsoft
 - Mantiene una baseline conocida de autoarranque en SQLite (`persistence_baseline`). La primera foto siembra la baseline en silencio; a partir de ahi cada scan compara contra ella y clasifica cada entrada como NUEVA, MODIFICADA (cambio de `command`), ELIMINADA o sin cambios. Los cambios quedan pegajosos hasta que el usuario los acepta (UI o `rootcause autostart --accept`).
+- Generaliza ese patron en un **motor generico de baseline** (`services/baseline.rs`). Una superficie observable se expresa como un conjunto de `WatchedItem {key, value, label, detail, change_status}`; `diff_surface(store, surface_id, items)` los compara contra la baseline de esa superficie (tabla SQLite generica `baseline`, PK compuesta `surface + entry_key`) y clasifica NUEVA / MODIFICADA / ELIMINADA con la misma semantica pegajosa (primera foto siembra en silencio). `surface_change_event()` produce el `AnomalyEvent` de kind `<surface>-change`.
+- La primera superficie sobre ese motor es **Servicios**: `windows::services_baseline_items()` enumera `Win32_Service` (Name, DisplayName, StartMode, PathName). El valor vigilado que dispara "modificado" es `StartMode|PathName`, no el estado en ejecucion, para evitar ruido por arranques/paradas normales. Emite el kind `service-change` (severidad `High` para NUEVA/MODIFICADA, `Medium` para ELIMINADA). El autostart de v0.12 sigue por su ruta dedicada `persistence_baseline` (migracion al motor generico pendiente).
 - Revisa servicios relevantes de operacion y seguridad:
   - `wuauserv`, `BITS`, `DoSvc`, `TrustedInstaller`, `SysMain`
   - `WinDefend`, `WdNisSvc`, `MpsSvc`, `wscsvc`, `Sense`
@@ -53,11 +55,13 @@ RootCause complementa observabilidad y diagnostico del endpoint, pudiendo detect
 12. Patron de exploracion agresiva en red local.
 13. Correlacion basica de multiples senales sobre el mismo proceso o contexto.
 14. Cambio de autoarranque contra baseline conocida, emitido como `persistence-change` (severidad `High` para NUEVA/MODIFICADA, `Medium` para ELIMINADA). Coexiste con `suspicious-persistence`: uno compara contra la baseline, el otro evalua si la entrada parece sospechosa ahora.
+15. Cambio de servicio contra baseline conocida, emitido como `service-change` (severidad `High` para NUEVA/MODIFICADA, `Medium` para ELIMINADA). Es la primera superficie construida sobre el motor genérico de baseline: vigila el par `StartMode|PathName` de cada `Win32_Service`, no su estado en ejecución.
 
 ## Flujo aplicado
 
 1. `InspectorService` recopila procesos, red, temporales, servicios, eventos y persistencia (`persistence_entries()`).
 2. `InspectorService::detect_persistence_changes()` compara la persistencia observada contra `persistence_baseline` y anota los cambios; `persistence_change_event()` en `anomaly.rs` crea el `AnomalyEvent` correspondiente.
+2b. `InspectorService::detect_service_changes()` obtiene `windows::services_baseline_items()` y llama a `baseline::diff_surface()` sobre la superficie `SERVICE_SURFACE`; los cambios se traducen a un `AnomalyEvent` de kind `service-change` via `surface_change_event()`. `accept_service_baseline()` reemplaza la baseline aceptada y `service_entries_with_changes()` expone las entradas con cambios a UI/CLI.
 3. `services/anomaly.rs` evalua reglas heuristicas locales con un estado incremental ligero.
 4. Cada hallazgo genera un `AnomalyEvent`.
 5. `services/rules.rs` traduce las anomalias a alertas visibles y a un `IncidentSummary`.
@@ -77,17 +81,24 @@ RootCause complementa observabilidad y diagnostico del endpoint, pudiendo detect
   - correlacion basica
   - estado incremental de CPU, memoria, respawn y scripts
   - `persistence_change_event()` construye el `AnomalyEvent` de tipo `persistence-change`
+- `src/services/baseline.rs`
+  - motor generico de deteccion de cambios contra baseline por superficie
+  - `WatchedItem`, `diff_surface()` (clasifica NUEVA / MODIFICADA / ELIMINADA), `surface_change_event()` (crea el `AnomalyEvent` de kind `<surface>-change`)
 - `src/services/inspector.rs`
   - orquestacion del snapshot
   - integracion con persistencia, UI y CLI
   - `detect_persistence_changes()` compara la persistencia observada contra la baseline y anota los cambios
+  - `detect_service_changes()`, `accept_service_baseline()`, `service_entries_with_changes()` (const `SERVICE_SURFACE`) para la superficie Servicios sobre el motor generico
 - `src/services/windows.rs`
   - servicios relevantes
   - persistencia observable en Windows (`persistence_entries()`)
+  - `services_baseline_items()` enumera `Win32_Service` (Name, DisplayName, StartMode, PathName) como `WatchedItem`
   - captura de `command line`
 - `src/services/persistence.rs`
   - baseline de autoarranque en SQLite (`persistence_baseline`)
   - `load_persistence_baseline()` / `replace_persistence_baseline()`
+  - baseline generica en SQLite (tabla `baseline`, PK compuesta `surface + entry_key`)
+  - `load_baseline(surface)` / `replace_baseline(surface, items)`
 - `src/services/rules.rs`
   - traduccion a alertas e incidentes
 - `src/models.rs`
@@ -110,7 +121,7 @@ Cada `AnomalyEvent` intenta incluir, cuando la captura lo permite:
 - `detected_at`
 - `severity`
 - `score`
-- `kind` (por ejemplo `correlated-anomaly`, `suspicious-persistence` o `persistence-change`)
+- `kind` (por ejemplo `correlated-anomaly`, `suspicious-persistence`, `persistence-change` o `service-change`)
 - `title`
 - `process_name`
 - `pid`
@@ -180,8 +191,11 @@ Claves principales:
 - `suspicious_parent_names`
 - `security_service_names`
 - `watch_persistence`
+- `watch_service_changes`
 
 `watch_persistence` (bool, `true` por defecto) habilita la observacion de persistencia, la comparacion contra la baseline `persistence_baseline` y la emision de eventos `persistence-change`. Con `false` no se siembra ni compara baseline.
+
+`watch_service_changes` (bool, `true` por defecto) habilita la deteccion de cambios en la superficie Servicios sobre el motor generico de baseline y la emision de eventos `service-change`. Con `false` no se siembra ni compara la baseline de servicios.
 
 Ejemplo orientativo:
 
@@ -197,7 +211,8 @@ Ejemplo orientativo:
     "local_scan_destination_count": 8,
     "respawn_window_secs": 120,
     "respawn_count": 2,
-    "watch_persistence": true
+    "watch_persistence": true,
+    "watch_service_changes": true
   }
 }
 ```

@@ -58,6 +58,7 @@ src/
     ├── inspector.rs
     ├── network.rs
     ├── persistence.rs
+    ├── baseline.rs
     ├── temp_scan.rs
     ├── etl.rs
     └── windows.rs
@@ -169,6 +170,7 @@ Responsabilidades:
 - `show_toast_notification()` vía WinRT/PowerShell (non-blocking),
 - `batch_process_cmdlines()` vía `Get-CimInstance Win32_Process` en batch,
 - `persistence_entries()` — recopila entradas de registro Run/RunOnce (HKCU/HKLM), carpetas Startup y tareas programadas no-Microsoft vía PowerShell; `InspectorService::detect_persistence_changes()` las compara contra la baseline y clasifica cada entrada como NUEVA / MODIFICADA / ELIMINADA o sin cambios,
+- `services_baseline_items()` — enumera `Win32_Service` (Name, DisplayName, StartMode, PathName) como `WatchedItem` para el motor genérico de baseline; `InspectorService::detect_service_changes()` compara el valor vigilado `StartMode|PathName` contra la baseline de la superficie Servicios y emite el kind `service-change`,
 - `is_valid_firewall_ip()` — validación estricta de IPv4/IPv6 antes de construir scripts PowerShell (defensa contra command injection).
 
 ### `services/etl.rs`
@@ -187,10 +189,23 @@ Responsabilidades:
 - guardar snapshots,
 - guardar incidentes resumidos,
 - registrar auditoría de acciones y de IA,
-- mantener el esquema SQLite: `snapshots`, `incidents`, `audit_log` y `persistence_baseline` (baseline conocida de autoarranque con `entry_key`, `entry_kind`, `location`, `name`, `command`, `target_path` y `first_seen`),
+- mantener el esquema SQLite: `snapshots`, `incidents`, `audit_log`, `persistence_baseline` (baseline conocida de autoarranque con `entry_key`, `entry_kind`, `location`, `name`, `command`, `target_path` y `first_seen`) y la tabla genérica `baseline(surface, entry_key, value, label, detail, first_seen)` con PK compuesta `(surface, entry_key)` que respalda el motor genérico de detección de cambios por superficie,
 - `load_recent(limit)` — devuelve últimas N filas como `Vec<SnapshotRow>`,
 - `load_persistence_baseline()` / `replace_persistence_baseline()` — leen y siembran/reemplazan la baseline de autoarranque para la detección de cambios,
+- `load_baseline(surface)` / `replace_baseline(surface, items)` — leen y siembran/reemplazan la baseline genérica de cualquier superficie sobre la tabla `baseline`,
 - parsea `alerts_json` para derivar `alerts_count` y `has_critical`.
+
+### `services/baseline.rs`
+Motor genérico de detección de cambios contra baseline. Generaliza el patrón introducido por el autostart para poder aplicarlo a cualquier superficie observable.
+
+Responsabilidades:
+- `WatchedItem { key, value, label, detail, change_status }` — unidad genérica vigilada por superficie,
+- `diff_surface(store, surface_id, items)` — compara los `WatchedItem` observados contra la baseline de esa superficie y clasifica cada uno como NUEVA / MODIFICADA / ELIMINADA (la primera foto siembra en silencio; los cambios quedan pegajosos),
+- `surface_change_event()` — genera un `AnomalyEvent` con kind `<surface>-change` a partir de los cambios detectados.
+
+La primera superficie construida sobre este motor es **Servicios**: `windows::services_baseline_items()` enumera `Win32_Service` (Name, DisplayName, StartMode, PathName) y el valor vigilado es `StartMode|PathName` (no el estado en ejecución). En `InspectorService`, `detect_service_changes()`, `accept_service_baseline()` y `service_entries_with_changes()` (con la const `SERVICE_SURFACE`) coordinan la detección, que emite el kind de anomalía `service-change`.
+
+El autostart de v0.12 sigue en su ruta dedicada `persistence_baseline` sin cambios; su migración al motor genérico es futura.
 
 ### `services/ai.rs`
 Adaptador opcional de IA.

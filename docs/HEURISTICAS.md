@@ -115,6 +115,11 @@ Los cambios son pegajosos: siguen visibles hasta que el usuario los acepta e inc
 ### Severidad diferenciada
 La aparición (NUEVA) y la modificación (MODIFICADA) reciben severidad más alta porque son la forma en que un mecanismo no autorizado se instala o muta para persistir. La eliminación (ELIMINADA) recibe severidad menor: quitar una entrada rara vez es un vector de ataque y suele corresponder a una desinstalación o limpieza legítima, aunque sigue siendo un cambio que conviene notar.
 
+### Motor genérico de baseline
+La comparación contra baseline ya no es exclusiva del autoarranque: es un **motor genérico** que aplica el mismo patrón (sembrar en silencio, clasificar NUEVA / MODIFICADA / ELIMINADA, cambios pegajosos) a cualquier superficie observable.
+
+La primera superficie sobre ese motor es **Servicios**. Vigila el par `StartMode` + binario (`PathName`) de cada servicio, **no su estado en ejecución**: un servicio que arranca o se detiene es ruido normal, mientras que un cambio de tipo de arranque o de ruta del ejecutable sí es una mutación relevante. Un cambio de servicio se emite como `service-change` con la misma severidad diferenciada (más alta para NUEVA/MODIFICADA, menor para ELIMINADA).
+
 ---
 
 ## 7) Construcción del semáforo general

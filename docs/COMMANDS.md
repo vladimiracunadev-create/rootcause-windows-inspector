@@ -323,6 +323,30 @@ Notas:
   que fija el estado actual como nueva baseline y registra la acción `accept-persistence-baseline`
   en `audit_log`.
 
+### Servicios de Windows
+
+```powershell
+rootcause services          # lista solo los servicios que cambiaron, con [NUEVO]/[MODIFIC.]/[ELIMIN.]
+rootcause services --json   # todos los servicios en JSON, incluye campo change_status por ítem
+rootcause services --accept # fija el estado actual como baseline buena conocida
+```
+
+Notas:
+- Enumera todos los servicios (`Win32_Service`) y compara cada uno contra una baseline conocida
+  guardada en SQLite, clasificándolo como **[NUEVO]** (no estaba antes), **[MODIFIC.]** (cambió el
+  modo de arranque o la ruta del binario) o **[ELIMIN.]** (estaba y ya no aparece).
+- El valor vigilado es el modo de arranque (`StartMode`) más la ruta del binario (`PathName`), **no**
+  el estado en ejecución, que fluctúa constantemente. Así se detecta un servicio nuevo, el secuestro
+  del `ImagePath` o la deshabilitación de un servicio (ej. Defender) sin ruido por arranques/paradas.
+- `rootcause services` (sin flags) muestra solo lo que cambió; `--json` emite todos los ítems con el
+  campo `change_status` (`unchanged`, `added`, `modified`, `removed`).
+- Los cambios son pegajosos: se siguen marcando hasta que ejecutas `rootcause services --accept`,
+  que fija el estado actual como nueva baseline y registra la acción `accept-service-baseline`
+  en `audit_log`.
+- Cada cambio detectado genera además una alerta de kind `service-change` (Alta para
+  nuevos/modificados, Media para eliminados), gobernada por el flag de configuración
+  `watch_service_changes` (default `true`).
+
 ### IA opcional por API
 
 ```powershell

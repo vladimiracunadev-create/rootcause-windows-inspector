@@ -161,6 +161,26 @@ auditada en `audit_log` con la acción `accept-persistence-baseline`. Cada cambi
 una anomalía de kind `persistence-change` (Alta para NUEVA/MODIFICADA, Media para ELIMINADA), gobernada
 por el flag de configuración `watch_persistence`.
 
+### Cambios en servicios de Windows
+```
+rootcause services               # lista solo los servicios que cambiaron, con [NUEVO]/[MODIFIC.]/[ELIMIN.]
+rootcause services --json        # todos los servicios en JSON (incluye campo change_status por ítem)
+rootcause services --accept      # fija el estado actual como baseline buena conocida
+```
+
+RootCause enumera todos los servicios (`Win32_Service`) y vigila, por cada uno, el **modo de arranque**
+(`StartMode`) más la **ruta del binario** (`PathName`) — **no** el estado en ejecución, que fluctúa con
+cada arranque o parada. En cada scan compara ese valor contra una baseline conocida guardada en SQLite y
+clasifica cada servicio como **NUEVA** (no estaba), **MODIFICADA** (cambió el modo de arranque o el
+binario) o **ELIMINADA** (estaba y ya no aparece). Así se detecta un servicio nuevo, el secuestro del
+`ImagePath` o la deshabilitación de un servicio como Defender, sin ruido por servicios que simplemente se
+inician o detienen. La primera vez, con la baseline vacía, se siembra en silencio como "estado bueno
+conocido" y no se marca ningún cambio. Los cambios son **pegajosos**: se siguen mostrando hasta que los
+aceptas con `rootcause services --accept`, que fija el estado actual como nueva baseline y queda auditado
+en `audit_log` con la acción `accept-service-baseline`. Cada cambio detectado genera además una alerta de
+kind `service-change` (Alta para NUEVA/MODIFICADA, Media para ELIMINADA), gobernada por el flag de
+configuración `watch_service_changes` (default `true`).
+
 ### Acciones de intervención
 ```
 rootcause kill <PID>              # finaliza proceso (respeta política de protección)

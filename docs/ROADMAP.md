@@ -63,7 +63,7 @@
 - manifests Scoop/Winget/Chocolatey actualizados a 0.11.0
 - version bump a 0.11.0
 
-## v0.12 Entregado (version actual)
+## v0.12 Entregado
 - deteccion de cambios de autoarranque contra baseline conocida: da control explicito para saber si cambian los puntos de autoarranque de Windows
 - baseline persistida en SQLite (tabla `persistence_baseline`) de las entradas de autoarranque (Registro Run/RunOnce HKCU/HKLM, carpetas Startup, tareas programadas no-Microsoft)
 - clasificacion de cada entrada como NUEVA / MODIFICADA / ELIMINADA contra la baseline; primera foto = estado bueno conocido (silenciosa), cambios pegajosos hasta aceptar
@@ -72,6 +72,15 @@
 - `rootcause autostart --json` incluye el campo `change_status` por entrada
 - manifests Scoop/Winget/Chocolatey actualizados a 0.12.0
 - version bump a 0.12.0
+
+## v0.13 Entregado (version actual)
+- deteccion de cambios en servicios de Windows contra baseline conocida: da control explicito para saber si cambian los servicios instalados en el equipo
+- motor generico de baseline reutilizable: generaliza el patron de autostart de v0.12 en un mecanismo comun; futuras superficies (hosts, registro, tareas) se anaden barato
+- vigila todos los servicios y clasifica cada uno como NUEVO / MODIFICADO / ELIMINADO contra la baseline; el valor vigilado es StartMode + ruta del binario (cambio de modo de arranque o de binario)
+- alertas kind `service-change` para servicios nuevos/modificados/eliminados
+- aceptacion de baseline via CLI `rootcause services --accept`
+- listado `rootcause services` (solo cambios) y `rootcause services --json` (incluye `change_status` por servicio)
+- version bump a 0.13.0
 
 ## v1.0 Objetivo de distribucion formal
 - tray icon activo (monitor proactivo en bandeja del sistema)

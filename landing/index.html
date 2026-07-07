@@ -64,12 +64,12 @@
         <img src="https://img.shields.io/badge/rust-edition%202024-orange.svg" alt="Rust 2024" />
         <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows 10/11" />
         <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0" />
-        <img src="https://img.shields.io/badge/versión-0.12.0-brightgreen.svg" alt="v0.12.0" />
+        <img src="https://img.shields.io/badge/versión-0.13.0-brightgreen.svg" alt="v0.13.0" />
         <img src="https://img.shields.io/badge/telemetría-cero-success.svg" alt="Telemetría cero" />
       </div>
 
       <div class="hero-cta">
-        <a href="#download" class="btn-primary">⬇ Descargar v0.12.0</a>
+        <a href="#download" class="btn-primary">⬇ Descargar v0.13.0</a>
         <a href="#install" class="btn-ghost">📖 Instrucciones</a>
       </div>
 
@@ -161,6 +161,12 @@
           <div class="feature-icon">🧬</div>
           <h3>Baseline de autoarranque</h3>
           <p>La primera foto de las entradas de autoarranque se guarda como estado bueno conocido en SQLite. Cada scan clasifica los cambios (NUEVA / MODIFICADA / ELIMINADA) y son pegajosos hasta que aceptas la nueva baseline con <code>rootcause autostart --accept</code>.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🛠</div>
+          <h3>Cambios en servicios de Windows</h3>
+          <p>Un motor genérico de baseline —el mismo patrón del autoarranque, ahora reutilizable— vigila todos los servicios y detecta cualquiera NUEVO / MODIFICADO / ELIMINADO contra una baseline conocida. Vigila el modo de arranque (StartMode) y la ruta del binario, genera alertas <code>service-change</code> y se acepta con <code>rootcause services --accept</code>.</p>
         </div>
 
         <div class="feature-card">
@@ -329,7 +335,7 @@ choco install rootcause-windows-inspector</code></pre>
   <section id="security-evolution" class="section">
     <div class="container">
       <h2 class="section-title">🛡 Evolución de seguridad y resiliencia</h2>
-      <p class="section-sub">v0.9–v0.12 incorporan autoprotección del agente, tab Autostart con heurística de severidad y baseline en SQLite que detecta cambios de persistencia (NUEVA / MODIFICADA / ELIMINADA), y edición inline de umbrales — sin convertir RootCause en un antivirus.</p>
+      <p class="section-sub">v0.9–v0.13 incorporan autoprotección del agente, tab Autostart con heurística de severidad y baseline en SQLite que detecta cambios de persistencia (NUEVA / MODIFICADA / ELIMINADA), un motor genérico de baseline que vigila también los servicios de Windows (NUEVO / MODIFICADO / ELIMINADO con alertas <code>service-change</code>), y edición inline de umbrales — sin convertir RootCause en un antivirus.</p>
 
       <div class="feature-grid">
         <div class="feature-card">
@@ -466,7 +472,7 @@ code --install-extension RootCause-VSCode-Extension.vsix
         <div class="install-block">
           <h3>✅ Verificar instalación</h3>
           <pre><code class="shell">rootcause --version
-# RootCause Windows Inspector v0.12.0
+# RootCause Windows Inspector v0.13.0
 
 rootcause --help
 # muestra todos los comandos disponibles</code></pre>
@@ -527,13 +533,21 @@ rootcause --help
           <code>rootcause autostart --accept</code>
           <span>Fija el estado actual de autoarranque como baseline conocida</span>
         </div>
+        <div class="cli-entry">
+          <code>rootcause services [--json]</code>
+          <span>Detecta cambios en los servicios de Windows vs baseline (NUEVO / MODIFICADO / ELIMINADO por StartMode + ruta del binario). Con <code>--json</code> incluye <code>change_status</code></span>
+        </div>
+        <div class="cli-entry">
+          <code>rootcause services --accept</code>
+          <span>Fija el estado actual de los servicios como baseline conocida</span>
+        </div>
       </div>
 
       <div class="terminal-demo">
         <pre><span class="t-prompt">C:\&gt;</span> rootcause status
 
 <span class="t-box">┌─────────────────────────────────────────────────┐
-│  RootCause Windows Inspector  v0.12.0           │
+│  RootCause Windows Inspector  v0.13.0           │
 │  Estado del sistema                             │
 ├─────────────────────────────────────────────────┤
 │  Severidad  : ⚠ WARNING                        │
@@ -579,9 +593,9 @@ rootcause --help
 
       <div class="download-grid">
         <div class="download-card primary">
-          <div class="dl-badge">Recomendado · v0.12.0</div>
+          <div class="dl-badge">Recomendado · v0.13.0</div>
           <h3>📦 Portable ZIP (GUI)</h3>
-          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.12.0.</p>
+          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.13.0.</p>
           <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Portable.zip"
             class="btn-download" target="_blank" rel="noopener">
             ⬇ RootCause-Portable.zip
@@ -607,7 +621,7 @@ rootcause --help
             class="btn-download-ghost" target="_blank" rel="noopener">
             ⬇ SHA256SUMS.txt
           </a>
-          <p class="dl-meta">Integridad · release v0.12.0</p>
+          <p class="dl-meta">Integridad · release v0.13.0</p>
         </div>
 
         <div class="download-card">
@@ -644,7 +658,7 @@ rootcause --help
       </div>
 
       <p class="download-note">
-        ⚠ Todos los artefactos son builds reales compilados por CI (v0.12.0) y verificados con SHA-256. El binario no tiene firma digital todavía, por lo que Windows puede mostrar una advertencia de SmartScreen (More info → Run anyway).
+        ⚠ Todos los artefactos son builds reales compilados por CI (v0.13.0) y verificados con SHA-256. El binario no tiene firma digital todavía, por lo que Windows puede mostrar una advertencia de SmartScreen (More info → Run anyway).
       </p>
     </div>
   </section>
