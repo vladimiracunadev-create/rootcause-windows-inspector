@@ -138,6 +138,9 @@ pub struct RootCauseApp {
     // Configuración operativa (snapshot al iniciar, para el panel Config)
     cached_config: RootCauseConfig,
     config_path: String,
+    // Limpieza de %TEMP% (tab Temporales): confirmación de 2 pasos + resultado
+    temp_clean_confirm: bool,
+    temp_clean_result: Option<String>,
 }
 
 impl RootCauseApp {
@@ -168,6 +171,8 @@ impl RootCauseApp {
             hardware_info: HardwareInfo::default(),
             cached_config: RootCauseConfig::default(),
             config_path: String::new(),
+            temp_clean_confirm: false,
+            temp_clean_result: None,
         };
         match inspector {
             Ok(svc) => {
@@ -398,6 +403,22 @@ impl RootCauseApp {
             }
         }
     }
+
+    fn execute_temp_clean(&mut self) {
+        self.temp_clean_confirm = false;
+        let Some(insp) = self.inspector.as_ref() else {
+            return;
+        };
+        let r = insp.clean_temp(false);
+        self.temp_clean_result = Some(format!(
+            "Limpieza: {} borradas · {:.1} MB liberados · {} en uso (saltadas) · {} recientes (saltadas)",
+            r.deleted_count, r.freed_mb, r.skipped_in_use, r.skipped_recent
+        ));
+        self.status_line = format!("%TEMP% limpiado: {:.1} MB liberados", r.freed_mb);
+        self.status_is_error = false;
+        // Forzar re-escaneo para que la tabla de temporales refleje el cambio.
+        self.last_refresh_at = Instant::now() - Duration::from_secs(self.refresh_interval_secs);
+    }
 }
 
 // ── Loop principal ─────────────────────────────────────────────────────────────
@@ -559,7 +580,18 @@ impl eframe::App for RootCauseApp {
                                 |ip| ip_to_block = Some(ip.to_owned()),
                             ),
                             Tab::TempFiles => {
-                                draw_tab_temp(ui, &snapshot, &self.filter_text);
+                                let mut do_clean = false;
+                                draw_tab_temp(
+                                    ui,
+                                    &snapshot,
+                                    &self.filter_text,
+                                    &mut self.temp_clean_confirm,
+                                    &self.temp_clean_result,
+                                    &mut do_clean,
+                                );
+                                if do_clean {
+                                    self.execute_temp_clean();
+                                }
                             }
                             Tab::Precision => draw_tab_precision(
                                 ui,
@@ -1727,12 +1759,81 @@ fn draw_tab_connections<F: FnMut(&str)>(
 
 // ── Tab: Temporales ────────────────────────────────────────────────────────────
 
-fn draw_tab_temp(ui: &mut egui::Ui, snap: &SystemSnapshot, filter: &str) {
+fn draw_tab_temp(
+    ui: &mut egui::Ui,
+    snap: &SystemSnapshot,
+    filter: &str,
+    confirm: &mut bool,
+    result: &Option<String>,
+    execute: &mut bool,
+) {
     section_header(
         ui,
         "▸  Archivos temporales  ·  instaladores, actualizaciones, exportaciones",
     );
     ui.add_space(8.0);
+
+    // ── Limpieza segura de %TEMP% (solo tu carpeta, >24h, salta lo en uso) ─────
+    egui::Frame::none()
+        .fill(BG_CARD)
+        .rounding(Rounding::same(6.0))
+        .inner_margin(Margin::same(8.0))
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                if !*confirm {
+                    if ui
+                        .add(egui::Button::new(
+                            RichText::new("🧹 Limpiar %TEMP% (>24h, no en uso)")
+                                .size(12.5)
+                                .color(TEXT_PRI),
+                        ))
+                        .on_hover_text(
+                            "Borra de tu carpeta %TEMP% solo lo no modificado en 24h; \
+                             salta lo bloqueado. No toca el sistema ni Windows Update.",
+                        )
+                        .clicked()
+                    {
+                        *confirm = true;
+                    }
+                    ui.label(
+                        RichText::new("Seguro: solo tu %TEMP%, salta archivos en uso.")
+                            .size(10.5)
+                            .color(TEXT_MUT),
+                    );
+                } else {
+                    ui.label(
+                        RichText::new("¿Confirmar? Se borrará lo no usado (>24h) de tu %TEMP%.")
+                            .size(12.0)
+                            .strong()
+                            .color(C_WN_FG),
+                    );
+                    if ui
+                        .add(
+                            egui::Button::new(
+                                RichText::new("✓ Confirmar").size(12.0).color(TEXT_PRI),
+                            )
+                            .fill(C_CR_BG),
+                        )
+                        .clicked()
+                    {
+                        *execute = true;
+                    }
+                    if ui
+                        .add(egui::Button::new(
+                            RichText::new("Cancelar").size(12.0).color(TEXT_SEC),
+                        ))
+                        .clicked()
+                    {
+                        *confirm = false;
+                    }
+                }
+            });
+            if let Some(msg) = result {
+                ui.add_space(4.0);
+                ui.label(RichText::new(msg).size(11.0).color(C_OK_FG));
+            }
+        });
+    ui.add_space(10.0);
 
     table_header(
         ui,

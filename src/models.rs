@@ -376,6 +376,23 @@ pub struct TempOverview {
     pub limitations: Vec<String>,
 }
 
+/// Resultado de una limpieza de la carpeta `%TEMP%` del usuario.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TempCleanResult {
+    /// MB liberados (o que se liberarían en `dry_run`).
+    pub freed_mb: f32,
+    /// Entradas borradas (o que se borrarían).
+    pub deleted_count: u64,
+    /// Entradas saltadas por estar en uso / bloqueadas.
+    pub skipped_in_use: u64,
+    /// Entradas saltadas por ser recientes (dentro de la ventana de antigüedad).
+    pub skipped_recent: u64,
+    /// Errores no relacionados con "en uso".
+    pub error_count: u64,
+    /// Si es una simulación (no borra nada).
+    pub dry_run: bool,
+}
+
 /// Conexión observada a partir de netstat.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ConnectionInsight {

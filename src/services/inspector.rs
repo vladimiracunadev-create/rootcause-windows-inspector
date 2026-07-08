@@ -7,7 +7,7 @@ use crate::config::{ConfigManager, RootCauseConfig};
 use crate::models::{
     AiIncidentAdvice, Alert, AnomalyEvent, AuditRecord, HardwareInfo, IncidentSummary,
     PersistenceChange, PersistenceEntry, PrecisionStatus, ProcessInsight, Severity, SnapshotRow,
-    SystemOverview, SystemSnapshot, TraceAnalysisSummary, WatchedItem,
+    SystemOverview, SystemSnapshot, TempCleanResult, TraceAnalysisSummary, WatchedItem,
 };
 use crate::services::{
     ai::AiAdvisor,
@@ -915,6 +915,22 @@ impl InspectorService {
         let mut items = windows::services_baseline_items().unwrap_or_default();
         baseline::diff_surface(&self.store, SERVICE_SURFACE.id, &mut items);
         items
+    }
+
+    /// Limpia la carpeta `%TEMP%` del usuario: borra lo no usado y con más de 24h
+    /// de antigüedad, saltando lo bloqueado. `dry_run` simula sin borrar. Solo
+    /// toca `%TEMP%` (nunca el sistema ni SoftwareDistribution).
+    pub fn clean_temp(&self, dry_run: bool) -> TempCleanResult {
+        let result = temp_scan::clean_user_temp(24, dry_run);
+        if !dry_run {
+            let target = format!("{} borrados", result.deleted_count);
+            let detail = format!(
+                "Limpieza %TEMP% (>24h, no en uso): {:.1} MB liberados, {} en uso saltados",
+                result.freed_mb, result.skipped_in_use
+            );
+            self.audit_action("clean-temp", &target, Some(detail.as_str()), None);
+        }
+        result
     }
 
     fn audit_action(

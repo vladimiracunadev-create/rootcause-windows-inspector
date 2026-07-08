@@ -43,6 +43,7 @@ pub fn run(args: &[String]) -> i32 {
         "config" => cmd_config(&args[1..]),
         "autostart" => cmd_autostart(&args[1..]),
         "services" => cmd_services(&args[1..]),
+        "clean-temp" => cmd_clean_temp(&args[1..]),
         other => {
             eprintln!(
                 "Comando desconocido: '{other}'\nUsa  rootcause --help  para ver todas las opciones."
@@ -87,6 +88,8 @@ AUTOSTART Y PERSISTENCIA:
   rootcause autostart --accept            Fija el estado actual como baseline "buena conocida"
   rootcause services [--json]             Servicios: detecta cambios vs baseline (nuevo/modificado/eliminado)
   rootcause services --accept             Fija el estado actual de servicios como baseline
+  rootcause clean-temp                    Simula limpieza de %TEMP% (>24h, no en uso) — no borra
+  rootcause clean-temp --yes              Limpia de verdad %TEMP% (>24h, no en uso); salta lo bloqueado
 
 CONFIGURACIÓN E IA OPCIONAL:
   rootcause config show [--json]          Ver ruta y configuración efectiva
@@ -690,6 +693,37 @@ fn cmd_services(args: &[String]) -> i32 {
         );
     } else {
         println!("Sin cambios respecto a la baseline conocida.");
+    }
+    0
+}
+
+fn cmd_clean_temp(args: &[String]) -> i32 {
+    // Por seguridad, sin `--yes` es una SIMULACIÓN (no borra nada).
+    let confirmed = has_flag(args, "--yes");
+    let dry_run = !confirmed;
+
+    let insp = match init_inspector() {
+        Ok(i) => i,
+        Err(c) => return c,
+    };
+    let r = insp.clean_temp(dry_run);
+
+    if dry_run {
+        println!("SIMULACIÓN — no se borró nada. Añade `--yes` para limpiar de verdad.");
+        println!(
+            "Se borrarían {} entrada(s) · {:.1} MB · {} reciente(s) (<24h) saltada(s).",
+            r.deleted_count, r.freed_mb, r.skipped_recent
+        );
+    } else {
+        println!("Limpieza de %TEMP% (>24h, no en uso) completada:");
+        println!(
+            "  {} entrada(s) borrada(s) · {:.1} MB liberados",
+            r.deleted_count, r.freed_mb
+        );
+        println!(
+            "  {} en uso (saltadas) · {} reciente(s) (saltadas) · {} error(es)",
+            r.skipped_in_use, r.skipped_recent, r.error_count
+        );
     }
     0
 }

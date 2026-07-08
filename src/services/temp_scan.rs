@@ -5,10 +5,11 @@
 //! usa límites razonables de profundidad y conteo de archivos.
 
 use crate::config::TempThresholds;
-use crate::models::{Severity, TempEntry, TempOverview};
+use crate::models::{Severity, TempCleanResult, TempEntry, TempOverview};
 use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 use walkdir::WalkDir;
 
 const MAX_FILES_PER_ENTRY: usize = 20_000;
@@ -124,6 +125,87 @@ fn accumulate_path(path: &Path) -> (u64, u64) {
     }
 
     (total_bytes, file_count)
+}
+
+/// Limpia SOLO la carpeta `%TEMP%` del usuario. Borra las entradas de nivel
+/// superior no modificadas en las últimas `older_than_hours` horas; salta lo que
+/// esté en uso (bloqueado) o sin permisos. Con `dry_run` cuenta sin borrar.
+///
+/// Seguridad: opera exclusivamente dentro de `%TEMP%` (nunca `C:\Windows\Temp`,
+/// el sistema ni `SoftwareDistribution`). En Windows, un archivo con un handle
+/// abierto no puede borrarse → la operación falla y se salta, por lo que
+/// "no en uso" es intrínsecamente seguro.
+pub fn clean_user_temp(older_than_hours: u64, dry_run: bool) -> TempCleanResult {
+    let mut result = TempCleanResult {
+        dry_run,
+        ..Default::default()
+    };
+
+    let temp = match std::env::var_os("TEMP") {
+        Some(value) => PathBuf::from(value),
+        None => return result,
+    };
+    if !temp.is_dir() {
+        return result;
+    }
+
+    let cutoff =
+        SystemTime::now().checked_sub(Duration::from_secs(older_than_hours.saturating_mul(3600)));
+
+    let entries = match fs::read_dir(&temp) {
+        Ok(entries) => entries,
+        Err(_) => return result,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+
+        // Guarda de antigüedad: saltar lo modificado recientemente. Si no se puede
+        // leer la fecha, se salta por seguridad (nunca borrar a ciegas).
+        let too_recent = match (entry.metadata().and_then(|m| m.modified()).ok(), cutoff) {
+            (Some(modified), Some(cut)) => modified > cut,
+            _ => true,
+        };
+        if too_recent {
+            result.skipped_recent = result.skipped_recent.saturating_add(1);
+            continue;
+        }
+
+        let size_bytes = accumulate_path(&path).0;
+        let size_mb = size_bytes as f32 / (1024.0 * 1024.0);
+
+        if dry_run {
+            result.deleted_count = result.deleted_count.saturating_add(1);
+            result.freed_mb += size_mb;
+            continue;
+        }
+
+        let removed = if path.is_dir() {
+            fs::remove_dir_all(&path)
+        } else {
+            fs::remove_file(&path)
+        };
+
+        match removed {
+            Ok(()) => {
+                result.deleted_count = result.deleted_count.saturating_add(1);
+                result.freed_mb += size_mb;
+            }
+            Err(err) => {
+                use std::io::ErrorKind;
+                // ERROR_SHARING_VIOLATION (32) / ERROR_LOCK_VIOLATION (33) = en uso.
+                let in_use = matches!(err.kind(), ErrorKind::PermissionDenied)
+                    || matches!(err.raw_os_error(), Some(32) | Some(33));
+                if in_use {
+                    result.skipped_in_use = result.skipped_in_use.saturating_add(1);
+                } else {
+                    result.error_count = result.error_count.saturating_add(1);
+                }
+            }
+        }
+    }
+
+    result
 }
 
 /// Traduce peso en severidad visual.
