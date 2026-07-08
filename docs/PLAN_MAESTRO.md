@@ -1,10 +1,10 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.13.0 · **Actualizado:** 2026-07-07
+**Versión base:** v0.14.0 · **Actualizado:** 2026-07-07
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
-> Estado del entorno: CI debe estar verde — v0.13.0 completada. Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
+> Estado del entorno: CI debe estar verde — v0.14.0 completada (overhaul de UI + fix de colección PowerShell). Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
 
 ---
 
@@ -44,8 +44,9 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 ## II. Estado técnico — hito v0.7 (snapshot histórico)
 
 > Nota: esta sección es un registro del hito v0.7. El estado actual del producto es
-> v0.13.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
-> hasta hoy: detección de anomalías, baseline de autoarranque y de servicios).
+> v0.14.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
+> hasta hoy: detección de anomalías, baseline de autoarranque y de servicios, overhaul
+> de UI y colección PowerShell robusta).
 
 ### ✅ Completado en v0.7
 - Feature flags GUI/CLI-only en `Cargo.toml` (eframe/egui opcionales)
@@ -257,6 +258,7 @@ Entregado (coincide con los tags/releases publicados en GitHub):
 - **v0.11** — tab Autostart (Ctrl+7: Run HKCU/HKLM + Startup) y tareas programadas, CLI `autostart`, umbrales editables inline (`save_config`), UI profesional (RAM pbar real, Ctrl+1..9)
 - **v0.12** — detección de cambios de autoarranque vs baseline (NUEVA/MODIFICADA/ELIMINADA), alertas `persistence-change`, aceptar baseline (botón UI + `rootcause autostart --accept`)
 - **v0.13** — detección de cambios en servicios de Windows vs baseline (NUEVO/MODIFICADO/ELIMINADO por StartMode + ruta del binario) sobre un motor genérico de baseline reutilizable, alertas `service-change`, `rootcause services [--json] [--accept]`
+- **v0.14** — overhaul de UI (ventana ajustada al monitor, scrollbars sólidas, barrido de glifos tofu, layout del Resumen sin desbordes), tab Manual (10 tabs, Ctrl+0=Acerca), limpieza de %TEMP% (`clean-temp`) y **fix real de colección**: Servicios/Eventos ya no salen vacíos por exit code de PowerShell + salida forzada a UTF-8 (acentos ya no salen como "□")
 
 Pendiente:
 

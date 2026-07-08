@@ -13,7 +13,8 @@
 | [v0.9](#v09-entregado) | ✅ Entregado | Salud del agente: heartbeat, recuperación y backoff |
 | [v0.11](#v011-entregado-incluye-el-trabajo-previo-del-tab-autostart) | ✅ Entregado | Tab Autostart + umbrales editables inline |
 | [v0.12](#v012-entregado) | ✅ Entregado | Detección de cambios de autoarranque contra baseline |
-| [v0.13](#v013-entregado-version-actual) | ✅ **Actual** | Detección de cambios en servicios + motor genérico de baseline |
+| [v0.13](#v013-entregado) | ✅ Entregado | Detección de cambios en servicios + motor genérico de baseline |
+| [v0.14](#v014-entregado-version-actual) | ✅ **Actual** | Overhaul de UI (ventana, scroll, glifos) + fix de colección PowerShell |
 | [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: tray icon, firma digital, publicación |
 | [v2.0+](#v20-largo-plazo) | 🔭 Largo plazo | Windows Service 24/7, ediciones Seguridad y Enterprise |
 
@@ -92,7 +93,7 @@
 - manifests Scoop/Winget/Chocolatey actualizados a 0.12.0
 - version bump a 0.12.0
 
-## v0.13 Entregado (version actual)
+## v0.13 Entregado
 - deteccion de cambios en servicios de Windows contra baseline conocida: da control explicito para saber si cambian los servicios instalados en el equipo
 - motor generico de baseline reutilizable: generaliza el patron de autostart de v0.12 en un mecanismo comun; futuras superficies (hosts, registro, tareas) se anaden barato
 - vigila todos los servicios y clasifica cada uno como NUEVO / MODIFICADO / ELIMINADO contra la baseline; el valor vigilado es StartMode + ruta del binario (cambio de modo de arranque o de binario)
@@ -100,6 +101,17 @@
 - aceptacion de baseline via CLI `rootcause services --accept`
 - listado `rootcause services` (solo cambios) y `rootcause services --json` (incluye `change_status` por servicio)
 - version bump a 0.13.0
+
+## v0.14 Entregado (version actual)
+- UI: la ventana se dimensiona al area de trabajo real del monitor al arrancar (antes no se ajustaba y la barra de tareas recortaba el fondo)
+- UI: barras de scroll solidas y siempre visibles en todos los tabs (antes la barra flotante era casi invisible y parecia que el Resumen no tenia scroll)
+- UI: barrido de glifos que la fuente incluida no renderiza (salian como "cuadrado") en chips de severidad, iconos de estado, marcas de verificacion y botones
+- UI: nuevo tab Manual (guia integrada de que hace cada pestana, la deteccion por baseline y las acciones seguras); ahora 10 tabs (Manual = Ctrl+9, Acerca = Ctrl+0)
+- UI: limpieza segura de %TEMP% desde el tab Temporales (boton con confirmacion de 2 pasos) y por CLI `rootcause clean-temp [--yes]` (solo tu %TEMP%, >24h, salta lo bloqueado)
+- UI: tarjetas de anomalias y sparklines del Resumen dejan de desbordar el texto
+- FIX de coleccion: los tabs Servicios y Eventos recientes salian siempre vacios porque PowerShell devuelve exit code distinto de cero ante errores no-terminantes (p. ej. un servicio inexistente) aunque emita datos validos; ahora se usa la salida util
+- FIX de codificacion: la salida de PowerShell se fuerza a UTF-8 (antes los acentos salian como "cuadrado" en nombres de servicios, eventos y rutas)
+- version bump a 0.14.0
 
 ## v1.0 Objetivo de distribucion formal
 - tray icon activo (monitor proactivo en bandeja del sistema)
