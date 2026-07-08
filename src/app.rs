@@ -191,6 +191,22 @@ impl RootCauseApp {
                 app.status_is_error = true;
             }
         }
+        // Override del tab inicial por variable de entorno (solo para verificación
+        // visual/capturas; sin efecto en uso normal).
+        if let Ok(tab) = std::env::var("RC_TAB") {
+            app.active_tab = match tab.as_str() {
+                "procesos" => Tab::Processes,
+                "conexiones" => Tab::Connections,
+                "temporales" => Tab::TempFiles,
+                "etw" => Tab::Precision,
+                "servicios" => Tab::Services,
+                "autostart" => Tab::Autostart,
+                "historial" => Tab::History,
+                "manual" => Tab::Manual,
+                "acerca" => Tab::About,
+                _ => Tab::Overview,
+            };
+        }
         app
     }
 
@@ -3988,53 +4004,61 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(12.0))
         .show(ui, |ui| {
-            ui.set_min_size(Vec2::new(width, 125.0));
-            ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new(&anomaly.title).strong().color(fg));
-                alert_badge(ui, anomaly.severity.label(), fg, BG_CARD);
-                pill(ui, &format!("Score {}", anomaly.score), TEXT_MUT, BG_CARD);
-            });
-            if let Some(name) = anomaly.process_name.as_ref() {
+            // El Frame hereda el layout del contenedor padre (horizontal_wrapped),
+            // así que sin esto los Label.wrap(true) envuelven al ancho de toda la
+            // fila y el texto se desborda. Un layout vertical acotado a `width`
+            // fuerza el wrap al ancho real de la tarjeta.
+            ui.vertical(|ui| {
+                ui.set_min_width(width);
+                ui.set_max_width(width);
+                ui.set_min_height(125.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(RichText::new(&anomaly.title).strong().color(fg));
+                    alert_badge(ui, anomaly.severity.label(), fg, BG_CARD);
+                    pill(ui, &format!("Score {}", anomaly.score), TEXT_MUT, BG_CARD);
+                });
+                if let Some(name) = anomaly.process_name.as_ref() {
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(format!(
+                                "{}{}",
+                                name,
+                                anomaly
+                                    .pid
+                                    .map(|pid| format!(" (PID {pid})"))
+                                    .unwrap_or_default()
+                            ))
+                            .size(11.5)
+                            .color(TEXT_SEC),
+                        )
+                        .wrap(true),
+                    );
+                }
+                ui.add_space(4.0);
+                ui.add(
+                    egui::Label::new(RichText::new(&anomaly.summary).size(11.5).color(TEXT_SEC))
+                        .wrap(true),
+                );
+                ui.add_space(4.0);
                 ui.add(
                     egui::Label::new(
-                        RichText::new(format!(
-                            "{}{}",
-                            name,
-                            anomaly
-                                .pid
-                                .map(|pid| format!(" (PID {pid})"))
-                                .unwrap_or_default()
-                        ))
-                        .size(11.5)
-                        .color(TEXT_SEC),
+                        RichText::new(format!("Hipotesis: {}", anomaly.root_cause_hypothesis))
+                            .size(11.0)
+                            .color(TEXT_MUT),
                     )
                     .wrap(true),
                 );
-            }
-            ui.add_space(4.0);
-            ui.add(
-                egui::Label::new(RichText::new(&anomaly.summary).size(11.5).color(TEXT_SEC))
+                ui.add_space(4.0);
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(&anomaly.recommended_action)
+                            .italics()
+                            .size(11.0)
+                            .color(TEXT_MUT),
+                    )
                     .wrap(true),
-            );
-            ui.add_space(4.0);
-            ui.add(
-                egui::Label::new(
-                    RichText::new(format!("Hipotesis: {}", anomaly.root_cause_hypothesis))
-                        .size(11.0)
-                        .color(TEXT_MUT),
-                )
-                .wrap(true),
-            );
-            ui.add_space(4.0);
-            ui.add(
-                egui::Label::new(
-                    RichText::new(&anomaly.recommended_action)
-                        .italics()
-                        .size(11.0)
-                        .color(TEXT_MUT),
-                )
-                .wrap(true),
-            );
+                );
+            });
         });
 }
 
@@ -4070,50 +4094,57 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(8.0))
         .show(ui, |ui| {
-            ui.set_min_size(Vec2::new(width, height));
-            // Label + último valor
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(label).size(10.0).color(TEXT_MUT));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let last = values.last().copied().unwrap_or(0.0);
-                    ui.label(
-                        RichText::new(format!("{last:.1}"))
-                            .size(12.0)
-                            .strong()
-                            .color(color),
-                    );
+            // Acotar a `width`: el Frame hereda el horizontal_wrapped del padre, así
+            // que sin esto `available_width()` (usado para dibujar la línea) devuelve
+            // el ancho de toda la fila y el primer sparkline se dibuja gigante.
+            ui.vertical(|ui| {
+                ui.set_min_width(width);
+                ui.set_max_width(width);
+                ui.set_min_height(height);
+                // Label + último valor
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(label).size(10.0).color(TEXT_MUT));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let last = values.last().copied().unwrap_or(0.0);
+                        ui.label(
+                            RichText::new(format!("{last:.1}"))
+                                .size(12.0)
+                                .strong()
+                                .color(color),
+                        );
+                    });
                 });
+                ui.add_space(2.0);
+
+                // Dibujar la línea
+                let available = ui.available_width().max(40.0);
+                let (rect, _) = ui.allocate_exact_size(Vec2::new(available, 26.0), Sense::hover());
+                ui.painter()
+                    .rect_filled(rect, Rounding::same(3.0), BG_PANEL);
+
+                if values.len() >= 2 {
+                    let max_val = values.iter().cloned().fold(0.0_f32, f32::max).max(1.0);
+                    let n = values.len();
+                    let step = rect.width() / (n - 1).max(1) as f32;
+                    let pts: Vec<egui::Pos2> = values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &v)| {
+                            let x = rect.left() + i as f32 * step;
+                            let y = rect.bottom() - (v / max_val).clamp(0.0, 1.0) * rect.height();
+                            egui::pos2(x, y)
+                        })
+                        .collect();
+                    for w in pts.windows(2) {
+                        ui.painter()
+                            .line_segment([w[0], w[1]], Stroke::new(1.5, color));
+                    }
+                    // Punto actual
+                    if let Some(&last_pt) = pts.last() {
+                        ui.painter().circle_filled(last_pt, 2.5, color);
+                    }
+                }
             });
-            ui.add_space(2.0);
-
-            // Dibujar la línea
-            let available = ui.available_width().max(40.0);
-            let (rect, _) = ui.allocate_exact_size(Vec2::new(available, 26.0), Sense::hover());
-            ui.painter()
-                .rect_filled(rect, Rounding::same(3.0), BG_PANEL);
-
-            if values.len() >= 2 {
-                let max_val = values.iter().cloned().fold(0.0_f32, f32::max).max(1.0);
-                let n = values.len();
-                let step = rect.width() / (n - 1).max(1) as f32;
-                let pts: Vec<egui::Pos2> = values
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &v)| {
-                        let x = rect.left() + i as f32 * step;
-                        let y = rect.bottom() - (v / max_val).clamp(0.0, 1.0) * rect.height();
-                        egui::pos2(x, y)
-                    })
-                    .collect();
-                for w in pts.windows(2) {
-                    ui.painter()
-                        .line_segment([w[0], w[1]], Stroke::new(1.5, color));
-                }
-                // Punto actual
-                if let Some(&last_pt) = pts.last() {
-                    ui.painter().circle_filled(last_pt, 2.5, color);
-                }
-            }
         });
 }
 
