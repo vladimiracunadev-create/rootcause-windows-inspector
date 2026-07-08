@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>rootcause-windows-inspector</id>
-    <version>0.13.0</version>
+    <version>0.14.0</version>
     <title>RootCause Windows Inspector</title>
     <authors>Vladimir Acuña</authors>
     <owners>vladimircunadev-create</owners>
@@ -16,9 +16,10 @@ ETW/WPR — desde una interfaz gráfica clara o desde la consola de Windows.
 
 Características:
 - Análisis automático de procesos con scoring de severidad
-- CLI completa: rootcause status, snapshot, history, wpr, kill, block-ip, autostart
-- Tab Autostart: registro Run, Startup y tareas programadas con heurística de severidad
-- Atajos de teclado (F5, Ctrl+E, Ctrl+1..9)
+- CLI completa: rootcause status, snapshot, history, wpr, kill, block-ip, autostart, services, clean-temp
+- Tab Autostart y detección de cambios en servicios contra una baseline conocida
+- Tab Manual integrado y limpieza segura de %TEMP% (>24h, no en uso)
+- Atajos de teclado (F5, Ctrl+E, Ctrl+1..9 y Ctrl+0)
 - Historial SQLite con comparación A/B
 - Panel de configuración con edición inline de umbrales sin reiniciar
 - Notificaciones toast nativas de Windows

@@ -17,13 +17,22 @@ use std::process::{Command, Output};
 pub fn powershell(script: &str) -> Result<String> {
     #[cfg(target_os = "windows")]
     {
+        // Forzar salida UTF-8: por defecto Windows PowerShell 5.1 emite en la página
+        // de códigos OEM (p. ej. CP850), y los acentos (ó, í…) se corrompían al
+        // decodificar como UTF-8 → salían como "□" en nombres de servicios, mensajes
+        // de eventos, rutas, etc. Fijar OutputEncoding a UTF-8 sin BOM lo arregla en
+        // TODO el texto que la app obtiene de PowerShell.
+        let wrapped = format!(
+            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); \
+             $OutputEncoding = [Console]::OutputEncoding; {script}"
+        );
         let output = Command::new("powershell")
             .args([
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                script,
+                &wrapped,
             ])
             .output()
             .context("No se pudo invocar PowerShell")?;
@@ -32,7 +41,11 @@ pub fn powershell(script: &str) -> Result<String> {
         // `Get-Service -Name Sense` cuando ese servicio no existe en la edición),
         // aunque el resto del pipeline haya producido JSON válido en stdout. Por eso
         // solo se considera fallo si NO hubo salida útil; si hay stdout, se usa.
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        // Se recorta un posible BOM inicial que rompería el parseo JSON.
+        let stdout = String::from_utf8_lossy(&output.stdout)
+            .trim_start_matches('\u{feff}')
+            .trim()
+            .to_owned();
         if !output.status.success() && stdout.is_empty() {
             bail!(merge_output(&output));
         }
@@ -120,7 +133,9 @@ pub fn recent_system_events(limit: usize) -> Result<Vec<EventRecord>> {
 pub fn relevant_services() -> Result<Vec<ServiceState>> {
     let script = r#"
         Get-Service -Name wuauserv,bits,DoSvc,TrustedInstaller,SysMain,WinDefend,WdNisSvc,MpsSvc,wscsvc,Sense -ErrorAction SilentlyContinue |
-            Select-Object Name, DisplayName, Status, StartType |
+            Select-Object Name, DisplayName,
+                @{Name='Status';Expression={"$($_.Status)"}},
+                @{Name='StartType';Expression={"$($_.StartType)"}} |
             ConvertTo-Json -Depth 4
     "#;
 

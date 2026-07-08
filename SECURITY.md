@@ -15,8 +15,8 @@ Si encuentras un problema de seguridad, repórtalo de forma responsable:
 
 | Versión | Estado | Correcciones de seguridad |
 |---|---|---|
-| `v0.13.x` | ✅ Activa | Sí |
-| `< v0.13` | ⚠️ Obsoleta | Solo actualizando a la versión activa |
+| `v0.14.x` | ✅ Activa | Sí |
+| `< v0.14` | ⚠️ Obsoleta | Solo actualizando a la versión activa |
 
 > **Nota:** el repositorio es público bajo licencia Apache 2.0.
 

@@ -191,22 +191,6 @@ impl RootCauseApp {
                 app.status_is_error = true;
             }
         }
-        // Override del tab inicial por variable de entorno (solo para verificación
-        // visual/capturas; sin efecto en uso normal).
-        if let Ok(tab) = std::env::var("RC_TAB") {
-            app.active_tab = match tab.as_str() {
-                "procesos" => Tab::Processes,
-                "conexiones" => Tab::Connections,
-                "temporales" => Tab::TempFiles,
-                "etw" => Tab::Precision,
-                "servicios" => Tab::Services,
-                "autostart" => Tab::Autostart,
-                "historial" => Tab::History,
-                "manual" => Tab::Manual,
-                "acerca" => Tab::About,
-                _ => Tab::Overview,
-            };
-        }
         app
     }
 
