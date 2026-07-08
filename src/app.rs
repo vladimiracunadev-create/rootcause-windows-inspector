@@ -3741,6 +3741,12 @@ fn apply_theme(ctx: &egui::Context) {
     style.spacing.item_spacing = Vec2::new(6.0, 4.0);
     style.spacing.button_padding = Vec2::new(10.0, 5.0);
     style.spacing.window_margin = Margin::same(12.0);
+    // Barra de scroll SÓLIDA y siempre visible (reserva espacio y dibuja pista +
+    // tirador). La barra flotante por defecto es casi invisible sobre el fondo
+    // oscuro y hacía creer que tabs como Resumen "no tienen scroll".
+    style.spacing.scroll = egui::style::ScrollStyle::solid();
+    style.spacing.scroll.bar_width = 12.0;
+    style.spacing.scroll.handle_min_length = 24.0;
     ctx.set_style(style);
 }
 
