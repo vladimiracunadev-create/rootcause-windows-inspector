@@ -55,10 +55,11 @@ fn launch_gui() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_title("RootCause — Windows Inspector")
             .with_icon(rootcause_icon())
-            // Tamaño de respaldo conservador que cabe incluso en portátiles
-            // 1366x768. Al arrancar, la app ajusta la ventana al monitor real
-            // (ver `window_fitted` en app.rs), ya que el flag `maximized` del
-            // ViewportBuilder no se aplica de forma fiable en eframe 0.27.
+            // Arrancar maximizada para aprovechar toda la pantalla. Si el backend
+            // no honra el flag, `app.rs` reenvía el comando `Maximized` en los
+            // primeros frames. El tamaño de respaldo (por si no maximiza) es
+            // conservador para caber incluso en portátiles 1366x768.
+            .with_maximized(true)
             .with_inner_size([1200.0, 700.0])
             // Mínimo bajo para que quepa incluso en portátiles pequeños.
             .with_min_inner_size([760.0, 560.0]),

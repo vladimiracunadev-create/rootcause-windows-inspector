@@ -434,22 +434,26 @@ impl eframe::App for RootCauseApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Ajustar la ventana al monitor UNA sola vez al arranque. El comando
-        // `Maximized` del viewport no se aplica de forma fiable en eframe 0.27, así
-        // que fijamos el tamaño interior al del monitor menos un margen (barra de
-        // tareas + decoración) y la posicionamos arriba-izquierda. Se reintenta
-        // cada frame hasta que el backend reporta el tamaño del monitor.
-        if !self.window_fitted {
-            if let Some(monitor) = ctx.input(|i| i.viewport().monitor_size)
-                && monitor.x > 100.0
-                && monitor.y > 100.0
-            {
-                let w = (monitor.x - 24.0).clamp(760.0, 2400.0);
-                let h = (monitor.y - 110.0).clamp(560.0, 1500.0);
-                ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(8.0, 8.0)));
-                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(w, h)));
-                self.window_fitted = true;
-            }
+        // Maximizar la ventana al arranque. El flag del ViewportBuilder ya lo pide;
+        // aquí reenviamos el comando en los primeros frames como refuerzo, porque en
+        // algunos backends el flag de creación no basta.
+        if !self.window_fitted && ctx.frame_nr() >= 1 {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+            self.window_fitted = true;
+        }
+        // Diagnóstico temporal: volcar geometría real una vez para calibrar.
+        if ctx.frame_nr() == 8 {
+            let info = ctx.input(|i| {
+                format!(
+                    "monitor_size={:?}\ninner_rect={:?}\nouter_rect={:?}\nppp={}\nmaximized={:?}",
+                    i.viewport().monitor_size,
+                    i.viewport().inner_rect,
+                    i.viewport().outer_rect,
+                    ctx.pixels_per_point(),
+                    i.viewport().maximized,
+                )
+            });
+            let _ = std::fs::write(r"C:\Users\vbav\rc-ui-test\wininfo.txt", info);
         }
         ctx.request_repaint_after(Duration::from_secs(1));
 
