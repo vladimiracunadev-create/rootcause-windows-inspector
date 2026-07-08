@@ -77,6 +77,7 @@ enum Tab {
     Services,
     Autostart,
     History,
+    Manual,
     About,
 }
 
@@ -93,6 +94,7 @@ impl Tab {
         (Tab::Services, "🔧", "Servicios"),
         (Tab::Autostart, "🚀", "Autostart"),
         (Tab::History, "🕒", "Historial"),
+        (Tab::Manual, "📖", "Manual"),
         (Tab::About, "ℹ", "Acerca"),
     ];
 }
@@ -463,6 +465,7 @@ impl eframe::App for RootCauseApp {
                 (egui::Key::Num7, 6),
                 (egui::Key::Num8, 7),
                 (egui::Key::Num9, 8),
+                (egui::Key::Num0, 9),
             ] {
                 if i.key_pressed(key) && i.modifiers.ctrl {
                     tab_switch = Some(idx);
@@ -508,6 +511,13 @@ impl eframe::App for RootCauseApp {
                     .inner_margin(Margin::symmetric(16.0, 12.0)),
             )
             .show(ctx, |ui| {
+                // El tab Manual es contenido estático — no necesita snapshot.
+                if self.active_tab == Tab::Manual {
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false; 2])
+                        .show(ui, draw_tab_manual);
+                    return;
+                }
                 // El tab Acerca no necesita snapshot — se muestra siempre.
                 if self.active_tab == Tab::About {
                     let mut save_config = false;
@@ -617,8 +627,8 @@ impl eframe::App for RootCauseApp {
                                 &mut self.history_compare_a,
                                 &mut self.history_compare_b,
                             ),
-                            // About se gestiona antes del guard de snapshot — nunca llega aquí.
-                            Tab::About => {}
+                            // Manual y About se gestionan antes del guard de snapshot.
+                            Tab::Manual | Tab::About => {}
                         }
 
                         match precision_action {
@@ -770,8 +780,9 @@ fn draw_tabbar(app: &mut RootCauseApp, ctx: &egui::Context) {
             ui.horizontal_wrapped(|ui| {
                 for (idx, &(tab, icon, label)) in Tab::ALL.iter().enumerate() {
                     let selected = app.active_tab == tab;
+                    let shortcut = if idx < 9 { idx + 1 } else { 0 };
                     let resp = tab_btn(ui, icon, label, selected)
-                        .on_hover_text(format!("Ctrl+{}", idx + 1));
+                        .on_hover_text(format!("Ctrl+{shortcut}"));
                     if resp.clicked() {
                         app.active_tab = tab;
                     }
@@ -3009,6 +3020,228 @@ fn draw_tab_autostart(
 }
 
 // ── Tab: Acerca ────────────────────────────────────────────────────────────────
+
+// ── Tab: Manual ────────────────────────────────────────────────────────────────
+
+/// Callout informativo con fondo suave para el manual.
+fn manual_note(ui: &mut egui::Ui, text: &str) {
+    egui::Frame::none()
+        .fill(C_BL_BG)
+        .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.3)))
+        .rounding(Rounding::same(6.0))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.add(egui::Label::new(RichText::new(text).size(12.0).color(TEXT_SEC)).wrap(true));
+        });
+}
+
+/// Entrada del manual: icono + título + descripción.
+fn manual_item(ui: &mut egui::Ui, icon: &str, icon_color: Color32, title: &str, desc: &str) {
+    ui.horizontal(|ui| {
+        ui.add_sized(
+            [26.0, 20.0],
+            egui::Label::new(RichText::new(icon).size(15.0).color(icon_color)),
+        );
+        ui.add_space(4.0);
+        ui.vertical(|ui| {
+            ui.label(RichText::new(title).size(13.0).strong().color(TEXT_PRI));
+            ui.add(egui::Label::new(RichText::new(desc).size(11.5).color(TEXT_SEC)).wrap(true));
+        });
+    });
+    ui.add_space(9.0);
+}
+
+fn draw_tab_manual(ui: &mut egui::Ui) {
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        ui.label(RichText::new("📖").size(24.0));
+        ui.add_space(6.0);
+        ui.vertical(|ui| {
+            ui.label(
+                RichText::new("Manual de uso")
+                    .size(20.0)
+                    .strong()
+                    .color(TEXT_PRI),
+            );
+            ui.label(
+                RichText::new("Qué hace RootCause y para qué sirve cada parte")
+                    .size(12.0)
+                    .color(TEXT_MUT),
+            );
+        });
+    });
+    ui.add_space(10.0);
+
+    manual_note(
+        ui,
+        "RootCause es un monitor forense ligero para Windows. Su filosofía: diagnostica primero la \
+         causa dominante de lentitud o comportamiento raro, y solo después actúa —siempre con \
+         confirmación y registro. Complementa, no reemplaza, a un antivirus o EDR.",
+    );
+    ui.add_space(16.0);
+
+    section_header(ui, "Las pestañas");
+    ui.add_space(8.0);
+    manual_item(
+        ui,
+        "📊",
+        ACCENT,
+        "Resumen",
+        "Semáforo de salud del sistema (0–100), tarjetas de CPU / RAM / Disco / Red / Temporales, y la lista \"Dónde mirar primero\" con las alertas más importantes.",
+    );
+    manual_item(
+        ui,
+        "⚙",
+        ACCENT,
+        "Procesos",
+        "Procesos ordenados por severidad, con CPU, RAM, escritura de disco y un score de riesgo. Permite finalizar un proceso (con confirmación); no toca los críticos del sistema.",
+    );
+    manual_item(
+        ui,
+        "🌐",
+        ACCENT,
+        "Conexiones",
+        "Conexiones de red activas por proceso (netstat enriquecido con nombre y ruta). Filtro de IPs públicas y bloqueo de una IP mediante el firewall de Windows.",
+    );
+    manual_item(
+        ui,
+        "🗑",
+        ACCENT,
+        "Temporales",
+        "Carpetas temporales que están creciendo (%TEMP%, Windows Temp, Windows Update). Incluye un botón para limpiar tu %TEMP% no usado (>24h), saltando lo que esté en uso.",
+    );
+    manual_item(
+        ui,
+        "🎯",
+        ACCENT,
+        "ETW / WPR",
+        "Modo de precisión: inicia, detiene y resume una traza ETL con Windows Performance Recorder y heurísticas locales, sin abrir herramientas externas.",
+    );
+    manual_item(
+        ui,
+        "🔧",
+        ACCENT,
+        "Servicios",
+        "Servicios de seguridad relevantes (Defender, Windows Update, BITS…) con su estado. Los cambios en servicios se reportan como alertas y por la CLI.",
+    );
+    manual_item(
+        ui,
+        "🚀",
+        ACCENT,
+        "Autostart",
+        "Todo lo que arranca con Windows: registro Run/RunOnce, carpetas Startup y tareas programadas. Detecta entradas NUEVAS / MODIFICADAS / ELIMINADAS respecto a una baseline conocida.",
+    );
+    manual_item(
+        ui,
+        "🕒",
+        ACCENT,
+        "Historial",
+        "Capturas guardadas localmente en SQLite. Compara dos momentos (A vs B) para ver cómo evolucionó el equipo entre ellos.",
+    );
+    manual_item(ui, "📖", ACCENT, "Manual", "Esta pantalla.");
+    manual_item(
+        ui,
+        "ℹ",
+        ACCENT,
+        "Acerca",
+        "Versión, autor, estado de salud del propio agente y edición de umbrales sin reiniciar.",
+    );
+
+    ui.add_space(16.0);
+    section_header(ui, "Detección de cambios (baseline)");
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        "RootCause guarda una \"foto de referencia\" (estado bueno conocido) de tu autoarranque y de \
+         tus servicios. La primera vez se siembra en silencio. Después, cualquier cambio se marca como \
+         NUEVA, MODIFICADA o ELIMINADA y genera una alerta, hasta que aceptas la nueva baseline. Sirve \
+         para detectar persistencia de malware o binarios secuestrados.",
+    );
+
+    ui.add_space(16.0);
+    section_header(ui, "Acciones seguras (siempre auditadas)");
+    ui.add_space(8.0);
+    manual_item(
+        ui,
+        "●",
+        C_BL_FG,
+        "Finalizar proceso",
+        "Termina un proceso por PID. Nunca finaliza procesos críticos del sistema.",
+    );
+    manual_item(
+        ui,
+        "●",
+        C_BL_FG,
+        "Bloquear IP",
+        "Crea una regla de firewall para una IP remota.",
+    );
+    manual_item(
+        ui,
+        "●",
+        C_BL_FG,
+        "Detener servicio",
+        "Solo servicios de una lista permitida (bits, dosvc, sysmain, wuauserv).",
+    );
+    manual_item(
+        ui,
+        "●",
+        C_BL_FG,
+        "Limpiar %TEMP%",
+        "Borra lo no usado (>24h) de tu carpeta temporal; salta lo bloqueado. Confirmación de 2 pasos.",
+    );
+    manual_item(
+        ui,
+        "●",
+        C_BL_FG,
+        "Aceptar baseline",
+        "Marca el estado actual de autostart o servicios como el nuevo \"bueno conocido\".",
+    );
+
+    ui.add_space(16.0);
+    section_header(ui, "Colores de severidad");
+    ui.add_space(8.0);
+    manual_item(
+        ui,
+        "●",
+        C_OK_FG,
+        "Verde — Saludable",
+        "Sin señales fuertes; comportamiento normal.",
+    );
+    manual_item(
+        ui,
+        "●",
+        C_WN_FG,
+        "Ámbar — Advertencia",
+        "Vale la pena revisar; consumo o cambios notables.",
+    );
+    manual_item(
+        ui,
+        "●",
+        C_CR_FG,
+        "Rojo — Crítico",
+        "Señal fuerte: prioriza la revisión (proceso, conexión o cambio sospechoso).",
+    );
+
+    ui.add_space(16.0);
+    section_header(ui, "Desde la consola (CLI)");
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        "Todo funciona también sin interfaz. `rootcause --help` lista los comandos: status, snapshot, \
+         history, autostart, services, clean-temp, wpr, kill, block-ip, stop-service, config, ai. Útil \
+         para scripts, servidores y automatización.",
+    );
+
+    ui.add_space(16.0);
+    section_header(ui, "Privacidad");
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        "Todo es local: telemetría cero. El historial se guarda solo en tu equipo (SQLite). El \
+         adaptador de IA es opcional y viene apagado por defecto.",
+    );
+    ui.add_space(24.0);
+}
 
 fn draw_tab_about(
     ui: &mut egui::Ui,
