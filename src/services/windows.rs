@@ -28,11 +28,16 @@ pub fn powershell(script: &str) -> Result<String> {
             .output()
             .context("No se pudo invocar PowerShell")?;
 
-        if !output.status.success() {
+        // PowerShell pone exit code ≠ 0 ante un error NO-terminante (p. ej.
+        // `Get-Service -Name Sense` cuando ese servicio no existe en la edición),
+        // aunque el resto del pipeline haya producido JSON válido en stdout. Por eso
+        // solo se considera fallo si NO hubo salida útil; si hay stdout, se usa.
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        if !output.status.success() && stdout.is_empty() {
             bail!(merge_output(&output));
         }
 
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        Ok(stdout)
     }
 
     #[cfg(not(target_os = "windows"))]
