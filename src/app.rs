@@ -14,6 +14,7 @@ use crate::models::{
 };
 use crate::services::docker::{self, DockerScan};
 use crate::services::inspector::InspectorService;
+use crate::services::tray::{Tray, TrayAction};
 use crate::services::windows;
 use eframe::egui::{self, Color32, FontId, Margin, RichText, Rounding, Sense, Stroke, Vec2};
 use std::collections::VecDeque;
@@ -173,6 +174,8 @@ pub struct RootCauseApp {
     docker_scan: Option<DockerScan>,
     docker_prune_confirm: Option<DockerPruneKind>,
     docker_result: Option<String>,
+    // Icono de bandeja del sistema (None si el SO lo rechaza o falla la creación)
+    tray: Option<Tray>,
 }
 
 impl RootCauseApp {
@@ -208,6 +211,9 @@ impl RootCauseApp {
             docker_scan: None,
             docker_prune_confirm: None,
             docker_result: None,
+            // El icono de bandeja se crea aquí, en el hilo del event-loop de winit
+            // (necesario para que sus mensajes de Windows se bombeen). No fatal.
+            tray: Tray::new(),
         };
         match inspector {
             Ok(svc) => {
@@ -564,6 +570,39 @@ impl eframe::App for RootCauseApp {
             && self.history_last_load.elapsed() > Duration::from_secs(30)
         {
             self.load_history();
+        }
+
+        // ── Icono de bandeja: acciones del menú + color/tooltip por salud ──────
+        // Se captura la acción antes de actuar para no chocar con el préstamo &mut.
+        let tray_action = self.tray.as_ref().and_then(Tray::poll);
+        match tray_action {
+            Some(TrayAction::Show) => {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            }
+            Some(TrayAction::Refresh) => self.refresh_now(),
+            Some(TrayAction::Export) => self.export_snapshot(),
+            Some(TrayAction::Quit) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            None => {}
+        }
+        if self.tray.is_some() {
+            // Nivel + etiqueta a partir de la salud global (mismo criterio que el
+            // banner de veredicto del Resumen). Se calcula sin retener el préstamo
+            // de `snapshot` para poder tomar `tray` como &mut después.
+            let state = self.snapshot.as_ref().map(|snap| {
+                let score = compute_health_score(snap);
+                let (level, word) = if score >= 80 {
+                    (0_u8, tr("Saludable", "Healthy"))
+                } else if score >= 50 {
+                    (1, tr("Advertencia", "Warning"))
+                } else {
+                    (2, tr("Crítico", "Critical"))
+                };
+                (level, format!("{word} · {score}/100"))
+            });
+            if let (Some((level, label)), Some(tray)) = (state, self.tray.as_mut()) {
+                tray.set_state(level, &label);
+            }
         }
 
         draw_header(self, ctx);
