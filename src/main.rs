@@ -51,16 +51,20 @@ fn launch_gui() -> eframe::Result<()> {
     use app::RootCauseApp;
     use eframe::egui;
 
+    // Dimensionar la ventana al área de trabajo real del monitor (pantalla menos la
+    // barra de tareas). El flag `maximized` de eframe 0.27 no se honra de forma
+    // fiable en este backend, pero `with_inner_size` sí; y el tamaño interno que
+    // fija egui está en PUNTOS lógicos. Por eso consultamos el área de trabajo y la
+    // convertimos a puntos con el DPI del sistema. Si la consulta falla, se usa un
+    // tamaño de respaldo conservador que cabe incluso en portátiles 1366x768.
+    let (win_w, win_h) = work_area_points().unwrap_or((1200.0, 700.0));
+
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("RootCause — Windows Inspector")
             .with_icon(rootcause_icon())
-            // Arrancar maximizada para aprovechar toda la pantalla. Si el backend
-            // no honra el flag, `app.rs` reenvía el comando `Maximized` en los
-            // primeros frames. El tamaño de respaldo (por si no maximiza) es
-            // conservador para caber incluso en portátiles 1366x768.
-            .with_maximized(true)
-            .with_inner_size([1200.0, 700.0])
+            .with_position([0.0, 0.0])
+            .with_inner_size([win_w, win_h])
             // Mínimo bajo para que quepa incluso en portátiles pequeños.
             .with_min_inner_size([760.0, 560.0]),
         ..Default::default()
@@ -71,6 +75,71 @@ fn launch_gui() -> eframe::Result<()> {
         native_options,
         Box::new(|cc| Box::new(RootCauseApp::new(cc))),
     )
+}
+
+/// Área de trabajo del monitor primario (pantalla menos la barra de tareas), en
+/// PUNTOS lógicos listos para `with_inner_size`, dejando un margen para la barra
+/// de título y los bordes.
+///
+/// Consulta `SPI_GETWORKAREA` (píxeles) y divide por la escala del sistema
+/// (`GetDpiForSystem`/96). Ambas llamadas son coherentes entre sí respecto al
+/// estado de conciencia de DPI del proceso, así que el cociente da puntos válidos
+/// tanto a 100% como a 150%/200%. Devuelve `None` si la API falla.
+#[cfg(all(feature = "gui", windows))]
+fn work_area_points() -> Option<(f32, f32)> {
+    #[repr(C)]
+    struct Rect {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+    const SPI_GETWORKAREA: u32 = 0x0030;
+
+    unsafe extern "system" {
+        fn SystemParametersInfoW(
+            action: u32,
+            ui_param: u32,
+            pv_param: *mut core::ffi::c_void,
+            win_ini: u32,
+        ) -> i32;
+        fn GetDpiForSystem() -> u32;
+    }
+
+    let mut rect = Rect {
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+    };
+    let ok =
+        unsafe { SystemParametersInfoW(SPI_GETWORKAREA, 0, (&mut rect as *mut Rect).cast(), 0) };
+    if ok == 0 {
+        return None;
+    }
+
+    let dpi = unsafe { GetDpiForSystem() }.max(96);
+    let scale = dpi as f32 / 96.0;
+    let work_w = (rect.right - rect.left) as f32 / scale;
+    let work_h = (rect.bottom - rect.top) as f32 / scale;
+
+    // Restar el grosor de la barra de título y los bordes (aprox., en puntos) para
+    // que la ventana ENTERA quepa en el área de trabajo con la esquina en (0,0).
+    let inner_w = (work_w - 16.0).clamp(760.0, 3200.0);
+    let inner_h = (work_h - 48.0).clamp(560.0, 2000.0);
+
+    if inner_w > 200.0 && inner_h > 200.0 {
+        Some((inner_w, inner_h))
+    } else {
+        None
+    }
+}
+
+/// Respaldo para plataformas no-Windows (no aplica en producción, mantiene la
+/// compilación cruzada sana).
+#[cfg(all(feature = "gui", not(windows)))]
+fn work_area_points() -> Option<(f32, f32)> {
+    None
 }
 
 #[cfg(feature = "gui")]

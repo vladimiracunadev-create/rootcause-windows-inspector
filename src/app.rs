@@ -143,8 +143,6 @@ pub struct RootCauseApp {
     // Limpieza de %TEMP% (tab Temporales): confirmación de 2 pasos + resultado
     temp_clean_confirm: bool,
     temp_clean_result: Option<String>,
-    // Ajuste de ventana al monitor hecho una sola vez al arranque
-    window_fitted: bool,
 }
 
 impl RootCauseApp {
@@ -177,7 +175,6 @@ impl RootCauseApp {
             config_path: String::new(),
             temp_clean_confirm: false,
             temp_clean_result: None,
-            window_fitted: false,
         };
         match inspector {
             Ok(svc) => {
@@ -434,27 +431,9 @@ impl eframe::App for RootCauseApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Maximizar la ventana al arranque. El flag del ViewportBuilder ya lo pide;
-        // aquí reenviamos el comando en los primeros frames como refuerzo, porque en
-        // algunos backends el flag de creación no basta.
-        if !self.window_fitted && ctx.frame_nr() >= 1 {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
-            self.window_fitted = true;
-        }
-        // Diagnóstico temporal: volcar geometría real una vez para calibrar.
-        if ctx.frame_nr() == 8 {
-            let info = ctx.input(|i| {
-                format!(
-                    "monitor_size={:?}\ninner_rect={:?}\nouter_rect={:?}\nppp={}\nmaximized={:?}",
-                    i.viewport().monitor_size,
-                    i.viewport().inner_rect,
-                    i.viewport().outer_rect,
-                    ctx.pixels_per_point(),
-                    i.viewport().maximized,
-                )
-            });
-            let _ = std::fs::write(r"C:\Users\vbav\rc-ui-test\wininfo.txt", info);
-        }
+        // El tamaño de la ventana se fija al crearla desde el área de trabajo real
+        // del monitor (ver `work_area_points` en main.rs). No hace falta ajustar
+        // nada en tiempo de ejecución.
         ctx.request_repaint_after(Duration::from_secs(1));
 
         // ── Atajos de teclado ──────────────────────────────────────────────────
