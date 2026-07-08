@@ -3743,10 +3743,20 @@ fn apply_theme(ctx: &egui::Context) {
     style.spacing.window_margin = Margin::same(12.0);
     // Barra de scroll SÓLIDA y siempre visible (reserva espacio y dibuja pista +
     // tirador). La barra flotante por defecto es casi invisible sobre el fondo
-    // oscuro y hacía creer que tabs como Resumen "no tienen scroll".
-    style.spacing.scroll = egui::style::ScrollStyle::solid();
-    style.spacing.scroll.bar_width = 12.0;
-    style.spacing.scroll.handle_min_length = 24.0;
+    // oscuro y hacía creer que tabs como Resumen "no tienen scroll". Además se
+    // pinta el tirador con color de primer plano (claro) y opacidad alta, porque
+    // el color de fondo por defecto (BG_CARD sobre BG_PANEL) es casi indistinguible
+    // del fondo de la app.
+    let mut scroll = egui::style::ScrollStyle::solid();
+    scroll.bar_width = 12.0;
+    scroll.handle_min_length = 24.0;
+    scroll.foreground_color = true;
+    scroll.dormant_handle_opacity = 0.7;
+    scroll.active_handle_opacity = 0.9;
+    scroll.interact_handle_opacity = 1.0;
+    scroll.dormant_background_opacity = 0.4;
+    scroll.active_background_opacity = 0.5;
+    style.spacing.scroll = scroll;
     ctx.set_style(style);
 }
 

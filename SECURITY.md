@@ -25,7 +25,9 @@ Si encuentras un problema de seguridad, repórtalo de forma responsable:
 - No matar procesos críticos por defecto.
 - No bloquear IPs automáticamente.
 - No detener servicios fuera de la lista permitida.
-- No borrar TEMP de forma agresiva en esta versión.
+- Borrar TEMP solo de forma conservadora y explícita: únicamente tu carpeta
+  `%TEMP%`, únicamente lo no modificado en las últimas 24 h, saltando lo que esté
+  en uso (bloqueado). Nunca `C:\Windows\Temp`, el sistema ni Windows Update.
 - No distribuir binarios opacos dentro del repositorio fuente.
 - No prometer precisión forense sin WPR/ETW.
 
@@ -36,6 +38,7 @@ Si encuentras un problema de seguridad, repórtalo de forma responsable:
 | `taskkill` | Puede requerir privilegios elevados. |
 | Reglas de firewall | Requieren permisos adecuados. |
 | Detener servicios | Puede impactar funcionalidades del sistema. |
+| Limpiar `%TEMP%` | Solo tu `%TEMP%`, solo lo no usado en 24 h y no bloqueado; aun así, borra archivos. Windows impide borrar lo que tiene un handle abierto, por lo que "no en uso" es intrínsecamente seguro. |
 | Capturas WPR | Pueden crecer rápido si se usan mal. |
 | JSON y ETL | Pueden contener contexto sensible del equipo. |
 

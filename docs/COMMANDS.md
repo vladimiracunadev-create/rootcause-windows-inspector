@@ -347,6 +347,25 @@ Notas:
   nuevos/modificados, Media para eliminados), gobernada por el flag de configuración
   `watch_service_changes` (default `true`).
 
+### Limpieza segura de temporales
+
+```powershell
+rootcause clean-temp          # SIMULACIÓN: muestra cuánto se liberaría, no borra nada
+rootcause clean-temp --yes    # limpia de verdad tu %TEMP% (>24h, no en uso)
+```
+
+Notas:
+- Opera **solo** sobre tu carpeta `%TEMP%` de usuario. Nunca toca `C:\Windows\Temp`,
+  el sistema ni las descargas de Windows Update.
+- Solo borra entradas **no modificadas en las últimas 24 h**; lo reciente se salta.
+- Salta lo que esté **en uso**: en Windows un archivo con un handle abierto no puede
+  borrarse, así que "no en uso" es intrínsecamente seguro.
+- Sin `--yes` es una **simulación** (dry-run): informa `freed_mb`, `deleted_count`,
+  `skipped_in_use`, `skipped_recent` y `error_count` sin borrar nada.
+- La versión real (`--yes`) registra la acción `clean-temp` en `audit_log`.
+- Equivalente en la GUI: botón **🗑 Limpiar %TEMP%** en el tab **Temporales**, con
+  confirmación de dos pasos.
+
 ### IA opcional por API
 
 ```powershell

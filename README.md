@@ -79,8 +79,10 @@ El modo principal. Bajo consumo, útil para observación frecuente.
 - 🔔 Notificaciones toast cuando aparece proceso Critical
 - ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…9` cambio de tab
 - 🖥️ Info de hardware del equipo: OS, CPU, núcleos, frecuencia, RAM
-- ◫  Tab Autostart: registro Run (HKCU/HKLM) y carpetas Startup con severidad y verificación en disco — detecta cambios contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) y genera alertas `persistence-change`
+- 🚀 Tab Autostart: registro Run (HKCU/HKLM) y carpetas Startup con severidad y verificación en disco — detecta cambios contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) y genera alertas `persistence-change`
 - ⚙️ Detección de cambios en servicios de Windows (vía CLI `rootcause services` + alertas `service-change` en incidentes; no es un tab de la GUI): vigila `StartMode` + ruta del binario de cada servicio contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) — captura servicios nuevos, secuestro del binario o cambios de modo de arranque (ej. deshabilitar Defender)
+- 🗑️ Limpieza segura de temporales: botón **Limpiar %TEMP%** en el tab Temporales (y `rootcause clean-temp`) — borra solo tu `%TEMP%`, solo lo no usado en 24 h, saltando lo que esté en uso; confirmación de dos pasos y `--yes` en CLI
+- 📖 Tab Manual: guía integrada que explica qué hace cada pestaña, la detección por baseline y las acciones seguras
 - 💻 CLI completa: `rootcause --help` con todos los comandos desde consola
 
 ### 2 · Modo de precisión ETW/WPR
@@ -218,11 +220,12 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 | **Overview** | Semáforo global + sparklines + características del equipo |
 | **Procesos** | Tabla con filtro de severidad + command line de proceso |
 | **Conexiones** | Conexiones activas por proceso + bloqueo de IP |
-| **Temporales** | Cachés de Windows (TEMP, SoftwareDistribution, etc.) |
+| **Temporales** | Cachés de Windows (TEMP, SoftwareDistribution, etc.) + botón **Limpiar %TEMP%** (>24h, no en uso) |
 | **ETW / WPR** | Captura WPR + resumen de traza ETL |
 | **Servicios** | wuauserv, BITS, DoSvc, SysMain + eventos recientes |
 | **Autostart** | Registro Run/RunOnce, carpetas Startup y tareas programadas + detección de cambios vs baseline |
 | **Historial** | Snapshots SQLite + comparación A vs B con deltas |
+| **Manual** | Guía integrada: qué hace cada tab, detección por baseline y acciones seguras |
 | **Acerca** | Versión, autor, GitHub, atajos de teclado, hardware |
 
 ---
