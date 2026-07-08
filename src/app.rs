@@ -90,7 +90,7 @@ impl Tab {
         (Tab::Connections, "🌐", "Conexiones"),
         (Tab::TempFiles, "🗑", "Temporales"),
         (Tab::Precision, "🎯", "ETW / WPR"),
-        (Tab::Services, "🧰", "Servicios"),
+        (Tab::Services, "🔧", "Servicios"),
         (Tab::Autostart, "🚀", "Autostart"),
         (Tab::History, "🕒", "Historial"),
         (Tab::About, "ℹ", "Acerca"),
@@ -143,6 +143,11 @@ pub struct RootCauseApp {
 impl RootCauseApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         apply_theme(&cc.egui_ctx);
+        // El flag `with_maximized` del ViewportBuilder no se aplica de forma fiable
+        // en eframe 0.27; el comando de viewport en runtime sí maximiza la ventana
+        // para que se adapte a cualquier pantalla/escala.
+        cc.egui_ctx
+            .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
         let inspector = InspectorService::new();
         let mut app = Self {
             inspector: None,
@@ -3528,6 +3533,7 @@ fn health_score_card(
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
             ui.set_min_size(Vec2::new(width, 120.0));
+            ui.set_max_width(width);
             ui.vertical_centered(|ui| {
                 draw_health_ring(ui, score_fraction, score_fg, 54.0);
                 ui.add_space(4.0);
@@ -3564,6 +3570,7 @@ fn overview_card(
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
             ui.set_min_size(Vec2::new(width, 90.0));
+            ui.set_max_width(width);
             ui.label(RichText::new(title).size(10.0).color(TEXT_MUT).strong());
             ui.add_space(4.0);
             ui.label(RichText::new(value).size(17.0).strong().color(TEXT_PRI));
@@ -3758,7 +3765,18 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
 
 /// Encabezado de sección con línea separadora.
 fn section_header(ui: &mut egui::Ui, title: &str) {
-    ui.label(RichText::new(title).strong().size(13.0).color(TEXT_SEC));
+    // Quita un posible glifo/icono al inicio del título (varios traían símbolos
+    // Unicode que la fuente no renderiza y salían como "□"); se reemplaza por una
+    // barra de acento sólida, consistente en todas las secciones.
+    let clean = title
+        .trim_start_matches(|c: char| !c.is_alphanumeric())
+        .trim();
+    ui.horizontal(|ui| {
+        let (bar, _) = ui.allocate_exact_size(Vec2::new(3.0, 14.0), egui::Sense::hover());
+        ui.painter().rect_filled(bar, Rounding::same(1.5), ACCENT);
+        ui.add_space(7.0);
+        ui.label(RichText::new(clean).strong().size(13.0).color(TEXT_SEC));
+    });
     ui.add_space(2.0);
     let r = ui.available_rect_before_wrap();
     ui.painter().line_segment(
