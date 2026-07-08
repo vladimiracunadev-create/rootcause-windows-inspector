@@ -144,66 +144,46 @@ fn work_area_points() -> Option<(f32, f32)> {
 }
 
 #[cfg(feature = "gui")]
-/// Construye un icono simple `RC` sin depender de decodificadores externos.
-///
-/// Esto asegura una marca mínima visible incluso antes de integrar recursos
-/// más elaborados. En Windows, el recurso `.ico` también se incrusta mediante
-/// `build.rs` para que el ejecutable, los accesos directos y el instalador
-/// puedan reutilizar la misma identidad visual.
+/// Construye el icono de la aplicación: un radar de círculos concéntricos en el
+/// azul de marca (#1f6feb) sobre fondo oscuro (#0d1117) — la misma identidad del
+/// `.ico` incrustado por `build.rs` y del favicon de la web. Se dibuja a mano
+/// para no depender de decodificadores externos.
 fn rootcause_icon() -> egui::IconData {
-    let width: u32 = 64;
-    let height: u32 = 64;
-    let mut rgba = vec![0_u8; (width * height * 4) as usize];
+    let size: u32 = 64;
+    let mut rgba = vec![0_u8; (size * size * 4) as usize];
 
-    for y in 0..height {
-        for x in 0..width {
-            let idx = ((y * width + x) * 4) as usize;
-            let border = x < 2 || y < 2 || x >= width - 2 || y >= height - 2;
-            let diagonal_accent = x + y < 18 || x + y > 108;
+    let center = (size as f32 - 1.0) / 2.0;
+    let ring_w = 3.0_f32;
+    let r_outer = 26.0_f32;
+    let r_inner = 13.0_f32;
+    let r_dot = 4.0_f32;
 
-            let (r, g, b, a) = if border {
-                (155, 210, 255, 255)
-            } else if diagonal_accent && x > width / 2 {
-                (38, 150, 255, 255)
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 - center;
+            let dy = y as f32 - center;
+            let dist = (dx * dx + dy * dy).sqrt();
+
+            let on_ring = (dist - r_outer).abs() < ring_w || (dist - r_inner).abs() < ring_w;
+            let on_dot = dist < r_dot;
+
+            let (r, g, b) = if on_ring || on_dot {
+                (31, 111, 235) // azul de marca #1f6feb
             } else {
-                (24, 88, 201, 255)
+                (13, 17, 23) // fondo #0d1117
             };
 
+            let idx = ((y * size + x) * 4) as usize;
             rgba[idx] = r;
             rgba[idx + 1] = g;
             rgba[idx + 2] = b;
-            rgba[idx + 3] = a;
+            rgba[idx + 3] = 255;
         }
     }
-
-    // Letras RC en estilo de bloques simples para evitar dependencias de fuentes.
-    draw_rect(&mut rgba, width, 10, 14, 8, 36, [255, 255, 255, 255]);
-    draw_rect(&mut rgba, width, 10, 14, 18, 8, [255, 255, 255, 255]);
-    draw_rect(&mut rgba, width, 10, 28, 18, 8, [255, 255, 255, 255]);
-    draw_rect(&mut rgba, width, 22, 24, 10, 8, [255, 255, 255, 255]);
-
-    draw_rect(&mut rgba, width, 34, 14, 8, 36, [255, 255, 255, 255]);
-    draw_rect(&mut rgba, width, 34, 14, 18, 8, [255, 255, 255, 255]);
-    draw_rect(&mut rgba, width, 34, 42, 18, 8, [255, 255, 255, 255]);
-    draw_rect(&mut rgba, width, 46, 24, 8, 8, [255, 255, 255, 255]);
-    draw_rect(&mut rgba, width, 46, 34, 8, 8, [255, 255, 255, 255]);
 
     egui::IconData {
         rgba,
-        width,
-        height,
-    }
-}
-
-#[cfg(feature = "gui")]
-fn draw_rect(rgba: &mut [u8], width: u32, x0: u32, y0: u32, w: u32, h: u32, color: [u8; 4]) {
-    for y in y0..(y0 + h) {
-        for x in x0..(x0 + w) {
-            let idx = ((y * width + x) * 4) as usize;
-            rgba[idx] = color[0];
-            rgba[idx + 1] = color[1];
-            rgba[idx + 2] = color[2];
-            rgba[idx + 3] = color[3];
-        }
+        width: size,
+        height: size,
     }
 }
