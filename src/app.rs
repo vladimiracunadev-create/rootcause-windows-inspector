@@ -907,12 +907,18 @@ fn draw_sidebar(app: &mut RootCauseApp, ctx: &egui::Context) {
             nav(ui, app, Tab::Precision);
             nav(ui, app, Tab::History);
 
-            // Elementos inferiores anclados abajo
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                nav(ui, app, Tab::About);
-                nav(ui, app, Tab::Manual);
-                nav(ui, app, Tab::Config);
+            // Elementos inferiores anclados abajo: empujar con un espaciador
+            // calculado (más robusto que un layout bottom-up dentro del panel).
+            let bottom_block = 34.0 * 3.0 + 16.0;
+            let avail = ui.available_height();
+            ui.add_space(if avail > bottom_block {
+                avail - bottom_block
+            } else {
+                12.0
             });
+            nav(ui, app, Tab::Config);
+            nav(ui, app, Tab::Manual);
+            nav(ui, app, Tab::About);
         });
 }
 
