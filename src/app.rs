@@ -180,6 +180,7 @@ pub struct RootCauseApp {
 
 impl RootCauseApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        configure_fonts(&cc.egui_ctx);
         apply_theme(&cc.egui_ctx);
         let inspector = InspectorService::new();
         let mut app = Self {
@@ -4677,6 +4678,39 @@ fn about_link_row(ui: &mut egui::Ui, label: &str, url: &str, display: &str) {
 
 // ── Widgets de UI reutilizables ────────────────────────────────────────────────
 
+/// Carga fuentes nativas de Windows para un aspecto de producto Windows 11:
+/// **Segoe UI** como fuente proporcional principal y **Consolas** como monoespaciada.
+/// Se conservan las fuentes por defecto de egui como respaldo (incluida NotoEmoji,
+/// necesaria para los emoji de la UI). Si los archivos no existen (p. ej. build
+/// no-Windows), no se cambia nada y se usan las fuentes por defecto.
+fn configure_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+    let mut changed = false;
+
+    if let Ok(bytes) = std::fs::read(r"C:\Windows\Fonts\segoeui.ttf") {
+        fonts
+            .font_data
+            .insert("segoe_ui".to_owned(), egui::FontData::from_owned(bytes));
+        if let Some(fam) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+            fam.insert(0, "segoe_ui".to_owned());
+        }
+        changed = true;
+    }
+    if let Ok(bytes) = std::fs::read(r"C:\Windows\Fonts\consola.ttf") {
+        fonts
+            .font_data
+            .insert("consolas".to_owned(), egui::FontData::from_owned(bytes));
+        if let Some(fam) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
+            fam.insert(0, "consolas".to_owned());
+        }
+        changed = true;
+    }
+
+    if changed {
+        ctx.set_fonts(fonts);
+    }
+}
+
 fn apply_theme(ctx: &egui::Context) {
     let mut vis = egui::Visuals::dark();
     vis.window_fill = BG_APP;
@@ -5170,15 +5204,17 @@ fn loading_screen(ui: &mut egui::Ui) {
 
 /// Logo RC con fondo azul.
 fn draw_logo_icon(ui: &mut egui::Ui, size: f32) {
+    // Marca de RootCause: radar de círculos concéntricos (igual que el icono .ico
+    // y el favicon), en el azul de acento. Reemplaza el antiguo bloque "RC".
     let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
-    ui.painter().rect_filled(rect, Rounding::same(6.0), ACCENT);
-    ui.painter().text(
-        rect.center(),
-        egui::Align2::CENTER_CENTER,
-        "RC",
-        FontId::proportional(size * 0.38),
-        TEXT_PRI,
-    );
+    let c = rect.center();
+    let sw = (size * 0.07).max(1.5);
+    ui.painter()
+        .circle_stroke(c, size * 0.42, Stroke::new(sw, ACCENT));
+    ui.painter()
+        .circle_stroke(c, size * 0.22, Stroke::new(sw, ACCENT));
+    ui.painter()
+        .circle_filled(c, (size * 0.08).max(1.5), ACCENT);
 }
 
 /// Lupa de búsqueda simplificada.
