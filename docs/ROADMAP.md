@@ -16,7 +16,8 @@
 | [v0.13](#v013-entregado) | ✅ Entregado | Detección de cambios en servicios + motor genérico de baseline |
 | [v0.14](#v014-entregado) | ✅ Entregado | Overhaul de UI (ventana, scroll, glifos) + fix de colección PowerShell |
 | [v0.15](#v015-entregado) | ✅ Entregado | Idioma ES/EN + tab Configuración, sección Docker, banner de veredicto y Manual profundo |
-| [v0.16](#v016-entregado-version-actual) | ✅ **Actual** | Icono de bandeja con color por severidad, tooltip de veredicto y menú de acciones |
+| [v0.16](#v016-entregado) | ✅ Entregado | Icono de bandeja con color por severidad, tooltip de veredicto y menú de acciones |
+| [v0.17](#v017-entregado-version-actual) | ✅ **Actual** | Rediseño Fluent/Win11: barra lateral, iconos de línea, Segoe UI, logo del radar, modos de tema |
 | [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: firma digital, publicación, cerrar-a-bandeja |
 | [v2.0+](#v20-largo-plazo) | 🔭 Largo plazo | Windows Service 24/7, ediciones Seguridad y Enterprise |
 
@@ -115,7 +116,18 @@
 - FIX de codificacion: la salida de PowerShell se fuerza a UTF-8 (antes los acentos salian como "cuadrado" en nombres de servicios, eventos y rutas)
 - version bump a 0.14.0
 
-## v0.16 Entregado (version actual)
+## v0.17 Entregado (version actual)
+- Rediseño de interfaz estilo **Windows 11 / Fluent**, inspirado en la calidez de PC Manager sin clonarlo, conservando la densidad de datos
+- Barra lateral (NavigationView) con navegacion agrupada (Actividad / Sistema / Analisis) en vez de las 11 pestañas superiores; Config/Manual/Acerca anclados abajo
+- Iconos de linea dibujados con el Painter (sin emoji ni fuente externa) en la navegacion
+- Tipografia nativa: Segoe UI (proporcional) y Consolas (monoespaciada) del sistema
+- Logo de la marca: radar de circulos concentricos (igual que el .ico) en header e icono de ventana
+- Modos de tema **Claro / Oscuro / Windows** (sigue el tema del sistema) seleccionables en Configuracion; persistido en `config.ui.theme`
+- Colores en runtime (Palette/tokens) con acento = azul del icono (#1f6feb) en todos los modos
+- Banner de veredicto tipo hero en el Resumen (de v0.15) integrado en el nuevo lenguaje visual
+- version bump a 0.17.0
+
+## v0.16 Entregado
 - Tray: icono de bandeja del sistema activo en la edicion GUI (feature `gui` arrastra la crate `tray-icon`)
 - Tray: el icono es un punto de color segun la salud global (verde = saludable, ambar = advertencia, rojo = critico)
 - Tray: tooltip con el veredicto actual y el score de salud
