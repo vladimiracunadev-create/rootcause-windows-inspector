@@ -1,10 +1,10 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.14.0 · **Actualizado:** 2026-07-07
+**Versión base:** v0.15.0 · **Actualizado:** 2026-07-08
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
-> Estado del entorno: CI debe estar verde — v0.14.0 completada (overhaul de UI + fix de colección PowerShell). Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
+> Estado del entorno: CI debe estar verde — v0.15.0 completada (idioma ES/EN + tab Configuración, sección Docker con purga segura, banner de veredicto y Manual profundo; inspirado en PC Manager sin clonarlo). Próximo objetivo: v1.0 (tray icon, firma digital, distribución pública).
 
 ---
 

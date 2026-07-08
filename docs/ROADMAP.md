@@ -14,7 +14,8 @@
 | [v0.11](#v011-entregado-incluye-el-trabajo-previo-del-tab-autostart) | ✅ Entregado | Tab Autostart + umbrales editables inline |
 | [v0.12](#v012-entregado) | ✅ Entregado | Detección de cambios de autoarranque contra baseline |
 | [v0.13](#v013-entregado) | ✅ Entregado | Detección de cambios en servicios + motor genérico de baseline |
-| [v0.14](#v014-entregado-version-actual) | ✅ **Actual** | Overhaul de UI (ventana, scroll, glifos) + fix de colección PowerShell |
+| [v0.14](#v014-entregado) | ✅ Entregado | Overhaul de UI (ventana, scroll, glifos) + fix de colección PowerShell |
+| [v0.15](#v015-entregado-version-actual) | ✅ **Actual** | Idioma ES/EN + tab Configuración, sección Docker, banner de veredicto y Manual profundo |
 | [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: tray icon, firma digital, publicación |
 | [v2.0+](#v20-largo-plazo) | 🔭 Largo plazo | Windows Service 24/7, ediciones Seguridad y Enterprise |
 
@@ -102,7 +103,7 @@
 - listado `rootcause services` (solo cambios) y `rootcause services --json` (incluye `change_status` por servicio)
 - version bump a 0.13.0
 
-## v0.14 Entregado (version actual)
+## v0.14 Entregado
 - UI: la ventana se dimensiona al area de trabajo real del monitor al arrancar (antes no se ajustaba y la barra de tareas recortaba el fondo)
 - UI: barras de scroll solidas y siempre visibles en todos los tabs (antes la barra flotante era casi invisible y parecia que el Resumen no tenia scroll)
 - UI: barrido de glifos que la fuente incluida no renderiza (salian como "cuadrado") en chips de severidad, iconos de estado, marcas de verificacion y botones
@@ -112,6 +113,16 @@
 - FIX de coleccion: los tabs Servicios y Eventos recientes salian siempre vacios porque PowerShell devuelve exit code distinto de cero ante errores no-terminantes (p. ej. un servicio inexistente) aunque emita datos validos; ahora se usa la salida util
 - FIX de codificacion: la salida de PowerShell se fuerza a UTF-8 (antes los acentos salian como "cuadrado" en nombres de servicios, eventos y rutas)
 - version bump a 0.14.0
+
+## v0.15 Entregado (version actual)
+- UI: interfaz bilingue espanol / ingles con selector persistente; motor i18n con helper tr(es,en) e idioma guardado en la config (`ui.language`)
+- UI: nuevo tab Configuracion (Ctrl+9) que reune idioma, umbrales de deteccion, anomalias e intervalo de refresco (movidos desde Acerca)
+- UI: banner de veredicto tipo hero en el Resumen (aro de salud + titular + causa dominante en una linea)
+- Almacenamiento: seccion Docker en el tab Temporales (docker system df / images / volume ls) con barra segmentada por categoria, tablas de imagenes y volumenes, y purga guiada segura de 2 pasos (solo imagenes dangling + cache de build; los volumenes nunca se autoborran porque contienen datos)
+- CLI: nuevo comando `rootcause docker [--json | --prune-images | --prune-cache]`
+- UI: Manual reescrito con el porque de cada parte (bilingue) + secciones nuevas (leelo en 30 segundos, Docker); ahora 11 tabs (Configuracion = Ctrl+9, Manual = Ctrl+0, Acerca solo por clic)
+- Inspirado en la UX de Microsoft PC Manager, sin clonarlo: se toma su lenguaje visual amigable y se resuelve mejor lo que insinua (baseline, causa raiz)
+- version bump a 0.15.0
 
 ## v1.0 Objetivo de distribucion formal
 - tray icon activo (monitor proactivo en bandeja del sistema)
