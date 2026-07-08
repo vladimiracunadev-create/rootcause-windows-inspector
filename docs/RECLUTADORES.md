@@ -67,7 +67,7 @@ Este proyecto demuestra capacidades en varias áreas al mismo tiempo:
 
 ### CLI y experiencia de usuario
 - interfaz de línea de comandos completa (`rootcause --help`),
-- atajos de teclado en la GUI (`Ctrl+1…9`),
+- atajos de teclado en la GUI (`Ctrl+1…9` y `Ctrl+0`),
 - tab Acerca con metadatos del producto,
 - información de hardware del equipo,
 - tab Autostart integrado: registro Run y carpetas Startup con severidad heurística, y **detección de cambios de autoarranque contra una baseline conocida** (persistida en SQLite) que clasifica cada entrada como nueva, modificada o eliminada y levanta alertas `persistence-change`.

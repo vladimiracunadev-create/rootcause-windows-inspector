@@ -159,7 +159,7 @@ Ordenadas por impacto real para el usuario:
 
 #### 4.1 Tab Autostart ✅ Completado en v0.11.0
 Qué hace: muestra qué arranca con Windows — entradas de registro `HKCU/HKLM\...\Run` y carpetas Startup.
-Dónde: tab "Autostart" (Ctrl+7), 9 tabs totales ahora.
+Dónde: tab "Autostart" (Ctrl+7), 10 tabs totales ahora (se añadió el tab Manual antes de Acerca).
 Implementación: `windows::persistence_entries()` (PowerShell) → `snap.persistence_entries` → `draw_tab_autostart()`.
 Datos: nombre, tipo de origen (pill diferenciado), comando completo con tooltip, indicador de existencia en disco, severidad heurística.
 

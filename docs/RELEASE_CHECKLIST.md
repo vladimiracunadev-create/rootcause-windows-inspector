@@ -39,8 +39,9 @@ Checklist profesional antes de distribuir artefactos.
 - [ ] la UI arranca
 - [ ] refresco funciona
 - [ ] exportación JSON funciona (GUI y CLI: `rootcause export`)
-- [ ] CLI: `rootcause --help`, `status`, `snapshot`, `history` verificados
-- [ ] atajos de teclado verificados (F5, Ctrl+E, Ctrl+1…9)
+- [ ] CLI: `rootcause --help`, `status`, `snapshot`, `history`, `clean-temp` verificados
+- [ ] atajos de teclado verificados (F5, Ctrl+E, Ctrl+1…9 y Ctrl+0)
+- [ ] la ventana arranca ajustada al monitor y las barras de scroll son visibles
 - [ ] tab Acerca muestra versión, autor y hardware del equipo correctamente
 - [ ] sección Características del equipo visible en tab Overview
 - [ ] bloqueo de IP funciona en entorno controlado

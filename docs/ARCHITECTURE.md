@@ -99,14 +99,16 @@ Responsabilidades:
 Capa de interfaz.
 
 Responsabilidades:
-- layout general con 9 tabs (Resumen, Procesos, Conexiones, Temporales, ETW/WPR, Servicios, Autostart, Historial, Acerca),
-- atajos de teclado: `F5` = actualizar, `Ctrl+E` = exportar, `Ctrl+1…9` = cambio de tab,
+- layout general con 10 tabs (Resumen, Procesos, Conexiones, Temporales, ETW/WPR, Servicios, Autostart, Historial, Manual, Acerca),
+- atajos de teclado: `F5` = actualizar, `Ctrl+E` = exportar, `Ctrl+1…9` y `Ctrl+0` = cambio de tab,
 - semáforo,
 - sparklines de CPU / RAM / I/O (ring buffer `VecDeque<MetricSample>`, max 60 muestras),
 - sección "Características del equipo" en tab Resumen (datos de `HardwareInfo`),
 - filtro de severidad por tab de procesos,
 - tab Autostart: tabla de entradas de registro Run (HKCU/HKLM), carpetas Startup y tareas programadas no-Microsoft con severidad heurística, comparadas contra la baseline conocida (`persistence_baseline`) para señalar cambios (`persistence-change`) NUEVA / MODIFICADA / ELIMINADA,
 - tab de Historial con tabla SQLite y comparación A vs B,
+- tab Temporales con escaneo de cachés y botón de limpieza segura de `%TEMP%` (>24h, no en uso),
+- tab Manual: guía integrada que explica cada pestaña, la detección por baseline y las acciones seguras,
 - notificaciones toast vía PowerShell (non-blocking),
 - tab Acerca con versión, autor, links, atajos y hardware del equipo,
 - control del modo de precisión,

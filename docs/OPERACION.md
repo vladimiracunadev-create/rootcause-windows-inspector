@@ -181,6 +181,19 @@ en `audit_log` con la acción `accept-service-baseline`. Cada cambio detectado g
 kind `service-change` (Alta para NUEVA/MODIFICADA, Media para ELIMINADA), gobernada por el flag de
 configuración `watch_service_changes` (default `true`).
 
+### Limpieza segura de temporales
+```
+rootcause clean-temp              # SIMULACIÓN: informa cuánto se liberaría, no borra nada
+rootcause clean-temp --yes        # limpia de verdad tu %TEMP% (>24h, no en uso)
+```
+
+Opera **solo** sobre tu carpeta `%TEMP%` de usuario: nunca `C:\Windows\Temp`, el sistema ni las
+descargas de Windows Update. Solo borra lo **no modificado en las últimas 24 h** y **salta lo que esté
+en uso** (en Windows, un archivo con un handle abierto no puede borrarse, así que "no en uso" es
+intrínsecamente seguro). Sin `--yes` es una simulación que no toca nada; la limpieza real queda auditada
+en `audit_log` con la acción `clean-temp`. En la GUI equivale al botón **🗑 Limpiar %TEMP%** del tab
+Temporales, con confirmación de dos pasos.
+
 ### Acciones de intervención
 ```
 rootcause kill <PID>              # finaliza proceso (respeta política de protección)
@@ -217,7 +230,8 @@ rootcause --gui
 | `Ctrl + 6`   | Ir a tab Servicios            |
 | `Ctrl + 7`   | Ir a tab Autostart            |
 | `Ctrl + 8`   | Ir a tab Historial            |
-| `Ctrl + 9`   | Ir a tab Acerca               |
+| `Ctrl + 9`   | Ir a tab Manual               |
+| `Ctrl + 0`   | Ir a tab Acerca               |
 
 ---
 
@@ -258,7 +272,7 @@ RootCause-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 El binario funciona también como CLI. `rootcause --help` muestra todos los comandos disponibles. Ahora incluye salida JSON para integraciones, consulta de incidentes persistidos, configuración local e IA opcional.
 
 ### Atajos de teclado
-`F5` para refrescar, `Ctrl+E` para exportar, `Ctrl+1…9` para cambiar de tab sin usar el ratón. Ver sección 7.
+`F5` para refrescar, `Ctrl+E` para exportar, `Ctrl+1…9` y `Ctrl+0` para cambiar de tab sin usar el ratón. Ver sección 7.
 
 ### Características del equipo
 Nueva sección al final del tab **Resumen** y en el tab **Acerca**: muestra OS, CPU, núcleos, frecuencia y RAM total del equipo. Ver sección 8.
