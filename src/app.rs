@@ -1274,7 +1274,7 @@ fn draw_tab_overview(
                 ui.set_max_width(content_width.min(700.0));
                 if narrow_summary {
                     hw_row(ui, "🖥  Equipo", &hw.host_name);
-                    hw_row(ui, "🪟  Sistema", &hw.os_name);
+                    hw_row(ui, "💠  Sistema", &hw.os_name);
                     hw_row(ui, "📋  Versión OS", &hw.os_version);
                     hw_row(ui, "🏗  Arquitectura", &hw.architecture);
                     hw_row(
@@ -1294,7 +1294,7 @@ fn draw_tab_overview(
                     ui.columns(2, |cols| {
                         let left = &mut cols[0];
                         hw_row(left, "🖥  Equipo", &hw.host_name);
-                        hw_row(left, "🪟  Sistema", &hw.os_name);
+                        hw_row(left, "💠  Sistema", &hw.os_name);
                         hw_row(left, "📋  Versión OS", &hw.os_version);
                         hw_row(left, "🏗  Arquitectura", &hw.architecture);
 
@@ -1791,7 +1791,7 @@ fn draw_tab_temp(
                 if !*confirm {
                     if ui
                         .add(egui::Button::new(
-                            RichText::new("🧹 Limpiar %TEMP% (>24h, no en uso)")
+                            RichText::new("🗑  Limpiar %TEMP% (>24h, no en uso)")
                                 .size(12.5)
                                 .color(TEXT_PRI),
                         ))
@@ -1818,7 +1818,7 @@ fn draw_tab_temp(
                     if ui
                         .add(
                             egui::Button::new(
-                                RichText::new("✓ Confirmar").size(12.0).color(TEXT_PRI),
+                                RichText::new("Sí, limpiar").size(12.0).color(TEXT_PRI),
                             )
                             .fill(C_CR_BG),
                         )
@@ -2029,7 +2029,7 @@ fn draw_tab_precision(
                     if action_btn(ui, "■  Detener y guardar", C_WN_BG, C_WN_FG).clicked() {
                         *precision_action = Some(PrecisionAction::Stop);
                     }
-                    if action_btn(ui, "✕  Cancelar", C_CR_BG, C_CR_FG).clicked() {
+                    if action_btn(ui, "×  Cancelar", C_CR_BG, C_CR_FG).clicked() {
                         *precision_action = Some(PrecisionAction::Cancel);
                     }
                 }
@@ -2441,7 +2441,7 @@ fn draw_tab_history(
                             if ui
                                 .add(
                                     egui::Button::new(
-                                        RichText::new(if is_a { "A ✓" } else { "A" })
+                                        RichText::new(if is_a { "A ✅" } else { "A" })
                                             .size(11.0)
                                             .color(if is_a { C_BL_FG } else { TEXT_MUT }),
                                     )
@@ -2456,7 +2456,7 @@ fn draw_tab_history(
                             if ui
                                 .add(
                                     egui::Button::new(
-                                        RichText::new(if is_b { "B ✓" } else { "B" })
+                                        RichText::new(if is_b { "B ✅" } else { "B" })
                                             .size(11.0)
                                             .color(if is_b { C_WN_FG } else { TEXT_MUT }),
                                     )
@@ -2678,7 +2678,7 @@ fn draw_tab_autostart(
 ) {
     section_header(
         ui,
-        "◫  Autostart  ·  entradas de registro Run, carpetas Startup y tareas programadas",
+        "▸  Autostart  ·  entradas de registro Run, carpetas Startup y tareas programadas",
     );
     ui.add_space(6.0);
 
@@ -2688,7 +2688,7 @@ fn draw_tab_autostart(
         ui.add_space(24.0);
         ui.vertical_centered(|ui| {
             ui.label(
-                RichText::new("◫")
+                RichText::new("🚀")
                     .size(40.0)
                     .color(TEXT_MUT.linear_multiply(0.5)),
             );
@@ -2815,7 +2815,7 @@ fn draw_tab_autostart(
                 ui.horizontal(|ui| {
                     if ui
                         .add(egui::Button::new(
-                            RichText::new("✓ Aceptar estado actual como baseline")
+                            RichText::new("✅ Aceptar estado actual como baseline")
                                 .size(12.0)
                                 .color(TEXT_PRI),
                         ))
@@ -2841,7 +2841,7 @@ fn draw_tab_autostart(
     } else if n_active > 0 {
         // Sin cambios: confirmación tranquila de que hay baseline y coincide.
         ui.horizontal(|ui| {
-            ui.label(RichText::new("✓").color(C_OK_FG).size(12.0));
+            ui.label(RichText::new("✅").color(C_OK_FG).size(12.0));
             ui.add_space(4.0);
             ui.label(
                 RichText::new("Sin cambios respecto a la baseline conocida.")
@@ -2976,9 +2976,9 @@ fn draw_tab_autostart(
 
                             // Existe en disco
                             let (disk_txt, disk_col) = if entry.exists_on_disk {
-                                ("✓ Sí", C_OK_FG)
+                                ("✅ Sí", C_OK_FG)
                             } else {
-                                ("✗ No", C_CR_FG)
+                                ("❌ No", C_CR_FG)
                             };
                             ui.add_sized(
                                 [64.0, 18.0],
@@ -3006,7 +3006,7 @@ fn draw_tab_autostart(
                     RichText::new(
                         "Las entradas de tipo Registro (Sistema) requieren privilegios \
                          de administrador para modificarse. \
-                         Las entradas marcadas \"✗ No\" apuntan a archivos que ya no existen \
+                         Las entradas marcadas \"❌ No\" apuntan a archivos que ya no existen \
                          y pueden limpiarse de forma segura.",
                     )
                     .size(11.0)
@@ -4135,7 +4135,7 @@ fn tool_chip(ui: &mut egui::Ui, name: &str, ok: bool) {
     };
     pill(
         ui,
-        &format!("{name} {}", if ok { "✓" } else { "—" }),
+        &format!("{name} {}", if ok { "✅" } else { "—" }),
         fg,
         bg,
     );
@@ -4256,10 +4256,13 @@ fn draw_sev_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     ui.painter().circle_filled(rect.center(), size * 0.46, bg);
     ui.painter()
         .circle_stroke(rect.center(), size * 0.46, Stroke::new(1.2, fg));
+    // Símbolos de la fuente base (Ubuntu-Light): el checkmark/✕ Unicode no está en
+    // la fuente y salía como "□". El color del círculo ya comunica la severidad;
+    // el interior solo refuerza con glifos que sí renderizan.
     let sym = match sev {
-        Severity::Healthy => "✓",
+        Severity::Healthy => "",
         Severity::Warning => "!",
-        Severity::Critical => "✕",
+        Severity::Critical => "×",
     };
     ui.painter().text(
         rect.center(),
