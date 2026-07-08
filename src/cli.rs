@@ -2,6 +2,7 @@
 
 use crate::meta;
 use crate::models::{AiIncidentAdvice, IncidentSummary, SnapshotRow, SystemSnapshot};
+use crate::services::docker;
 use crate::services::inspector::InspectorService;
 use serde::Serialize;
 use std::fs;
@@ -44,6 +45,7 @@ pub fn run(args: &[String]) -> i32 {
         "autostart" => cmd_autostart(&args[1..]),
         "services" => cmd_services(&args[1..]),
         "clean-temp" => cmd_clean_temp(&args[1..]),
+        "docker" => cmd_docker(&args[1..]),
         other => {
             eprintln!(
                 "Comando desconocido: '{other}'\nUsa  rootcause --help  para ver todas las opciones."
@@ -90,6 +92,11 @@ AUTOSTART Y PERSISTENCIA:
   rootcause services --accept             Fija el estado actual de servicios como baseline
   rootcause clean-temp                    Simula limpieza de %TEMP% (>24h, no en uso) — no borra
   rootcause clean-temp --yes              Limpia de verdad %TEMP% (>24h, no en uso); salta lo bloqueado
+
+ESPACIO DE DOCKER:
+  rootcause docker [--json]               Imágenes, volúmenes y espacio recuperable (docker system df)
+  rootcause docker --prune-images         Elimina imágenes colgantes (dangling) — seguro
+  rootcause docker --prune-cache          Elimina la caché de build — seguro
 
 CONFIGURACIÓN E IA OPCIONAL:
   rootcause config show [--json]          Ver ruta y configuración efectiva
@@ -726,6 +733,147 @@ fn cmd_clean_temp(args: &[String]) -> i32 {
         );
     }
     0
+}
+
+fn cmd_docker(args: &[String]) -> i32 {
+    // Acciones de purga (seguras): dangling images y caché de build.
+    if has_flag(args, "--prune-images") {
+        return match docker::prune_dangling_images() {
+            Ok(msg) => {
+                println!("Imágenes colgantes purgadas: {msg}");
+                0
+            }
+            Err(e) => {
+                eprintln!("No se pudo purgar imágenes: {e}");
+                1
+            }
+        };
+    }
+    if has_flag(args, "--prune-cache") {
+        return match docker::prune_build_cache() {
+            Ok(msg) => {
+                println!("Caché de build purgada: {msg}");
+                0
+            }
+            Err(e) => {
+                eprintln!("No se pudo purgar la caché: {e}");
+                1
+            }
+        };
+    }
+
+    let scan = docker::scan();
+    if !scan.available {
+        eprintln!(
+            "{}",
+            scan.message
+                .unwrap_or_else(|| "Docker no está disponible.".to_owned())
+        );
+        return 1;
+    }
+
+    if has_flag(args, "--json") {
+        let categories: Vec<serde_json::Value> = scan
+            .categories
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "kind": c.kind,
+                    "total": c.total,
+                    "active": c.active,
+                    "size_mb": c.size_mb,
+                    "reclaimable_mb": c.reclaimable_mb,
+                })
+            })
+            .collect();
+        let images: Vec<serde_json::Value> = scan
+            .images
+            .iter()
+            .map(|i| {
+                serde_json::json!({
+                    "repository": i.repository,
+                    "tag": i.tag,
+                    "id": i.id,
+                    "size_mb": i.size_mb,
+                    "created": i.created,
+                    "dangling": i.dangling,
+                })
+            })
+            .collect();
+        let out = serde_json::json!({
+            "total_size_mb": scan.total_size_mb(),
+            "total_reclaimable_mb": scan.total_reclaimable_mb(),
+            "dangling_count": scan.dangling_count(),
+            "categories": categories,
+            "images": images,
+            "volumes": scan.volumes.iter().map(|v| v.name.clone()).collect::<Vec<_>>(),
+        });
+        println!("{}", serde_json::to_string_pretty(&out).unwrap_or_default());
+        return 0;
+    }
+
+    println!("Uso de disco de Docker");
+    println!(
+        "  Ocupado total : {:.0} MB   ·   Recuperable : {:.0} MB",
+        scan.total_size_mb(),
+        scan.total_reclaimable_mb()
+    );
+    println!();
+    println!(
+        "  {:<16} {:>6} {:>7} {:>12} {:>14}",
+        "Categoría", "Total", "Activo", "Tamaño(MB)", "Recup.(MB)"
+    );
+    for c in &scan.categories {
+        println!(
+            "  {:<16} {:>6} {:>7} {:>12.0} {:>14.0}",
+            c.kind, c.total, c.active, c.size_mb, c.reclaimable_mb
+        );
+    }
+
+    if !scan.images.is_empty() {
+        println!();
+        println!("  Imágenes (mayores primero):");
+        for img in scan.images.iter().take(15) {
+            let name = if img.dangling {
+                "<dangling>".to_owned()
+            } else {
+                format!("{}:{}", img.repository, img.tag)
+            };
+            println!(
+                "    {:<40} {:>9.0} MB   {}",
+                trunc_cli(&name, 40),
+                img.size_mb,
+                img.created
+            );
+        }
+    }
+
+    if !scan.volumes.is_empty() {
+        println!();
+        println!(
+            "  Volúmenes ({}): revisión manual (contienen datos)",
+            scan.volumes.len()
+        );
+        for v in scan.volumes.iter().take(15) {
+            println!("    {} [{}]", v.name, v.driver);
+        }
+    }
+
+    println!();
+    println!(
+        "  Purga segura:  rootcause docker --prune-images   ·   rootcause docker --prune-cache"
+    );
+    0
+}
+
+/// Trunca una cadena para la salida de consola.
+fn trunc_cli(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_owned()
+    } else {
+        let taken: String = s.chars().take(max.saturating_sub(1)).collect();
+        format!("{taken}…")
+    }
 }
 
 fn print_history_row(row: &SnapshotRow) {

@@ -3,6 +3,7 @@
 //! Se mantiene en JSON para evitar dependencias nuevas y porque el proyecto ya
 //! usa `serde_json` en exportes, historial y análisis ETL.
 
+use crate::i18n::Lang;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,6 +27,17 @@ pub struct RootCauseConfig {
     pub resilience: ResilienceConfig,
     #[serde(default)]
     pub ai: AiConfig,
+    #[serde(default)]
+    pub ui: UiConfig,
+}
+
+/// Preferencias de la interfaz gráfica. Por ahora solo el idioma; deliberadamente
+/// aislada para que el resto de la config no cargue con detalles de presentación.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UiConfig {
+    /// Idioma de la interfaz (`es` por defecto, `en` disponible).
+    #[serde(default)]
+    pub language: Lang,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -5,6 +5,7 @@
 pub mod ai;
 pub mod anomaly;
 pub mod baseline;
+pub mod docker;
 pub mod etl;
 pub mod inspector;
 pub mod network;
