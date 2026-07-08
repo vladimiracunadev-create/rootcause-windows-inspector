@@ -5,12 +5,14 @@
 //! nombres o rutas largas. Sin scroll horizontal.
 
 use crate::config::RootCauseConfig;
+use crate::i18n::{self, Lang, tr};
 use crate::meta;
 use crate::models::{
     AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, PersistenceChange, PersistenceEntry,
     ProcessInsight, RiskLevel, ServiceState, Severity, SnapshotRow, SystemSnapshot,
     TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
 };
+use crate::services::docker::{self, DockerScan};
 use crate::services::inspector::InspectorService;
 use crate::services::windows;
 use eframe::egui::{self, Color32, FontId, Margin, RichText, Rounding, Sense, Stroke, Vec2};
@@ -77,6 +79,7 @@ enum Tab {
     Services,
     Autostart,
     History,
+    Config,
     Manual,
     About,
 }
@@ -85,17 +88,21 @@ impl Tab {
     // Iconos: emoji estándar (cubiertos por la fuente NotoEmoji que egui empaqueta
     // por defecto) para garantizar que SIEMPRE rendericen. Los glifos geométricos
     // anteriores (◈ ▤ ◧ ◫) no estaban en la fuente y salían como "□" (tofu).
-    const ALL: &'static [(Tab, &'static str, &'static str)] = &[
-        (Tab::Overview, "📊", "Resumen"),
-        (Tab::Processes, "⚙", "Procesos"),
-        (Tab::Connections, "🌐", "Conexiones"),
-        (Tab::TempFiles, "🗑", "Temporales"),
-        (Tab::Precision, "🎯", "ETW / WPR"),
-        (Tab::Services, "🔧", "Servicios"),
-        (Tab::Autostart, "🚀", "Autostart"),
-        (Tab::History, "🕒", "Historial"),
-        (Tab::Manual, "📖", "Manual"),
-        (Tab::About, "ℹ", "Acerca"),
+    //
+    // Cada entrada lleva la etiqueta en español y en inglés; el idioma activo se
+    // resuelve en el momento de dibujar con `tr`.
+    const ALL: &'static [(Tab, &'static str, &'static str, &'static str)] = &[
+        (Tab::Overview, "📊", "Resumen", "Overview"),
+        (Tab::Processes, "⚙", "Procesos", "Processes"),
+        (Tab::Connections, "🌐", "Conexiones", "Connections"),
+        (Tab::TempFiles, "🗑", "Temporales", "Storage"),
+        (Tab::Precision, "🎯", "ETW / WPR", "ETW / WPR"),
+        (Tab::Services, "🔧", "Servicios", "Services"),
+        (Tab::Autostart, "🚀", "Autostart", "Autostart"),
+        (Tab::History, "🕒", "Historial", "History"),
+        (Tab::Config, "⚙", "Configuración", "Settings"),
+        (Tab::Manual, "📖", "Manual", "Manual"),
+        (Tab::About, "ℹ", "Acerca", "About"),
     ];
 }
 
@@ -106,6 +113,25 @@ enum PrecisionAction {
     Stop,
     Cancel,
     Analyze,
+}
+
+// ── Acciones de Docker (tab Temporales) ────────────────────────────────────────
+
+/// Qué purga segura está en curso o pendiente de confirmar.
+#[derive(Clone, Copy, PartialEq)]
+enum DockerPruneKind {
+    /// Imágenes colgantes (`<none>:<none>`).
+    Images,
+    /// Caché de build.
+    Cache,
+}
+
+/// Acción solicitada por la UI de Docker en un frame.
+enum DockerUiAction {
+    /// (Re)escanear el uso de disco de Docker.
+    Scan,
+    /// Ejecutar una purga ya confirmada.
+    Prune(DockerPruneKind),
 }
 
 // ── Estado ─────────────────────────────────────────────────────────────────────
@@ -143,6 +169,10 @@ pub struct RootCauseApp {
     // Limpieza de %TEMP% (tab Temporales): confirmación de 2 pasos + resultado
     temp_clean_confirm: bool,
     temp_clean_result: Option<String>,
+    // Docker (tab Temporales): último escaneo, confirmación de purga y resultado
+    docker_scan: Option<DockerScan>,
+    docker_prune_confirm: Option<DockerPruneKind>,
+    docker_result: Option<String>,
 }
 
 impl RootCauseApp {
@@ -175,6 +205,9 @@ impl RootCauseApp {
             config_path: String::new(),
             temp_clean_confirm: false,
             temp_clean_result: None,
+            docker_scan: None,
+            docker_prune_confirm: None,
+            docker_result: None,
         };
         match inspector {
             Ok(svc) => {
@@ -183,6 +216,8 @@ impl RootCauseApp {
                 app.refresh_interval_secs = svc.config().collection.refresh_interval_secs;
                 app.notifications_enabled = svc.config().alerting.notify_on_critical;
                 app.cached_config = svc.config().clone();
+                // Aplicar el idioma guardado antes del primer frame.
+                i18n::set_lang(app.cached_config.ui.language);
                 app.config_path = svc.config_path().display().to_string();
                 app.inspector = Some(svc);
             }
@@ -421,6 +456,40 @@ impl RootCauseApp {
         // Forzar re-escaneo para que la tabla de temporales refleje el cambio.
         self.last_refresh_at = Instant::now() - Duration::from_secs(self.refresh_interval_secs);
     }
+
+    /// Ejecuta una acción de Docker (escaneo o purga) de forma síncrona. Docker
+    /// puede tardar 1–2 s; se hace bajo demanda (pulsando un botón), no en el
+    /// bucle de refresco, así que el bloqueo puntual es aceptable.
+    fn execute_docker_action(&mut self, action: DockerUiAction) {
+        match action {
+            DockerUiAction::Scan => {
+                self.docker_result = None;
+                self.docker_prune_confirm = None;
+                self.docker_scan = Some(docker::scan());
+            }
+            DockerUiAction::Prune(kind) => {
+                self.docker_prune_confirm = None;
+                let outcome = match kind {
+                    DockerPruneKind::Images => docker::prune_dangling_images(),
+                    DockerPruneKind::Cache => docker::prune_build_cache(),
+                };
+                match outcome {
+                    Ok(msg) => {
+                        self.docker_result = Some(format!("✅  {msg}"));
+                        self.status_line = format!("Docker: {msg}");
+                        self.status_is_error = false;
+                    }
+                    Err(e) => {
+                        self.docker_result = Some(format!("❌  {e}"));
+                        self.status_line = format!("Docker: {e}");
+                        self.status_is_error = true;
+                    }
+                }
+                // Re-escanear para reflejar el espacio liberado.
+                self.docker_scan = Some(docker::scan());
+            }
+        }
+    }
 }
 
 // ── Loop principal ─────────────────────────────────────────────────────────────
@@ -477,7 +546,7 @@ impl eframe::App for RootCauseApp {
             self.export_snapshot();
         }
         if let Some(idx) = tab_switch
-            && let Some(&(tab, _, _)) = Tab::ALL.get(idx)
+            && let Some(&(tab, _, _, _)) = Tab::ALL.get(idx)
         {
             self.active_tab = tab;
         }
@@ -515,34 +584,51 @@ impl eframe::App for RootCauseApp {
                         .show(ui, draw_tab_manual);
                     return;
                 }
-                // El tab Acerca no necesita snapshot — se muestra siempre.
-                if self.active_tab == Tab::About {
+                // El tab Configuración no necesita snapshot — edita idioma y umbrales.
+                if self.active_tab == Tab::Config {
                     let mut save_config = false;
+                    let lang_before = self.cached_config.ui.language;
                     egui::ScrollArea::vertical()
                         .auto_shrink([false; 2])
                         .show(ui, |ui| {
-                            draw_tab_about(
+                            draw_tab_config(
                                 ui,
-                                &self.hardware_info,
-                                self.snapshot.as_ref(),
                                 &mut self.cached_config,
                                 &self.config_path,
                                 &mut save_config,
                             )
                         });
+                    // Cambiar el idioma aplica al instante y persiste sin pulsar Guardar.
+                    if self.cached_config.ui.language != lang_before {
+                        i18n::set_lang(self.cached_config.ui.language);
+                        save_config = true;
+                    }
                     if save_config && let Some(svc) = self.inspector.as_mut() {
                         match svc.save_config(&self.cached_config) {
                             Ok(()) => {
                                 self.status_line =
-                                    "Configuración guardada correctamente.".to_owned();
+                                    tr("Configuración guardada correctamente.", "Settings saved.")
+                                        .to_owned();
                                 self.status_is_error = false;
                             }
                             Err(e) => {
-                                self.status_line = format!("Error al guardar config: {e}");
+                                self.status_line = format!(
+                                    "{}: {e}",
+                                    tr("Error al guardar config", "Failed to save settings")
+                                );
                                 self.status_is_error = true;
                             }
                         }
                     }
+                    return;
+                }
+                // El tab Acerca no necesita snapshot — se muestra siempre.
+                if self.active_tab == Tab::About {
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false; 2])
+                        .show(ui, |ui| {
+                            draw_tab_about(ui, &self.hardware_info, self.snapshot.as_ref())
+                        });
                     return;
                 }
 
@@ -588,6 +674,7 @@ impl eframe::App for RootCauseApp {
                             ),
                             Tab::TempFiles => {
                                 let mut do_clean = false;
+                                let mut docker_action: Option<DockerUiAction> = None;
                                 draw_tab_temp(
                                     ui,
                                     &snapshot,
@@ -595,9 +682,16 @@ impl eframe::App for RootCauseApp {
                                     &mut self.temp_clean_confirm,
                                     &self.temp_clean_result,
                                     &mut do_clean,
+                                    &self.docker_scan,
+                                    &mut self.docker_prune_confirm,
+                                    &self.docker_result,
+                                    &mut docker_action,
                                 );
                                 if do_clean {
                                     self.execute_temp_clean();
+                                }
+                                if let Some(action) = docker_action {
+                                    self.execute_docker_action(action);
                                 }
                             }
                             Tab::Precision => draw_tab_precision(
@@ -624,8 +718,8 @@ impl eframe::App for RootCauseApp {
                                 &mut self.history_compare_a,
                                 &mut self.history_compare_b,
                             ),
-                            // Manual y About se gestionan antes del guard de snapshot.
-                            Tab::Manual | Tab::About => {}
+                            // Config, Manual y About se gestionan antes del guard de snapshot.
+                            Tab::Config | Tab::Manual | Tab::About => {}
                         }
 
                         match precision_action {
@@ -775,11 +869,17 @@ fn draw_tabbar(app: &mut RootCauseApp, ctx: &egui::Context) {
             // horizontal_wrapped: si los 9 tabs no caben a lo ancho, bajan de línea
             // en vez de recortarse (antes se cortaban en pantallas angostas).
             ui.horizontal_wrapped(|ui| {
-                for (idx, &(tab, icon, label)) in Tab::ALL.iter().enumerate() {
+                for (idx, &(tab, icon, es, en)) in Tab::ALL.iter().enumerate() {
                     let selected = app.active_tab == tab;
-                    let shortcut = if idx < 9 { idx + 1 } else { 0 };
-                    let resp = tab_btn(ui, icon, label, selected)
-                        .on_hover_text(format!("Ctrl+{shortcut}"));
+                    let resp = tab_btn(ui, icon, tr(es, en), selected);
+                    // Atajos: idx 0..8 → Ctrl+1..9, idx 9 → Ctrl+0, idx 10 sin atajo.
+                    let resp = if idx < 9 {
+                        resp.on_hover_text(format!("Ctrl+{}", idx + 1))
+                    } else if idx == 9 {
+                        resp.on_hover_text("Ctrl+0")
+                    } else {
+                        resp
+                    };
                     if resp.clicked() {
                         app.active_tab = tab;
                     }
@@ -851,12 +951,55 @@ fn draw_tab_overview(
     };
     let score = compute_health_score(snap);
     let (score_fg, score_bg, score_label) = if score >= 80 {
-        (C_OK_FG, C_OK_BG, "Saludable")
+        (C_OK_FG, C_OK_BG, tr("Saludable", "Healthy"))
     } else if score >= 50 {
-        (C_WN_FG, C_WN_BG, "Advertencia")
+        (C_WN_FG, C_WN_BG, tr("Advertencia", "Warning"))
     } else {
-        (C_CR_FG, C_CR_BG, "Crítico")
+        (C_CR_FG, C_CR_BG, tr("Crítico", "Critical"))
     };
+
+    // ── Banner de veredicto (titular) ─────────────────────────────────────────
+    // Un vistazo debe bastar para saber el estado global, al estilo de una tarjeta
+    // héroe: aro de salud + titular grande + la causa dominante en una línea.
+    let headline = if score >= 80 {
+        tr("Tu PC está saludable", "Your PC is healthy")
+    } else if score >= 50 {
+        tr(
+            "Hay señales que conviene revisar",
+            "Some signals worth reviewing",
+        )
+    } else {
+        tr("Atención: revísalo ahora", "Attention: review it now")
+    };
+    egui::Frame::none()
+        .fill(score_bg)
+        .stroke(Stroke::new(1.5, score_fg.linear_multiply(0.6)))
+        .rounding(Rounding::same(12.0))
+        .inner_margin(Margin::symmetric(18.0, 16.0))
+        .show(ui, |ui| {
+            ui.vertical(|ui| {
+                ui.set_max_width(full_width_card);
+                ui.horizontal(|ui| {
+                    draw_health_ring(ui, score as f32 / 100.0, score_fg, 48.0);
+                    ui.add_space(14.0);
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new(headline).size(20.0).strong().color(score_fg));
+                            ui.add_space(8.0);
+                            pill(ui, score_label, score_fg, BG_CARD);
+                        });
+                        ui.add_space(4.0);
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(&ov.primary_reason).size(12.5).color(TEXT_SEC),
+                            )
+                            .wrap(true),
+                        );
+                    });
+                });
+            });
+        });
+    ui.add_space(12.0);
 
     // ── Fila 1: score + cards de métricas ─────────────────────────────────────
     let ram_pct = ov.memory_used_gb / ov.memory_total_gb.max(0.1) * 100.0;
@@ -1769,6 +1912,7 @@ fn draw_tab_connections<F: FnMut(&str)>(
 
 // ── Tab: Temporales ────────────────────────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 fn draw_tab_temp(
     ui: &mut egui::Ui,
     snap: &SystemSnapshot,
@@ -1776,10 +1920,17 @@ fn draw_tab_temp(
     confirm: &mut bool,
     result: &Option<String>,
     execute: &mut bool,
+    docker_scan: &Option<DockerScan>,
+    docker_prune_confirm: &mut Option<DockerPruneKind>,
+    docker_result: &Option<String>,
+    docker_action: &mut Option<DockerUiAction>,
 ) {
     section_header(
         ui,
-        "▸  Archivos temporales  ·  instaladores, actualizaciones, exportaciones",
+        tr(
+            "▸  Archivos temporales  ·  instaladores, actualizaciones, exportaciones",
+            "▸  Temporary files  ·  installers, updates, exports",
+        ),
     );
     ui.add_space(8.0);
 
@@ -1931,6 +2082,433 @@ fn draw_tab_temp(
         for lim in &snap.temp.limitations {
             ui.label(RichText::new(lim).small().italics().color(TEXT_MUT));
         }
+    }
+
+    // ── Docker: otro gran consumidor de disco, a menudo invisible ──────────────
+    ui.add_space(18.0);
+    draw_docker_section(
+        ui,
+        docker_scan,
+        docker_prune_confirm,
+        docker_result,
+        docker_action,
+    );
+}
+
+/// Sección Docker dentro del tab Temporales: imágenes, volúmenes y espacio
+/// recuperable, con purga guiada segura (dangling + caché de build).
+fn draw_docker_section(
+    ui: &mut egui::Ui,
+    scan: &Option<DockerScan>,
+    prune_confirm: &mut Option<DockerPruneKind>,
+    result: &Option<String>,
+    action: &mut Option<DockerUiAction>,
+) {
+    section_header(
+        ui,
+        tr(
+            "▸  Docker  ·  imágenes, volúmenes y espacio recuperable",
+            "▸  Docker  ·  images, volumes and reclaimable space",
+        ),
+    );
+    ui.add_space(8.0);
+
+    let Some(scan) = scan else {
+        // Aún no se ha escaneado: tarjeta con botón.
+        egui::Frame::none()
+            .fill(BG_CARD)
+            .stroke(Stroke::new(1.0, BORDER))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(Margin::same(12.0))
+            .show(ui, |ui| {
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(tr(
+                            "Docker acumula capas de imágenes, cachés de build y volúmenes que no \
+                             aparecen en las carpetas temporales. Escanea para ver cuánto ocupa y \
+                             qué puedes liberar sin riesgo.",
+                            "Docker piles up image layers, build caches and volumes that never show \
+                             up in the temp folders. Scan to see how much it uses and what you can \
+                             safely reclaim.",
+                        ))
+                        .size(12.0)
+                        .color(TEXT_SEC),
+                    )
+                    .wrap(true),
+                );
+                ui.add_space(8.0);
+                if ui
+                    .add(
+                        egui::Button::new(
+                            RichText::new(tr("Escanear Docker", "Scan Docker"))
+                                .size(12.5)
+                                .color(C_BL_FG),
+                        )
+                        .fill(C_BL_BG)
+                        .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.4)))
+                        .rounding(Rounding::same(5.0)),
+                    )
+                    .clicked()
+                {
+                    *action = Some(DockerUiAction::Scan);
+                }
+            });
+        return;
+    };
+
+    if !scan.available {
+        // Docker no instalado o daemon caído.
+        egui::Frame::none()
+            .fill(C_WN_BG)
+            .stroke(Stroke::new(1.0, C_WN_FG.linear_multiply(0.4)))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(Margin::same(12.0))
+            .show(ui, |ui| {
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(
+                            scan.message
+                                .as_deref()
+                                .unwrap_or("Docker no está disponible."),
+                        )
+                        .size(12.0)
+                        .color(C_WN_FG),
+                    )
+                    .wrap(true),
+                );
+                ui.add_space(8.0);
+                if action_btn(ui, tr("Reintentar", "Retry"), C_BL_BG, C_BL_FG).clicked() {
+                    *action = Some(DockerUiAction::Scan);
+                }
+            });
+        return;
+    }
+
+    // ── Resumen: ocupado / recuperable + botón de reescaneo ────────────────────
+    egui::Frame::none()
+        .fill(BG_CARD)
+        .stroke(Stroke::new(1.0, BORDER))
+        .rounding(Rounding::same(8.0))
+        .inner_margin(Margin::same(12.0))
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                docker_stat(
+                    ui,
+                    tr("Ocupado", "Used"),
+                    &fmt_size_mb(scan.total_size_mb()),
+                    TEXT_PRI,
+                );
+                ui.add_space(16.0);
+                let recl = scan.total_reclaimable_mb();
+                docker_stat(
+                    ui,
+                    tr("Recuperable", "Reclaimable"),
+                    &fmt_size_mb(recl),
+                    if recl > 100.0 { C_WN_FG } else { C_OK_FG },
+                );
+                ui.add_space(16.0);
+                docker_stat(
+                    ui,
+                    tr("Imágenes colgantes", "Dangling images"),
+                    &scan.dangling_count().to_string(),
+                    if scan.dangling_count() > 0 {
+                        C_WN_FG
+                    } else {
+                        TEXT_SEC
+                    },
+                );
+                ui.add_space(16.0);
+                if action_btn(ui, tr("Reescanear", "Rescan"), C_BL_BG, C_BL_FG).clicked() {
+                    *action = Some(DockerUiAction::Scan);
+                }
+            });
+        });
+    ui.add_space(8.0);
+
+    // ── Barra segmentada por categoría (Images / Containers / Volumes / Cache) ──
+    if scan.total_size_mb() > 0.5 {
+        docker_category_bar(ui, scan);
+        ui.add_space(8.0);
+    }
+
+    // ── Categorías (tabla compacta) ────────────────────────────────────────────
+    for c in &scan.categories {
+        ui.horizontal(|ui| {
+            ui.add_sized(
+                [150.0, 18.0],
+                egui::Label::new(RichText::new(&c.kind).size(12.0).color(TEXT_SEC)),
+            );
+            ui.add_sized(
+                [70.0, 18.0],
+                egui::Label::new(
+                    RichText::new(format!("{}/{}", c.active, c.total))
+                        .size(11.5)
+                        .color(TEXT_MUT),
+                ),
+            );
+            ui.add_sized(
+                [90.0, 18.0],
+                egui::Label::new(
+                    RichText::new(fmt_size_mb(c.size_mb))
+                        .size(12.0)
+                        .color(TEXT_PRI),
+                ),
+            );
+            let recl = c.reclaimable_mb;
+            if recl > 0.5 {
+                ui.label(
+                    RichText::new(format!(
+                        "{} {}",
+                        tr("recuperable", "reclaimable"),
+                        fmt_size_mb(recl)
+                    ))
+                    .size(11.0)
+                    .color(C_WN_FG),
+                );
+            }
+        });
+        ui.add_space(2.0);
+    }
+
+    // ── Imágenes más grandes ───────────────────────────────────────────────────
+    if !scan.images.is_empty() {
+        ui.add_space(8.0);
+        ui.label(
+            RichText::new(tr("Imágenes más grandes", "Largest images"))
+                .size(12.0)
+                .strong()
+                .color(TEXT_SEC),
+        );
+        ui.add_space(4.0);
+        for img in scan.images.iter().take(8) {
+            ui.horizontal(|ui| {
+                let (name, name_color) = if img.dangling {
+                    (tr("<colgante>", "<dangling>").to_owned(), C_WN_FG)
+                } else {
+                    (format!("{}:{}", img.repository, img.tag), TEXT_SEC)
+                };
+                let short = trunc(&name, 42);
+                let resp = ui.add_sized(
+                    [300.0, 18.0],
+                    egui::Label::new(
+                        RichText::new(&short)
+                            .monospace()
+                            .size(11.5)
+                            .color(name_color),
+                    ),
+                );
+                if name.len() > 42 {
+                    resp.on_hover_text(&name);
+                }
+                ui.add_sized(
+                    [80.0, 18.0],
+                    egui::Label::new(
+                        RichText::new(fmt_size_mb(img.size_mb))
+                            .size(12.0)
+                            .color(TEXT_PRI),
+                    ),
+                );
+                ui.label(
+                    RichText::new(&img.created)
+                        .size(11.0)
+                        .italics()
+                        .color(TEXT_MUT),
+                );
+            });
+            ui.add_space(1.0);
+        }
+    }
+
+    // ── Volúmenes (solo lectura — contienen datos) ─────────────────────────────
+    if !scan.volumes.is_empty() {
+        ui.add_space(8.0);
+        ui.label(
+            RichText::new(format!(
+                "{} ({})",
+                tr("Volúmenes — revisión manual", "Volumes — manual review"),
+                scan.volumes.len()
+            ))
+            .size(12.0)
+            .strong()
+            .color(TEXT_SEC),
+        );
+        ui.label(
+            RichText::new(tr(
+                "Los volúmenes guardan datos persistentes de contenedores (bases de datos, etc.). \
+                 No se borran desde aquí; revísalos y elimina manualmente los que ya no uses.",
+                "Volumes hold persistent container data (databases, etc.). They are never deleted \
+                 from here; review them and remove the unused ones manually.",
+            ))
+            .size(10.5)
+            .italics()
+            .color(TEXT_MUT),
+        );
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            for v in scan.volumes.iter().take(24) {
+                pill(ui, &trunc(&v.name, 28), TEXT_SEC, BG_CARD);
+            }
+        });
+    }
+
+    // ── Purga guiada segura (2 pasos) ──────────────────────────────────────────
+    ui.add_space(10.0);
+    egui::Frame::none()
+        .fill(BG_PANEL)
+        .stroke(Stroke::new(1.0, BORDER))
+        .rounding(Rounding::same(8.0))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new(tr("Purga segura", "Safe cleanup"))
+                    .size(12.5)
+                    .strong()
+                    .color(TEXT_PRI),
+            );
+            ui.label(
+                RichText::new(tr(
+                    "Solo elimina lo regenerable: imágenes colgantes y caché de build. Nunca toca \
+                     imágenes etiquetadas ni volúmenes.",
+                    "Only removes regenerable data: dangling images and build cache. Never touches \
+                     tagged images or volumes.",
+                ))
+                .size(10.5)
+                .color(TEXT_MUT),
+            );
+            ui.add_space(6.0);
+            docker_prune_row(
+                ui,
+                DockerPruneKind::Images,
+                tr("Purgar imágenes colgantes", "Prune dangling images"),
+                prune_confirm,
+                action,
+            );
+            docker_prune_row(
+                ui,
+                DockerPruneKind::Cache,
+                tr("Purgar caché de build", "Prune build cache"),
+                prune_confirm,
+                action,
+            );
+        });
+
+    if let Some(msg) = result {
+        ui.add_space(6.0);
+        let color = if msg.starts_with('❌') {
+            C_CR_FG
+        } else {
+            C_OK_FG
+        };
+        ui.label(RichText::new(msg).size(11.5).color(color));
+    }
+}
+
+/// Métrica compacta etiqueta + valor para el resumen de Docker.
+fn docker_stat(ui: &mut egui::Ui, label: &str, value: &str, value_color: Color32) {
+    ui.vertical(|ui| {
+        ui.label(RichText::new(label).size(10.5).color(TEXT_MUT));
+        ui.label(RichText::new(value).size(15.0).strong().color(value_color));
+    });
+}
+
+/// Barra horizontal segmentada por categoría de Docker (estilo almacenamiento).
+fn docker_category_bar(ui: &mut egui::Ui, scan: &DockerScan) {
+    let total = scan.total_size_mb().max(0.001);
+    let colors = [C_BL_FG, C_OK_FG, C_WN_FG, ACCENT];
+    let width = ui.available_width().clamp(200.0, 760.0);
+    let h = 16.0;
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(width, h), Sense::hover());
+    ui.painter()
+        .rect_filled(rect, Rounding::same(5.0), BG_PANEL);
+    let mut x = rect.left();
+    for (i, c) in scan.categories.iter().enumerate() {
+        let frac = (c.size_mb / total).clamp(0.0, 1.0) as f32;
+        let seg_w = rect.width() * frac;
+        if seg_w > 0.5 {
+            let seg = egui::Rect::from_min_size(egui::pos2(x, rect.top()), Vec2::new(seg_w, h));
+            ui.painter()
+                .rect_filled(seg, Rounding::same(2.0), colors[i % colors.len()]);
+            x += seg_w;
+        }
+    }
+    // Leyenda
+    ui.add_space(4.0);
+    ui.horizontal_wrapped(|ui| {
+        for (i, c) in scan.categories.iter().enumerate() {
+            if c.size_mb <= 0.5 {
+                continue;
+            }
+            let (dot, _) = ui.allocate_exact_size(Vec2::new(10.0, 10.0), Sense::hover());
+            ui.painter()
+                .rect_filled(dot, Rounding::same(2.0), colors[i % colors.len()]);
+            ui.label(
+                RichText::new(format!("{} · {}", c.kind, fmt_size_mb(c.size_mb)))
+                    .size(10.5)
+                    .color(TEXT_SEC),
+            );
+            ui.add_space(8.0);
+        }
+    });
+}
+
+/// Fila de purga con confirmación de 2 pasos, reutilizando el patrón de %TEMP%.
+fn docker_prune_row(
+    ui: &mut egui::Ui,
+    kind: DockerPruneKind,
+    label: &str,
+    confirm: &mut Option<DockerPruneKind>,
+    action: &mut Option<DockerUiAction>,
+) {
+    ui.horizontal_wrapped(|ui| {
+        if *confirm == Some(kind) {
+            ui.label(
+                RichText::new(tr("¿Confirmar?", "Confirm?"))
+                    .size(12.0)
+                    .strong()
+                    .color(C_WN_FG),
+            );
+            if ui
+                .add(
+                    egui::Button::new(
+                        RichText::new(tr("Sí, purgar", "Yes, prune"))
+                            .size(11.5)
+                            .color(TEXT_PRI),
+                    )
+                    .fill(C_CR_BG),
+                )
+                .clicked()
+            {
+                *action = Some(DockerUiAction::Prune(kind));
+            }
+            if ui
+                .add(egui::Button::new(
+                    RichText::new(tr("Cancelar", "Cancel"))
+                        .size(11.5)
+                        .color(TEXT_SEC),
+                ))
+                .clicked()
+            {
+                *confirm = None;
+            }
+        } else if ui
+            .add(
+                egui::Button::new(RichText::new(label).size(11.5).color(TEXT_PRI))
+                    .fill(BG_CARD)
+                    .stroke(Stroke::new(1.0, BORDER)),
+            )
+            .clicked()
+        {
+            *confirm = Some(kind);
+        }
+    });
+}
+
+/// Formatea un tamaño en MB como MB o GB legible.
+fn fmt_size_mb(mb: f64) -> String {
+    if mb >= 1024.0 {
+        format!("{:.2} GB", mb / 1024.0)
+    } else {
+        format!("{:.0} MB", mb)
     }
 }
 
@@ -3054,6 +3632,38 @@ fn manual_item(ui: &mut egui::Ui, icon: &str, icon_color: Color32, title: &str, 
     ui.add_space(9.0);
 }
 
+/// Entrada del manual con el "porqué": icono + título + qué hace + por qué importa.
+fn manual_item_why(
+    ui: &mut egui::Ui,
+    icon: &str,
+    icon_color: Color32,
+    title: &str,
+    what: &str,
+    why: &str,
+) {
+    ui.horizontal(|ui| {
+        ui.add_sized(
+            [26.0, 20.0],
+            egui::Label::new(RichText::new(icon).size(15.0).color(icon_color)),
+        );
+        ui.add_space(4.0);
+        ui.vertical(|ui| {
+            ui.label(RichText::new(title).size(13.5).strong().color(TEXT_PRI));
+            ui.add(egui::Label::new(RichText::new(what).size(11.5).color(TEXT_SEC)).wrap(true));
+            ui.add(
+                egui::Label::new(
+                    RichText::new(format!("{} {}", tr("Por qué:", "Why:"), why))
+                        .size(11.0)
+                        .italics()
+                        .color(TEXT_MUT),
+                )
+                .wrap(true),
+            );
+        });
+    });
+    ui.add_space(10.0);
+}
+
 fn draw_tab_manual(ui: &mut egui::Ui) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
@@ -3061,15 +3671,18 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
         ui.add_space(6.0);
         ui.vertical(|ui| {
             ui.label(
-                RichText::new("Manual de uso")
+                RichText::new(tr("Manual de uso", "User manual"))
                     .size(20.0)
                     .strong()
                     .color(TEXT_PRI),
             );
             ui.label(
-                RichText::new("Qué hace RootCause y para qué sirve cada parte")
-                    .size(12.0)
-                    .color(TEXT_MUT),
+                RichText::new(tr(
+                    "Qué hace cada parte y —sobre todo— por qué",
+                    "What each part does and —above all— why",
+                ))
+                .size(12.0)
+                .color(TEXT_MUT),
             );
         });
     });
@@ -3077,183 +3690,632 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
 
     manual_note(
         ui,
-        "RootCause es un monitor forense ligero para Windows. Su filosofía: diagnostica primero la \
-         causa dominante de lentitud o comportamiento raro, y solo después actúa —siempre con \
-         confirmación y registro. Complementa, no reemplaza, a un antivirus o EDR.",
+        tr(
+            "RootCause es un monitor forense ligero para Windows. Su filosofía: diagnostica primero la \
+             causa dominante de lentitud o comportamiento raro, y solo después actúa —siempre con \
+             confirmación y registro. No es un \"limpiador mágico\": prioriza explicar la causa real. \
+             Complementa, no reemplaza, a un antivirus o EDR.",
+            "RootCause is a lightweight forensic monitor for Windows. Its philosophy: first diagnose \
+             the dominant cause of slowness or odd behavior, and only then act —always with \
+             confirmation and logging. It is not a \"magic cleaner\": it prioritizes explaining the \
+             real cause. It complements, not replaces, an antivirus or EDR.",
+        ),
     );
     ui.add_space(16.0);
 
-    section_header(ui, "Las pestañas");
+    section_header(ui, tr("Léelo en 30 segundos", "Read it in 30 seconds"));
     ui.add_space(8.0);
-    manual_item(
+    manual_note(
+        ui,
+        tr(
+            "1) Mira el banner de veredicto del Resumen: verde = tranquilo. 2) Si es ámbar o rojo, \
+             baja a \"Dónde mirar primero\": son las alertas ordenadas por importancia. 3) Abre \
+             Procesos o Conexiones para ver el detalle. 4) Actúa solo si hace falta, con las acciones \
+             seguras (siempre confirmadas). El porqué de este orden: evita que \"apagues\" algo antes \
+             de entender qué lo causaba.",
+            "1) Look at the verdict banner on Overview: green = relax. 2) If it's amber or red, scroll \
+             to \"Where to look first\": alerts ranked by importance. 3) Open Processes or Connections \
+             for detail. 4) Act only if needed, using the safe actions (always confirmed). Why this \
+             order: it stops you from \"killing\" something before understanding what caused it.",
+        ),
+    );
+    ui.add_space(16.0);
+
+    section_header(ui, tr("Las pestañas", "The tabs"));
+    ui.add_space(8.0);
+    manual_item_why(
         ui,
         "📊",
         ACCENT,
-        "Resumen",
-        "Semáforo de salud del sistema (0–100), tarjetas de CPU / RAM / Disco / Red / Temporales, y la lista \"Dónde mirar primero\" con las alertas más importantes.",
+        tr("Resumen", "Overview"),
+        tr(
+            "Banner de veredicto, salud 0–100, tarjetas de CPU/RAM/Disco/Red/Temporales y la lista \"Dónde mirar primero\".",
+            "Verdict banner, 0–100 health, CPU/RAM/Disk/Network/Temp cards and the \"Where to look first\" list.",
+        ),
+        tr(
+            "Es tu punto de partida: un vistazo decide si hace falta investigar o no.",
+            "It's your starting point: one glance decides whether you need to investigate.",
+        ),
     );
-    manual_item(
+    manual_item_why(
         ui,
         "⚙",
         ACCENT,
-        "Procesos",
-        "Procesos ordenados por severidad, con CPU, RAM, escritura de disco y un score de riesgo. Permite finalizar un proceso (con confirmación); no toca los críticos del sistema.",
+        tr("Procesos", "Processes"),
+        tr(
+            "Procesos por severidad, con CPU, RAM, escritura de disco y score de riesgo. Puedes finalizar uno (con confirmación).",
+            "Processes by severity, with CPU, RAM, disk writes and a risk score. You can terminate one (with confirmation).",
+        ),
+        tr(
+            "El score combina varias señales, así lo peligroso sube arriba sin que revises 200 filas.",
+            "The score combines several signals, so the dangerous ones rise to the top without scanning 200 rows.",
+        ),
     );
-    manual_item(
+    manual_item_why(
         ui,
         "🌐",
         ACCENT,
-        "Conexiones",
-        "Conexiones de red activas por proceso (netstat enriquecido con nombre y ruta). Filtro de IPs públicas y bloqueo de una IP mediante el firewall de Windows.",
+        tr("Conexiones", "Connections"),
+        tr(
+            "Conexiones de red activas por proceso (netstat enriquecido con nombre y ruta). Puedes bloquear una IP con el firewall.",
+            "Active network connections per process (netstat enriched with name and path). You can block an IP via the firewall.",
+        ),
+        tr(
+            "Saber QUÉ proceso habla con una IP pública es la mitad del diagnóstico de exfiltración o C2.",
+            "Knowing WHICH process talks to a public IP is half the diagnosis of exfiltration or C2.",
+        ),
     );
-    manual_item(
+    manual_item_why(
         ui,
         "🗑",
         ACCENT,
-        "Temporales",
-        "Carpetas temporales que están creciendo (%TEMP%, Windows Temp, Windows Update). Incluye un botón para limpiar tu %TEMP% no usado (>24h), saltando lo que esté en uso.",
+        tr("Temporales / Almacenamiento", "Temporary / Storage"),
+        tr(
+            "Carpetas temporales que crecen (%TEMP%, Windows Temp, Windows Update) y ahora el espacio de Docker (imágenes, volúmenes, caché).",
+            "Growing temp folders (%TEMP%, Windows Temp, Windows Update) and now Docker space (images, volumes, cache).",
+        ),
+        tr(
+            "El disco lleno degrada TODO Windows; Docker suele ser el culpable oculto en equipos de desarrollo.",
+            "A full disk degrades ALL of Windows; Docker is often the hidden culprit on developer machines.",
+        ),
     );
-    manual_item(
+    manual_item_why(
         ui,
         "🎯",
         ACCENT,
         "ETW / WPR",
-        "Modo de precisión: inicia, detiene y resume una traza ETL con Windows Performance Recorder y heurísticas locales, sin abrir herramientas externas.",
+        tr(
+            "Modo de precisión: inicia/detiene/resume una traza ETL con Windows Performance Recorder y heurísticas locales.",
+            "Precision mode: start/stop/summarize an ETL trace with Windows Performance Recorder and local heuristics.",
+        ),
+        tr(
+            "Cuando las métricas no bastan, una traza ETW ve a nivel de kernel qué causó el pico exacto.",
+            "When metrics aren't enough, an ETW trace sees at kernel level what caused the exact spike.",
+        ),
     );
-    manual_item(
+    manual_item_why(
         ui,
         "🔧",
         ACCENT,
-        "Servicios",
-        "Servicios de seguridad relevantes (Defender, Windows Update, BITS…) con su estado. Los cambios en servicios se reportan como alertas y por la CLI.",
+        tr("Servicios", "Services"),
+        tr(
+            "Servicios de seguridad relevantes (Defender, Windows Update, BITS…) con su estado; los cambios se reportan como alertas.",
+            "Relevant security services (Defender, Windows Update, BITS…) with their status; changes are reported as alerts.",
+        ),
+        tr(
+            "Un servicio de seguridad detenido \"de repente\" es una señal clásica de compromiso.",
+            "A security service that stops \"out of nowhere\" is a classic sign of compromise.",
+        ),
     );
-    manual_item(
+    manual_item_why(
         ui,
         "🚀",
         ACCENT,
         "Autostart",
-        "Todo lo que arranca con Windows: registro Run/RunOnce, carpetas Startup y tareas programadas. Detecta entradas NUEVAS / MODIFICADAS / ELIMINADAS respecto a una baseline conocida.",
+        tr(
+            "Todo lo que arranca con Windows: Registro Run/RunOnce, carpetas Startup y tareas programadas. Marca cambios vs baseline.",
+            "Everything that starts with Windows: Run/RunOnce registry, Startup folders and scheduled tasks. Flags changes vs baseline.",
+        ),
+        tr(
+            "La persistencia es cómo el malware sobrevive al reinicio; vigilar el autoarranque la delata.",
+            "Persistence is how malware survives a reboot; watching autostart exposes it.",
+        ),
     );
-    manual_item(
+    manual_item_why(
         ui,
         "🕒",
         ACCENT,
-        "Historial",
-        "Capturas guardadas localmente en SQLite. Compara dos momentos (A vs B) para ver cómo evolucionó el equipo entre ellos.",
+        tr("Historial", "History"),
+        tr(
+            "Capturas guardadas localmente en SQLite. Compara dos momentos (A vs B) para ver la evolución.",
+            "Snapshots stored locally in SQLite. Compare two moments (A vs B) to see the evolution.",
+        ),
+        tr(
+            "\"Empezó ayer\" es una pista enorme: comparar A/B convierte una corazonada en evidencia.",
+            "\"It started yesterday\" is a huge clue: comparing A/B turns a hunch into evidence.",
+        ),
     );
-    manual_item(ui, "📖", ACCENT, "Manual", "Esta pantalla.");
+    manual_item_why(
+        ui,
+        "⚙",
+        ACCENT,
+        tr("Configuración", "Settings"),
+        tr(
+            "Idioma (español / inglés), umbrales de detección, anomalías e intervalo de refresco. Se guarda sin reiniciar.",
+            "Language (Spanish / English), detection thresholds, anomalies and refresh interval. Saved without restarting.",
+        ),
+        tr(
+            "Cada equipo tiene un \"normal\" distinto; ajustar umbrales evita falsos positivos o puntos ciegos.",
+            "Every machine has a different \"normal\"; tuning thresholds avoids false positives or blind spots.",
+        ),
+    );
+    manual_item(
+        ui,
+        "📖",
+        ACCENT,
+        tr("Manual", "Manual"),
+        tr("Esta pantalla.", "This screen."),
+    );
     manual_item(
         ui,
         "ℹ",
         ACCENT,
-        "Acerca",
-        "Versión, autor, estado de salud del propio agente y edición de umbrales sin reiniciar.",
+        tr("Acerca", "About"),
+        tr(
+            "Versión, autor, stack técnico, atajos y salud del propio agente.",
+            "Version, author, tech stack, shortcuts and the agent's own health.",
+        ),
     );
 
     ui.add_space(16.0);
-    section_header(ui, "Detección de cambios (baseline)");
+    section_header(
+        ui,
+        tr(
+            "Detección de cambios (baseline)",
+            "Change detection (baseline)",
+        ),
+    );
     ui.add_space(8.0);
     manual_note(
         ui,
-        "RootCause guarda una \"foto de referencia\" (estado bueno conocido) de tu autoarranque y de \
-         tus servicios. La primera vez se siembra en silencio. Después, cualquier cambio se marca como \
-         NUEVA, MODIFICADA o ELIMINADA y genera una alerta, hasta que aceptas la nueva baseline. Sirve \
-         para detectar persistencia de malware o binarios secuestrados.",
+        tr(
+            "RootCause guarda una \"foto de referencia\" (estado bueno conocido) de tu autoarranque y de \
+             tus servicios. La primera vez se siembra en silencio. Después, cualquier cambio se marca como \
+             NUEVA, MODIFICADA o ELIMINADA y genera una alerta, hasta que aceptas la nueva baseline. El \
+             porqué: el malware no siempre consume CPU —a veces solo AÑADE una entrada de arranque y \
+             espera. Comparar contra un estado bueno conocido lo delata aunque sea sigiloso.",
+            "RootCause keeps a \"reference snapshot\" (known-good state) of your autostart and your \
+             services. The first time it is seeded silently. Afterwards, any change is flagged as NEW, \
+             MODIFIED or REMOVED and raises an alert until you accept the new baseline. The why: malware \
+             doesn't always burn CPU —sometimes it just ADDS a startup entry and waits. Comparing against \
+             a known-good state exposes it even when it's stealthy.",
+        ),
     );
 
     ui.add_space(16.0);
-    section_header(ui, "Acciones seguras (siempre auditadas)");
+    section_header(ui, tr("Docker (liberar disco)", "Docker (free disk)"));
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        tr(
+            "En la pestaña Temporales, \"Escanear Docker\" muestra imágenes, volúmenes y espacio \
+             recuperable. La purga segura solo borra lo regenerable: imágenes colgantes (sin etiqueta) y \
+             caché de build. Los volúmenes NO se borran desde la app —contienen datos (bases de datos, \
+             etc.)— y se listan para que decidas tú. El porqué de esta línea: liberar espacio nunca debe \
+             costarte datos que no sabías que importaban.",
+            "In the Storage tab, \"Scan Docker\" shows images, volumes and reclaimable space. Safe cleanup \
+             only removes regenerable data: dangling (untagged) images and build cache. Volumes are NOT \
+             deleted from the app —they hold data (databases, etc.)— and are listed so you decide. The why \
+             behind this line: freeing space must never cost you data you didn't know mattered.",
+        ),
+    );
+
+    ui.add_space(16.0);
+    section_header(
+        ui,
+        tr(
+            "Acciones seguras (siempre auditadas)",
+            "Safe actions (always audited)",
+        ),
+    );
     ui.add_space(8.0);
     manual_item(
         ui,
         "•",
         C_BL_FG,
-        "Finalizar proceso",
-        "Termina un proceso por PID. Nunca finaliza procesos críticos del sistema.",
+        tr("Finalizar proceso", "Terminate process"),
+        tr(
+            "Termina un proceso por PID. Nunca finaliza procesos críticos del sistema.",
+            "Ends a process by PID. Never terminates critical system processes.",
+        ),
     );
     manual_item(
         ui,
         "•",
         C_BL_FG,
-        "Bloquear IP",
-        "Crea una regla de firewall para una IP remota.",
+        tr("Bloquear IP", "Block IP"),
+        tr(
+            "Crea una regla de firewall para una IP remota.",
+            "Creates a firewall rule for a remote IP.",
+        ),
     );
     manual_item(
         ui,
         "•",
         C_BL_FG,
-        "Detener servicio",
-        "Solo servicios de una lista permitida (bits, dosvc, sysmain, wuauserv).",
+        tr("Detener servicio", "Stop service"),
+        tr(
+            "Solo servicios de una lista permitida (bits, dosvc, sysmain, wuauserv).",
+            "Only services from an allow-list (bits, dosvc, sysmain, wuauserv).",
+        ),
     );
     manual_item(
         ui,
         "•",
         C_BL_FG,
-        "Limpiar %TEMP%",
-        "Borra lo no usado (>24h) de tu carpeta temporal; salta lo bloqueado. Confirmación de 2 pasos.",
+        tr("Limpiar %TEMP% / Docker", "Clean %TEMP% / Docker"),
+        tr(
+            "Borra lo no usado de %TEMP% (>24h) y purga dangling/caché de Docker. Confirmación de 2 pasos.",
+            "Removes unused %TEMP% (>24h) and prunes Docker dangling/cache. Two-step confirmation.",
+        ),
     );
     manual_item(
         ui,
         "•",
         C_BL_FG,
-        "Aceptar baseline",
-        "Marca el estado actual de autostart o servicios como el nuevo \"bueno conocido\".",
+        tr("Aceptar baseline", "Accept baseline"),
+        tr(
+            "Marca el estado actual de autostart o servicios como el nuevo \"bueno conocido\".",
+            "Marks the current autostart or services state as the new \"known-good\".",
+        ),
     );
 
     ui.add_space(16.0);
-    section_header(ui, "Colores de severidad");
+    section_header(ui, tr("Colores de severidad", "Severity colors"));
     ui.add_space(8.0);
     manual_item(
         ui,
         "•",
         C_OK_FG,
-        "Verde — Saludable",
-        "Sin señales fuertes; comportamiento normal.",
+        tr("Verde — Saludable", "Green — Healthy"),
+        tr(
+            "Sin señales fuertes; comportamiento normal.",
+            "No strong signals; normal behavior.",
+        ),
     );
     manual_item(
         ui,
         "•",
         C_WN_FG,
-        "Ámbar — Advertencia",
-        "Vale la pena revisar; consumo o cambios notables.",
+        tr("Ámbar — Advertencia", "Amber — Warning"),
+        tr(
+            "Vale la pena revisar; consumo o cambios notables.",
+            "Worth reviewing; notable usage or changes.",
+        ),
     );
     manual_item(
         ui,
         "•",
         C_CR_FG,
-        "Rojo — Crítico",
-        "Señal fuerte: prioriza la revisión (proceso, conexión o cambio sospechoso).",
+        tr("Rojo — Crítico", "Red — Critical"),
+        tr(
+            "Señal fuerte: prioriza la revisión (proceso, conexión o cambio sospechoso).",
+            "Strong signal: prioritize review (suspicious process, connection or change).",
+        ),
     );
 
     ui.add_space(16.0);
-    section_header(ui, "Desde la consola (CLI)");
+    section_header(ui, tr("Desde la consola (CLI)", "From the console (CLI)"));
     ui.add_space(8.0);
     manual_note(
         ui,
-        "Todo funciona también sin interfaz. `rootcause --help` lista los comandos: status, snapshot, \
-         history, autostart, services, clean-temp, wpr, kill, block-ip, stop-service, config, ai. Útil \
-         para scripts, servidores y automatización.",
+        tr(
+            "Todo funciona también sin interfaz. `rootcause --help` lista los comandos: status, snapshot, \
+             history, autostart, services, clean-temp, docker, wpr, kill, block-ip, stop-service, config, \
+             ai. El porqué: en servidores sin escritorio o dentro de scripts, el diagnóstico debe seguir \
+             estando a un comando de distancia.",
+            "Everything works without a GUI too. `rootcause --help` lists the commands: status, snapshot, \
+             history, autostart, services, clean-temp, docker, wpr, kill, block-ip, stop-service, config, \
+             ai. The why: on headless servers or inside scripts, diagnostics must stay one command away.",
+        ),
     );
 
     ui.add_space(16.0);
-    section_header(ui, "Privacidad");
+    section_header(ui, tr("Privacidad", "Privacy"));
     ui.add_space(8.0);
     manual_note(
         ui,
-        "Todo es local: telemetría cero. El historial se guarda solo en tu equipo (SQLite). El \
-         adaptador de IA es opcional y viene apagado por defecto.",
+        tr(
+            "Todo es local: telemetría cero. El historial se guarda solo en tu equipo (SQLite). El \
+             adaptador de IA es opcional y viene apagado por defecto. El porqué: una herramienta forense \
+             que filtrara datos sería una contradicción.",
+            "Everything is local: zero telemetry. History is stored only on your machine (SQLite). The AI \
+             adapter is optional and off by default. The why: a forensic tool that leaked data would be a \
+             contradiction.",
+        ),
     );
     ui.add_space(24.0);
 }
 
-fn draw_tab_about(
+// ── Tab: Configuración ───────────────────────────────────────────────────────────
+
+fn draw_tab_config(
     ui: &mut egui::Ui,
-    hw: &HardwareInfo,
-    snapshot: Option<&SystemSnapshot>,
     cfg: &mut RootCauseConfig,
     config_path: &str,
     save_requested: &mut bool,
 ) {
+    ui.add_space(20.0);
+    ui.vertical_centered(|ui| {
+        egui::Frame::none()
+            .fill(BG_CARD)
+            .stroke(Stroke::new(1.0, BORDER))
+            .rounding(Rounding::same(14.0))
+            .inner_margin(Margin::same(28.0))
+            .show(ui, |ui| {
+                ui.set_max_width(620.0);
+
+                // Título
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("⚙").size(22.0).color(ACCENT));
+                    ui.add_space(6.0);
+                    ui.vertical(|ui| {
+                        ui.label(
+                            RichText::new(tr("Configuración", "Settings"))
+                                .size(20.0)
+                                .strong()
+                                .color(TEXT_PRI),
+                        );
+                        ui.label(
+                            RichText::new(tr(
+                                "Idioma, umbrales de detección y comportamiento",
+                                "Language, detection thresholds and behavior",
+                            ))
+                            .size(12.0)
+                            .color(TEXT_MUT),
+                        );
+                    });
+                });
+
+                ui.add_space(16.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Idioma ────────────────────────────────────────────────────
+                section_header(ui, tr("▸  Idioma", "▸  Language"));
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(tr(
+                        "Cambia al instante toda la interfaz. Se guarda automáticamente.",
+                        "Switches the whole interface instantly. Saved automatically.",
+                    ))
+                    .size(11.0)
+                    .color(TEXT_MUT),
+                );
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    for lang in [Lang::Es, Lang::En] {
+                        let selected = cfg.ui.language == lang;
+                        let (fg, bg) = if selected {
+                            (TEXT_PRI, ACCENT)
+                        } else {
+                            (TEXT_SEC, BG_PANEL)
+                        };
+                        // Sin banderas emoji: la NotoEmoji empaquetada no las trae y
+                        // saldrían como tofu. La selección se indica con el fondo ACCENT.
+                        if ui
+                            .add(
+                                egui::Button::new(
+                                    RichText::new(format!(
+                                        "{}  ({})",
+                                        lang.native_name(),
+                                        lang.code().to_uppercase()
+                                    ))
+                                    .size(12.5)
+                                    .color(fg),
+                                )
+                                .fill(bg)
+                                .stroke(Stroke::new(1.0, BORDER))
+                                .min_size(Vec2::new(150.0, 30.0))
+                                .rounding(Rounding::same(6.0)),
+                            )
+                            .clicked()
+                        {
+                            cfg.ui.language = lang;
+                        }
+                        ui.add_space(6.0);
+                    }
+                });
+
+                ui.add_space(16.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Archivo de configuración ──────────────────────────────────
+                section_header(
+                    ui,
+                    tr("▸  Archivo de configuración", "▸  Configuration file"),
+                );
+                ui.add_space(8.0);
+                {
+                    let path_short = if config_path.is_empty() {
+                        tr("No disponible", "Not available").to_owned()
+                    } else {
+                        trunc(config_path, 60)
+                    };
+                    ui.horizontal_wrapped(|ui| {
+                        ui.add_sized(
+                            [120.0, 18.0],
+                            egui::Label::new(
+                                RichText::new(tr("Ruta", "Path")).size(12.0).color(TEXT_MUT),
+                            ),
+                        );
+                        let resp = ui.label(
+                            RichText::new(&path_short)
+                                .size(11.5)
+                                .monospace()
+                                .color(TEXT_SEC),
+                        );
+                        if config_path.len() > 60 {
+                            resp.on_hover_text(config_path);
+                        }
+                        if !config_path.is_empty()
+                            && action_btn(ui, tr("Abrir", "Open"), C_BL_BG, C_BL_FG).clicked()
+                        {
+                            let _ = windows::powershell(&format!(
+                                "Start-Process notepad.exe '{}'",
+                                config_path.replace('\'', "''")
+                            ));
+                        }
+                    });
+                }
+
+                ui.add_space(16.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Umbrales de procesos ──────────────────────────────────────
+                section_header(
+                    ui,
+                    tr("▸  Umbrales — Procesos", "▸  Thresholds — Processes"),
+                );
+                ui.add_space(8.0);
+                {
+                    let th = &mut cfg.thresholds.process;
+                    threshold_row(ui, "CPU warning", &mut th.cpu_warning_percent, "%", C_WN_FG);
+                    threshold_row(
+                        ui,
+                        "CPU crítico",
+                        &mut th.cpu_critical_percent,
+                        "%",
+                        C_CR_FG,
+                    );
+                    threshold_row(ui, "RAM warning", &mut th.memory_warning_mb, "MB", C_WN_FG);
+                    threshold_row(ui, "RAM crítico", &mut th.memory_critical_mb, "MB", C_CR_FG);
+                    threshold_row(
+                        ui,
+                        "I/O warning",
+                        &mut th.io_write_warning_mb,
+                        "MB/s",
+                        C_WN_FG,
+                    );
+                    threshold_row(
+                        ui,
+                        "I/O crítico",
+                        &mut th.io_write_critical_mb,
+                        "MB/s",
+                        C_CR_FG,
+                    );
+                }
+
+                ui.add_space(14.0);
+
+                // ── Detección de anomalías ────────────────────────────────────
+                section_header(ui, tr("▸  Detección de anomalías", "▸  Anomaly detection"));
+                ui.add_space(8.0);
+                {
+                    let an = &mut cfg.anomaly;
+                    ui.horizontal(|ui| {
+                        ui.add_sized(
+                            [120.0, 18.0],
+                            egui::Label::new(
+                                RichText::new(tr("Estado", "Status"))
+                                    .size(12.0)
+                                    .color(TEXT_MUT),
+                            ),
+                        );
+                        let label = if an.enabled {
+                            tr("Habilitada", "Enabled")
+                        } else {
+                            tr("Deshabilitada", "Disabled")
+                        };
+                        let color = if an.enabled { C_OK_FG } else { TEXT_MUT };
+                        if ui
+                            .add(
+                                egui::Button::new(RichText::new(label).size(11.5).color(color))
+                                    .min_size(Vec2::new(110.0, 18.0)),
+                            )
+                            .on_hover_text(tr(
+                                "Click para activar / desactivar",
+                                "Click to enable / disable",
+                            ))
+                            .clicked()
+                        {
+                            an.enabled = !an.enabled;
+                        }
+                    });
+                    ui.add_space(3.0);
+                    threshold_row(
+                        ui,
+                        "CPU sostenida",
+                        &mut an.cpu_sustained_percent,
+                        "%",
+                        TEXT_SEC,
+                    );
+                    threshold_row(
+                        ui,
+                        "RAM crecimiento",
+                        &mut an.memory_growth_mb,
+                        "MB",
+                        TEXT_SEC,
+                    );
+                    threshold_row(
+                        ui,
+                        "Escritura agres.",
+                        &mut an.aggressive_write_mb,
+                        "MB/s",
+                        TEXT_SEC,
+                    );
+                }
+                {
+                    let mut secs = cfg.collection.refresh_interval_secs as f32;
+                    threshold_row(
+                        ui,
+                        tr("Refresco UI", "UI refresh"),
+                        &mut secs,
+                        "s",
+                        TEXT_SEC,
+                    );
+                    cfg.collection.refresh_interval_secs = secs.max(1.0) as u64;
+                }
+
+                ui.add_space(16.0);
+
+                // Botón Guardar
+                ui.horizontal(|ui| {
+                    if ui
+                        .add(
+                            egui::Button::new(
+                                RichText::new(format!("💾  {}", tr("Guardar", "Save")))
+                                    .size(12.5)
+                                    .color(C_OK_FG),
+                            )
+                            .min_size(Vec2::new(130.0, 30.0))
+                            .fill(C_OK_BG),
+                        )
+                        .on_hover_text(tr(
+                            "Persiste los cambios en el JSON y los aplica sin reiniciar",
+                            "Persists changes to the JSON and applies them without restarting",
+                        ))
+                        .clicked()
+                    {
+                        *save_requested = true;
+                    }
+                    ui.label(
+                        RichText::new(tr(
+                            "Los cambios se aplican en la próxima captura.",
+                            "Changes apply on the next capture.",
+                        ))
+                        .size(11.0)
+                        .color(TEXT_MUT),
+                    );
+                });
+            });
+    });
+    ui.add_space(24.0);
+}
+
+fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&SystemSnapshot>) {
     ui.add_space(28.0);
 
     ui.vertical_centered(|ui| {
@@ -3401,7 +4463,8 @@ fn draw_tab_about(
                     ("Ctrl + 6", "Ir a Servicios"),
                     ("Ctrl + 7", "Ir a Autostart"),
                     ("Ctrl + 8", "Ir a Historial"),
-                    ("Ctrl + 9", "Ir a Acerca"),
+                    ("Ctrl + 9", "Ir a Configuración"),
+                    ("Ctrl + 0", "Ir a Manual"),
                 ] {
                     ui.horizontal(|ui| {
                         egui::Frame::none()
@@ -3458,159 +4521,16 @@ fn draw_tab_about(
                     );
                 }
 
-                // ── Configuración operativa ────────────────────────────────────
-                ui.add_space(18.0);
-                ui.add(egui::Separator::default());
-                ui.add_space(14.0);
-
-                section_header(ui, "▸  Configuración operativa");
-                ui.add_space(10.0);
-
-                // Ruta al archivo de config
-                {
-                    let path_short = if config_path.is_empty() {
-                        "No disponible".to_owned()
-                    } else {
-                        trunc(config_path, 60)
-                    };
-                    ui.horizontal_wrapped(|ui| {
-                        ui.add_sized(
-                            [120.0, 18.0],
-                            egui::Label::new(
-                                RichText::new("Ruta config").size(12.0).color(TEXT_MUT),
-                            ),
-                        );
-                        let resp = ui.label(
-                            RichText::new(&path_short)
-                                .size(11.5)
-                                .monospace()
-                                .color(TEXT_SEC),
-                        );
-                        if config_path.len() > 60 {
-                            resp.on_hover_text(config_path);
-                        }
-                        if !config_path.is_empty()
-                            && action_btn(ui, "Abrir", C_BL_BG, C_BL_FG).clicked()
-                        {
-                            let _ = windows::powershell(&format!(
-                                "Start-Process notepad.exe '{}'",
-                                config_path.replace('\'', "''")
-                            ));
-                        }
-                    });
-                }
                 ui.add_space(6.0);
-
-                // Umbrales de procesos — editables inline
-                section_header(ui, "Umbrales — Procesos  (edita y guarda)");
-                ui.add_space(6.0);
-                {
-                    let th = &mut cfg.thresholds.process;
-                    threshold_row(ui, "CPU warning", &mut th.cpu_warning_percent, "%", C_WN_FG);
-                    threshold_row(
-                        ui,
-                        "CPU crítico",
-                        &mut th.cpu_critical_percent,
-                        "%",
-                        C_CR_FG,
-                    );
-                    threshold_row(ui, "RAM warning", &mut th.memory_warning_mb, "MB", C_WN_FG);
-                    threshold_row(ui, "RAM crítico", &mut th.memory_critical_mb, "MB", C_CR_FG);
-                    threshold_row(
-                        ui,
-                        "I/O warning",
-                        &mut th.io_write_warning_mb,
-                        "MB/s",
-                        C_WN_FG,
-                    );
-                    threshold_row(
-                        ui,
-                        "I/O crítico",
-                        &mut th.io_write_critical_mb,
-                        "MB/s",
-                        C_CR_FG,
-                    );
-                }
-                ui.add_space(8.0);
-
-                // Detección de anomalías — editable
-                section_header(ui, "Detección de anomalías");
-                ui.add_space(6.0);
-                {
-                    let an = &mut cfg.anomaly;
-                    ui.horizontal(|ui| {
-                        ui.add_sized(
-                            [120.0, 18.0],
-                            egui::Label::new(RichText::new("Estado").size(12.0).color(TEXT_MUT)),
-                        );
-                        let label = if an.enabled {
-                            "Habilitada"
-                        } else {
-                            "Deshabilitada"
-                        };
-                        let color = if an.enabled { C_OK_FG } else { TEXT_MUT };
-                        if ui
-                            .add(
-                                egui::Button::new(RichText::new(label).size(11.5).color(color))
-                                    .min_size(Vec2::new(90.0, 18.0)),
-                            )
-                            .on_hover_text("Click para activar / desactivar")
-                            .clicked()
-                        {
-                            an.enabled = !an.enabled;
-                        }
-                    });
-                    ui.add_space(3.0);
-                    threshold_row(
-                        ui,
-                        "CPU sostenida",
-                        &mut an.cpu_sustained_percent,
-                        "%",
-                        TEXT_SEC,
-                    );
-                    threshold_row(
-                        ui,
-                        "RAM crecimiento",
-                        &mut an.memory_growth_mb,
-                        "MB",
-                        TEXT_SEC,
-                    );
-                    threshold_row(
-                        ui,
-                        "Escritura agres.",
-                        &mut an.aggressive_write_mb,
-                        "MB/s",
-                        TEXT_SEC,
-                    );
-                }
-                {
-                    let mut secs = cfg.collection.refresh_interval_secs as f32;
-                    threshold_row(ui, "Refresco UI", &mut secs, "s", TEXT_SEC);
-                    cfg.collection.refresh_interval_secs = secs.max(1.0) as u64;
-                }
-                ui.add_space(12.0);
-
-                // Botón Guardar
-                ui.horizontal(|ui| {
-                    if ui
-                        .add(
-                            egui::Button::new(
-                                RichText::new("💾  Guardar").size(12.5).color(C_OK_FG),
-                            )
-                            .min_size(Vec2::new(120.0, 28.0))
-                            .fill(C_OK_BG),
-                        )
-                        .on_hover_text("Persiste los cambios en el JSON y los aplica sin reiniciar")
-                        .clicked()
-                    {
-                        *save_requested = true;
-                    }
-                    ui.label(
-                        RichText::new("Los cambios se aplican en la próxima captura.")
-                            .size(11.0)
-                            .color(TEXT_MUT),
-                    );
-                });
+                ui.label(
+                    RichText::new(tr(
+                        "Ajustes y umbrales: pestaña Configuración (Ctrl+9).",
+                        "Settings and thresholds: Settings tab (Ctrl+9).",
+                    ))
+                    .size(11.0)
+                    .italics()
+                    .color(TEXT_MUT),
+                );
             });
     });
 }

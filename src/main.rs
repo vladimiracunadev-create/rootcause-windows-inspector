@@ -18,6 +18,7 @@
 mod app;
 mod cli;
 mod config;
+mod i18n;
 mod meta;
 mod models;
 mod services;
