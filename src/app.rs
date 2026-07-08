@@ -959,9 +959,164 @@ fn tab_meta(tab: Tab) -> (&'static str, &'static str, &'static str) {
         .unwrap_or(("", "", ""))
 }
 
+/// Iconos de línea dibujados con el Painter (sin fuente externa ni emoji), para
+/// un aspecto coherente estilo Windows 11. El trazo escala con el tamaño.
+#[derive(Clone, Copy)]
+enum Ic {
+    Grid,
+    Activity,
+    Globe,
+    Disk,
+    Target,
+    Shield,
+    Power,
+    Clock,
+    Gear,
+    Book,
+    Info,
+}
+
+/// Icono de línea de cada pestaña.
+fn tab_ic(tab: Tab) -> Ic {
+    match tab {
+        Tab::Overview => Ic::Grid,
+        Tab::Processes => Ic::Activity,
+        Tab::Connections => Ic::Globe,
+        Tab::TempFiles => Ic::Disk,
+        Tab::Precision => Ic::Target,
+        Tab::Services => Ic::Shield,
+        Tab::Autostart => Ic::Power,
+        Tab::History => Ic::Clock,
+        Tab::Config => Ic::Gear,
+        Tab::Manual => Ic::Book,
+        Tab::About => Ic::Info,
+    }
+}
+
+/// Dibuja un icono de línea centrado en `c`, de tamaño `s`, en `color`.
+fn draw_ic(p: &egui::Painter, ic: Ic, c: egui::Pos2, s: f32, color: Color32) {
+    let sw = (s * 0.085).max(1.3);
+    let st = Stroke::new(sw, color);
+    let r = s * 0.5;
+    let seg = |a: egui::Pos2, b: egui::Pos2| p.line_segment([a, b], st);
+    // Polilínea a partir de puntos (evita depender de Shape::line/PathStroke).
+    let poly = |pts: &[egui::Pos2]| {
+        for w in pts.windows(2) {
+            p.line_segment([w[0], w[1]], st);
+        }
+    };
+    // Anillo aproximado como polígono (para elipses/óvalos).
+    let ring = |cx: f32, cy: f32, rx: f32, ry: f32, from: f32, to: f32| {
+        let n = 22;
+        let pts: Vec<egui::Pos2> = (0..=n)
+            .map(|i| {
+                let a = from + (to - from) * i as f32 / n as f32;
+                egui::pos2(cx + rx * a.cos(), cy + ry * a.sin())
+            })
+            .collect();
+        poly(&pts);
+    };
+    let tau = std::f32::consts::TAU;
+    match ic {
+        Ic::Grid => {
+            let q = s * 0.34;
+            let off = q * 0.5 + s * 0.05;
+            for (dx, dy) in [(-1.0_f32, -1.0_f32), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
+                let cc = egui::pos2(c.x + dx * off, c.y + dy * off);
+                p.rect_stroke(
+                    egui::Rect::from_center_size(cc, Vec2::splat(q)),
+                    Rounding::same(sw),
+                    st,
+                );
+            }
+        }
+        Ic::Activity => {
+            poly(&[
+                egui::pos2(c.x - r, c.y),
+                egui::pos2(c.x - r * 0.35, c.y),
+                egui::pos2(c.x - r * 0.1, c.y - r * 0.75),
+                egui::pos2(c.x + r * 0.2, c.y + r * 0.75),
+                egui::pos2(c.x + r * 0.45, c.y),
+                egui::pos2(c.x + r, c.y),
+            ]);
+        }
+        Ic::Globe => {
+            p.circle_stroke(c, r, st);
+            seg(egui::pos2(c.x - r, c.y), egui::pos2(c.x + r, c.y));
+            ring(c.x, c.y, r * 0.45, r, 0.0, tau);
+        }
+        Ic::Disk => {
+            let rx = r * 0.82;
+            let ry = r * 0.3;
+            let top = c.y - r * 0.5;
+            let bottom = c.y + r * 0.5;
+            ring(c.x, top, rx, ry, 0.0, tau);
+            seg(egui::pos2(c.x - rx, top), egui::pos2(c.x - rx, bottom));
+            seg(egui::pos2(c.x + rx, top), egui::pos2(c.x + rx, bottom));
+            ring(c.x, bottom, rx, ry, 0.0, std::f32::consts::PI);
+        }
+        Ic::Target => {
+            p.circle_stroke(c, r, st);
+            p.circle_stroke(c, r * 0.5, st);
+            p.circle_filled(c, sw * 1.3, color);
+        }
+        Ic::Shield => {
+            let w = r * 0.8;
+            poly(&[
+                egui::pos2(c.x, c.y - r),
+                egui::pos2(c.x + w, c.y - r * 0.5),
+                egui::pos2(c.x + w, c.y + r * 0.1),
+                egui::pos2(c.x, c.y + r),
+                egui::pos2(c.x - w, c.y + r * 0.1),
+                egui::pos2(c.x - w, c.y - r * 0.5),
+                egui::pos2(c.x, c.y - r),
+            ]);
+        }
+        Ic::Power => {
+            ring(c.x, c.y, r * 0.8, r * 0.8, tau * 0.18, tau * 0.82);
+            seg(egui::pos2(c.x, c.y - r), egui::pos2(c.x, c.y - r * 0.1));
+        }
+        Ic::Clock => {
+            p.circle_stroke(c, r, st);
+            seg(c, egui::pos2(c.x, c.y - r * 0.55));
+            seg(c, egui::pos2(c.x + r * 0.42, c.y));
+        }
+        Ic::Gear => {
+            p.circle_stroke(c, r * 0.55, st);
+            p.circle_stroke(c, r * 0.2, st);
+            for i in 0..8 {
+                let a = tau * i as f32 / 8.0;
+                let (sn, cs) = a.sin_cos();
+                seg(
+                    egui::pos2(c.x + cs * r * 0.58, c.y + sn * r * 0.58),
+                    egui::pos2(c.x + cs * r, c.y + sn * r),
+                );
+            }
+        }
+        Ic::Book => {
+            let w = r * 0.72;
+            let h = r * 0.95;
+            p.rect_stroke(
+                egui::Rect::from_center_size(c, Vec2::new(w * 2.0, h * 2.0)),
+                Rounding::same(sw),
+                st,
+            );
+            seg(egui::pos2(c.x, c.y - h), egui::pos2(c.x, c.y + h));
+        }
+        Ic::Info => {
+            p.circle_stroke(c, r, st);
+            p.circle_filled(egui::pos2(c.x, c.y - r * 0.42), sw, color);
+            seg(
+                egui::pos2(c.x, c.y - r * 0.05),
+                egui::pos2(c.x, c.y + r * 0.5),
+            );
+        }
+    }
+}
+
 /// Fila de navegación de la barra lateral: icono + etiqueta, alineados a la
 /// izquierda, con resaltado y barra de acento cuando está activa.
-fn sidebar_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egui::Response {
+fn sidebar_item(ui: &mut egui::Ui, ic: Ic, label: &str, active: bool) -> egui::Response {
     let w = ui.available_width();
     let (rect, resp) = ui.allocate_exact_size(Vec2::new(w, 34.0), Sense::click());
     let bg = if active {
@@ -987,16 +1142,13 @@ fn sidebar_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egu
     } else {
         pal().text_sec
     };
-    ui.painter().text(
-        egui::pos2(rect.left() + 16.0, rect.center().y),
-        egui::Align2::LEFT_CENTER,
-        icon,
-        FontId::proportional(15.0),
-        if active {
-            pal().c_bl_fg
-        } else {
-            pal().text_sec
-        },
+    let icon_color = if active { pal().accent } else { pal().text_sec };
+    draw_ic(
+        ui.painter(),
+        ic,
+        egui::pos2(rect.left() + 20.0, rect.center().y),
+        18.0,
+        icon_color,
     );
     ui.painter().text(
         egui::pos2(rect.left() + 42.0, rect.center().y),
@@ -1025,8 +1177,8 @@ fn sidebar_group(ui: &mut egui::Ui, label: &str) {
 
 /// Dibuja una fila de navegación y cambia de pestaña si se pulsa.
 fn nav(ui: &mut egui::Ui, app: &mut RootCauseApp, tab: Tab) {
-    let (icon, es, en) = tab_meta(tab);
-    if sidebar_item(ui, icon, tr(es, en), app.active_tab == tab).clicked() {
+    let (_, es, en) = tab_meta(tab);
+    if sidebar_item(ui, tab_ic(tab), tr(es, en), app.active_tab == tab).clicked() {
         app.active_tab = tab;
     }
 }
