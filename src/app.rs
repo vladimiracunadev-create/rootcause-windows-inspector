@@ -821,7 +821,7 @@ fn draw_statusbar(app: &RootCauseApp, ctx: &egui::Context) {
                 } else {
                     (C_OK_FG, TEXT_SEC)
                 };
-                ui.label(RichText::new("●").color(dot).size(9.0));
+                ui.label(RichText::new("•").color(dot).size(14.0));
                 ui.label(RichText::new(&app.status_line).size(11.5).color(txt));
             });
         });
@@ -1383,10 +1383,12 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
         {
             on_sev_filter(None);
         }
+        // Sin glifo de color: los símbolos geométricos (■ ▲ ●) no están en la
+        // fuente y salían como "□". El color del texto/relleno ya distingue.
         for (label, sev, fg, bg) in [
-            ("■ Crítico", Severity::Critical, C_CR_FG, C_CR_BG),
-            ("▲ Aviso", Severity::Warning, C_WN_FG, C_WN_BG),
-            ("● Sano", Severity::Healthy, C_OK_FG, C_OK_BG),
+            ("Crítico", Severity::Critical, C_CR_FG, C_CR_BG),
+            ("Aviso", Severity::Warning, C_WN_FG, C_WN_BG),
+            ("Sano", Severity::Healthy, C_OK_FG, C_OK_BG),
         ] {
             let selected = sev_filter == Some(sev);
             if ui
@@ -1981,17 +1983,16 @@ fn draw_tab_precision(
                 tool_chip(ui, "WPA", p.wpa_available);
                 tool_chip(ui, "Tracerpt", p.tracerpt_available);
                 ui.add_space(12.0);
-                let (dot, txt, label) = if recording {
-                    ("●", C_WN_FG, "GRABANDO")
+                let (txt, label) = if recording {
+                    (C_WN_FG, "GRABANDO")
                 } else {
-                    ("○", TEXT_MUT, "En espera")
+                    (TEXT_MUT, "En espera")
                 };
-                ui.label(
-                    RichText::new(format!("{dot} {label}"))
-                        .strong()
-                        .size(13.0)
-                        .color(txt),
-                );
+                // Punto de estado pintado (los glifos ●/○ no están en la fuente).
+                let (dot_rect, _) = ui.allocate_exact_size(Vec2::splat(10.0), Sense::hover());
+                ui.painter().circle_filled(dot_rect.center(), 4.0, txt);
+                ui.add_space(3.0);
+                ui.label(RichText::new(label).strong().size(13.0).color(txt));
             });
 
             ui.add_space(10.0);
@@ -2037,12 +2038,12 @@ fn draw_tab_precision(
             ui.horizontal_wrapped(|ui| {
                 if p.wpr_available
                     && !recording
-                    && action_btn(ui, "▶  Iniciar captura", C_OK_BG, C_OK_FG).clicked()
+                    && action_btn(ui, "Iniciar captura", C_OK_BG, C_OK_FG).clicked()
                 {
                     *precision_action = Some(PrecisionAction::Start);
                 }
                 if p.wpr_available && recording {
-                    if action_btn(ui, "■  Detener y guardar", C_WN_BG, C_WN_FG).clicked() {
+                    if action_btn(ui, "Detener y guardar", C_WN_BG, C_WN_FG).clicked() {
                         *precision_action = Some(PrecisionAction::Stop);
                     }
                     if action_btn(ui, "×  Cancelar", C_CR_BG, C_CR_FG).clicked() {
@@ -2604,6 +2605,13 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
 
     let mut to_stop: Option<String> = None;
 
+    if snap.services.is_empty() {
+        empty_state(
+            ui,
+            "No se detectaron servicios relevantes en el último escaneo.",
+        );
+    }
+
     for svc in &snap.services {
         let sev = service_severity(svc);
         let fg = sev_fg(sev);
@@ -2648,6 +2656,9 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
     egui::ScrollArea::vertical()
         .id_source("tab_events")
         .show(ui, |ui| {
+            if snap.events.is_empty() {
+                empty_state(ui, "Sin eventos recientes del sistema.");
+            }
             for (i, evt) in snap.events.iter().take(15).enumerate() {
                 let sev = if evt.level.eq_ignore_ascii_case("Error") {
                     Severity::Critical
@@ -2777,15 +2788,10 @@ fn draw_tab_autostart(
             BG_CARD,
         );
         if n_critical > 0 {
-            pill(
-                ui,
-                &format!("▲ {} sospechosas", n_critical),
-                C_CR_FG,
-                C_CR_BG,
-            );
+            pill(ui, &format!("{} sospechosas", n_critical), C_CR_FG, C_CR_BG);
         }
         if n_warn > 0 {
-            pill(ui, &format!("● {} a revisar", n_warn), C_WN_FG, C_WN_BG);
+            pill(ui, &format!("{} a revisar", n_warn), C_WN_FG, C_WN_BG);
         }
         if !filter.is_empty() {
             pill(
@@ -3176,35 +3182,35 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     ui.add_space(8.0);
     manual_item(
         ui,
-        "●",
+        "•",
         C_BL_FG,
         "Finalizar proceso",
         "Termina un proceso por PID. Nunca finaliza procesos críticos del sistema.",
     );
     manual_item(
         ui,
-        "●",
+        "•",
         C_BL_FG,
         "Bloquear IP",
         "Crea una regla de firewall para una IP remota.",
     );
     manual_item(
         ui,
-        "●",
+        "•",
         C_BL_FG,
         "Detener servicio",
         "Solo servicios de una lista permitida (bits, dosvc, sysmain, wuauserv).",
     );
     manual_item(
         ui,
-        "●",
+        "•",
         C_BL_FG,
         "Limpiar %TEMP%",
         "Borra lo no usado (>24h) de tu carpeta temporal; salta lo bloqueado. Confirmación de 2 pasos.",
     );
     manual_item(
         ui,
-        "●",
+        "•",
         C_BL_FG,
         "Aceptar baseline",
         "Marca el estado actual de autostart o servicios como el nuevo \"bueno conocido\".",
@@ -3215,21 +3221,21 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     ui.add_space(8.0);
     manual_item(
         ui,
-        "●",
+        "•",
         C_OK_FG,
         "Verde — Saludable",
         "Sin señales fuertes; comportamiento normal.",
     );
     manual_item(
         ui,
-        "●",
+        "•",
         C_WN_FG,
         "Ámbar — Advertencia",
         "Vale la pena revisar; consumo o cambios notables.",
     );
     manual_item(
         ui,
-        "●",
+        "•",
         C_CR_FG,
         "Rojo — Crítico",
         "Señal fuerte: prioriza la revisión (proceso, conexión o cambio sospechoso).",
@@ -4419,12 +4425,20 @@ fn sev_bg(sev: Severity) -> Color32 {
     }
 }
 
-fn sev_dot(sev: Severity) -> &'static str {
-    match sev {
-        Severity::Healthy => "●",
-        Severity::Warning => "▲",
-        Severity::Critical => "■",
-    }
+fn sev_dot(_sev: Severity) -> &'static str {
+    // Punto de severidad como viñeta "•" (presente en la fuente base). Los glifos
+    // geométricos ●/▲/■ no están en la fuente y salían como "□"; el color con el
+    // que se pinta ya distingue la severidad.
+    "•"
+}
+
+/// Mensaje centrado y atenuado para secciones sin datos (evita el vacío negro).
+fn empty_state(ui: &mut egui::Ui, msg: &str) {
+    ui.add_space(16.0);
+    ui.vertical_centered(|ui| {
+        ui.label(RichText::new(msg).size(12.5).color(TEXT_MUT));
+    });
+    ui.add_space(16.0);
 }
 
 fn service_severity(svc: &ServiceState) -> Severity {
