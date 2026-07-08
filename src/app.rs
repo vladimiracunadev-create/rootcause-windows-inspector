@@ -144,7 +144,7 @@ impl Palette {
 }
 
 thread_local! {
-    static PALETTE: std::cell::Cell<Palette> = std::cell::Cell::new(Palette::DARK);
+    static PALETTE: std::cell::Cell<Palette> = const { std::cell::Cell::new(Palette::DARK) };
 }
 
 /// Paleta activa (para leer colores: `pal().accent`, etc.).
