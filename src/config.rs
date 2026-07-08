@@ -31,13 +31,30 @@ pub struct RootCauseConfig {
     pub ui: UiConfig,
 }
 
-/// Preferencias de la interfaz gráfica. Por ahora solo el idioma; deliberadamente
-/// aislada para que el resto de la config no cargue con detalles de presentación.
+/// Modo de interfaz (apariencia). `windows` sigue el tema del sistema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemeMode {
+    /// Tema oscuro de marca (azul profundo del icono). Por defecto.
+    #[default]
+    Dark,
+    /// Tema claro de marca.
+    Light,
+    /// Neutro Mica que sigue el tema claro/oscuro del sistema.
+    Windows,
+}
+
+/// Preferencias de la interfaz gráfica: idioma y modo de apariencia.
+/// Deliberadamente aislada para que el resto de la config no cargue con detalles
+/// de presentación.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UiConfig {
     /// Idioma de la interfaz (`es` por defecto, `en` disponible).
     #[serde(default)]
     pub language: Lang,
+    /// Modo de apariencia (`dark` por defecto).
+    #[serde(default)]
+    pub theme: ThemeMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

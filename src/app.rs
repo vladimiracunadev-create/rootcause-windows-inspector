@@ -4,7 +4,7 @@
 //! cada tab dibuja su contenido con tablas, progress bars y tooltips para
 //! nombres o rutas largas. Sin scroll horizontal.
 
-use crate::config::RootCauseConfig;
+use crate::config::{RootCauseConfig, ThemeMode};
 use crate::i18n::{self, Lang, tr};
 use crate::meta;
 use crate::models::{
@@ -28,27 +28,178 @@ struct MetricSample {
     io_write: f32,
 }
 
-// ── Paleta ─────────────────────────────────────────────────────────────────────
+// ── Paleta y temas ───────────────────────────────────────────────────────────
+//
+// Los colores dejan de ser constantes globales y pasan a un `Palette` en runtime,
+// para poder cambiar de modo (Claro / Oscuro / Windows) sin reiniciar. Cada color
+// se lee con `pal().<campo>`. La paleta activa vive en un `thread_local` (la GUI
+// corre en un solo hilo), así que leerla cada frame es prácticamente gratis.
 
-const BG_APP: Color32 = Color32::from_rgb(13, 17, 23);
-const BG_PANEL: Color32 = Color32::from_rgb(22, 27, 34);
-const BG_CARD: Color32 = Color32::from_rgb(30, 37, 46);
-const BG_ROW_ALT: Color32 = Color32::from_rgb(18, 23, 30);
-const BORDER: Color32 = Color32::from_rgb(48, 54, 61);
-const ACCENT: Color32 = Color32::from_rgb(31, 111, 235);
+#[derive(Clone, Copy)]
+struct Palette {
+    bg_app: Color32,
+    bg_panel: Color32,
+    bg_card: Color32,
+    bg_row_alt: Color32,
+    border: Color32,
+    accent: Color32,
+    text_pri: Color32,
+    text_sec: Color32,
+    text_mut: Color32,
+    c_ok_fg: Color32,
+    c_ok_bg: Color32,
+    c_wn_fg: Color32,
+    c_wn_bg: Color32,
+    c_cr_fg: Color32,
+    c_cr_bg: Color32,
+    c_bl_fg: Color32,
+    c_bl_bg: Color32,
+}
 
-const TEXT_PRI: Color32 = Color32::from_rgb(230, 237, 243);
-const TEXT_SEC: Color32 = Color32::from_rgb(139, 148, 158);
-const TEXT_MUT: Color32 = Color32::from_rgb(72, 80, 92);
+const fn rgb(r: u8, g: u8, b: u8) -> Color32 {
+    Color32::from_rgb(r, g, b)
+}
 
-const C_OK_FG: Color32 = Color32::from_rgb(63, 185, 80);
-const C_OK_BG: Color32 = Color32::from_rgb(13, 43, 26);
-const C_WN_FG: Color32 = Color32::from_rgb(210, 153, 34);
-const C_WN_BG: Color32 = Color32::from_rgb(43, 29, 14);
-const C_CR_FG: Color32 = Color32::from_rgb(248, 81, 73);
-const C_CR_BG: Color32 = Color32::from_rgb(43, 14, 14);
-const C_BL_FG: Color32 = Color32::from_rgb(88, 166, 255);
-const C_BL_BG: Color32 = Color32::from_rgb(14, 34, 68);
+impl Palette {
+    /// Oscuro de marca: azul profundo del icono (#0d1117 + acento #1f6feb).
+    const DARK: Palette = Palette {
+        bg_app: rgb(13, 17, 23),
+        bg_panel: rgb(22, 27, 34),
+        bg_card: rgb(30, 37, 46),
+        bg_row_alt: rgb(18, 23, 30),
+        border: rgb(48, 54, 61),
+        accent: rgb(31, 111, 235),
+        text_pri: rgb(230, 237, 243),
+        text_sec: rgb(139, 148, 158),
+        text_mut: rgb(72, 80, 92),
+        c_ok_fg: rgb(63, 185, 80),
+        c_ok_bg: rgb(13, 43, 26),
+        c_wn_fg: rgb(210, 153, 34),
+        c_wn_bg: rgb(43, 29, 14),
+        c_cr_fg: rgb(248, 81, 73),
+        c_cr_bg: rgb(43, 14, 14),
+        c_bl_fg: rgb(88, 166, 255),
+        c_bl_bg: rgb(14, 34, 68),
+    };
+    /// Claro de marca.
+    const LIGHT: Palette = Palette {
+        bg_app: rgb(238, 242, 251),
+        bg_panel: rgb(230, 236, 248),
+        bg_card: rgb(255, 255, 255),
+        bg_row_alt: rgb(244, 247, 253),
+        border: rgb(212, 221, 236),
+        accent: rgb(31, 111, 235),
+        text_pri: rgb(13, 17, 23),
+        text_sec: rgb(74, 82, 97),
+        text_mut: rgb(123, 132, 148),
+        c_ok_fg: rgb(26, 127, 55),
+        c_ok_bg: rgb(228, 243, 232),
+        c_wn_fg: rgb(154, 103, 0),
+        c_wn_bg: rgb(251, 241, 211),
+        c_cr_fg: rgb(181, 36, 26),
+        c_cr_bg: rgb(251, 227, 225),
+        c_bl_fg: rgb(26, 95, 214),
+        c_bl_bg: rgb(230, 239, 253),
+    };
+    /// Windows Mica neutro — oscuro del sistema.
+    const WIN_DARK: Palette = Palette {
+        bg_app: rgb(32, 32, 32),
+        bg_panel: rgb(39, 39, 39),
+        bg_card: rgb(45, 45, 45),
+        bg_row_alt: rgb(38, 38, 38),
+        border: rgb(61, 61, 61),
+        accent: rgb(31, 111, 235),
+        text_pri: rgb(242, 242, 242),
+        text_sec: rgb(166, 166, 166),
+        text_mut: rgb(118, 118, 118),
+        c_ok_fg: rgb(108, 203, 95),
+        c_ok_bg: rgb(30, 45, 30),
+        c_wn_fg: rgb(255, 209, 102),
+        c_wn_bg: rgb(51, 43, 20),
+        c_cr_fg: rgb(255, 153, 164),
+        c_cr_bg: rgb(51, 26, 28),
+        c_bl_fg: rgb(121, 184, 255),
+        c_bl_bg: rgb(24, 40, 64),
+    };
+    /// Windows Mica neutro — claro del sistema.
+    const WIN_LIGHT: Palette = Palette {
+        bg_app: rgb(243, 243, 243),
+        bg_panel: rgb(235, 235, 235),
+        bg_card: rgb(251, 251, 251),
+        bg_row_alt: rgb(240, 240, 240),
+        border: rgb(220, 220, 220),
+        accent: rgb(31, 111, 235),
+        text_pri: rgb(27, 27, 31),
+        text_sec: rgb(91, 93, 100),
+        text_mut: rgb(138, 141, 149),
+        c_ok_fg: rgb(16, 124, 16),
+        c_ok_bg: rgb(230, 242, 230),
+        c_wn_fg: rgb(154, 103, 0),
+        c_wn_bg: rgb(251, 243, 214),
+        c_cr_fg: rgb(181, 36, 26),
+        c_cr_bg: rgb(251, 228, 227),
+        c_bl_fg: rgb(26, 95, 214),
+        c_bl_bg: rgb(229, 238, 251),
+    };
+}
+
+thread_local! {
+    static PALETTE: std::cell::Cell<Palette> = std::cell::Cell::new(Palette::DARK);
+}
+
+/// Paleta activa (para leer colores: `pal().accent`, etc.).
+fn pal() -> Palette {
+    PALETTE.with(|c| c.get())
+}
+
+/// ¿El sistema Windows prefiere tema oscuro? Lee `AppsUseLightTheme` del registro
+/// una sola vez (al fijar el tema). Por defecto oscuro si no se puede leer.
+fn system_prefers_dark() -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let out = std::process::Command::new("reg")
+            .args([
+                "query",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                "/v",
+                "AppsUseLightTheme",
+            ])
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+            .output();
+        if let Ok(o) = out {
+            let s = String::from_utf8_lossy(&o.stdout);
+            if s.contains("0x1") {
+                return false; // 1 = apps en claro
+            }
+            if s.contains("0x0") {
+                return true; // 0 = apps en oscuro
+            }
+        }
+        false
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+/// Fija el modo de tema: resuelve la paleta y reaplica los `Visuals` de egui.
+fn set_theme(ctx: &egui::Context, mode: crate::config::ThemeMode) {
+    let p = match mode {
+        crate::config::ThemeMode::Light => Palette::LIGHT,
+        crate::config::ThemeMode::Dark => Palette::DARK,
+        crate::config::ThemeMode::Windows => {
+            if system_prefers_dark() {
+                Palette::WIN_DARK
+            } else {
+                Palette::WIN_LIGHT
+            }
+        }
+    };
+    PALETTE.with(|c| c.set(p));
+    apply_theme(ctx);
+}
 
 // ── Servicios que el usuario puede detener desde la UI ─────────────────────────
 
@@ -223,8 +374,9 @@ impl RootCauseApp {
                 app.refresh_interval_secs = svc.config().collection.refresh_interval_secs;
                 app.notifications_enabled = svc.config().alerting.notify_on_critical;
                 app.cached_config = svc.config().clone();
-                // Aplicar el idioma guardado antes del primer frame.
+                // Aplicar idioma y tema guardados antes del primer frame.
                 i18n::set_lang(app.cached_config.ui.language);
+                set_theme(&cc.egui_ctx, app.cached_config.ui.theme);
                 app.config_path = svc.config_path().display().to_string();
                 app.inspector = Some(svc);
             }
@@ -503,7 +655,7 @@ impl RootCauseApp {
 
 impl eframe::App for RootCauseApp {
     fn clear_color(&self, _: &egui::Visuals) -> [f32; 4] {
-        egui::Rgba::from(BG_APP).to_array()
+        egui::Rgba::from(pal().bg_app).to_array()
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -615,7 +767,7 @@ impl eframe::App for RootCauseApp {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(BG_APP)
+                    .fill(pal().bg_app)
                     .inner_margin(Margin::symmetric(16.0, 12.0)),
             )
             .show(ctx, |ui| {
@@ -630,6 +782,7 @@ impl eframe::App for RootCauseApp {
                 if self.active_tab == Tab::Config {
                     let mut save_config = false;
                     let lang_before = self.cached_config.ui.language;
+                    let theme_before = self.cached_config.ui.theme;
                     egui::ScrollArea::vertical()
                         .auto_shrink([false; 2])
                         .show(ui, |ui| {
@@ -640,9 +793,13 @@ impl eframe::App for RootCauseApp {
                                 &mut save_config,
                             )
                         });
-                    // Cambiar el idioma aplica al instante y persiste sin pulsar Guardar.
+                    // Cambiar idioma o tema aplica al instante y persiste sin pulsar Guardar.
                     if self.cached_config.ui.language != lang_before {
                         i18n::set_lang(self.cached_config.ui.language);
+                        save_config = true;
+                    }
+                    if self.cached_config.ui.theme != theme_before {
+                        set_theme(ctx, self.cached_config.ui.theme);
                         save_config = true;
                     }
                     if save_config && let Some(svc) = self.inspector.as_mut() {
@@ -808,7 +965,7 @@ fn sidebar_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egu
     let w = ui.available_width();
     let (rect, resp) = ui.allocate_exact_size(Vec2::new(w, 34.0), Sense::click());
     let bg = if active {
-        BG_CARD
+        pal().bg_card
     } else if resp.hovered() {
         Color32::from_rgb(26, 33, 44)
     } else {
@@ -822,15 +979,24 @@ fn sidebar_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egu
             egui::pos2(rect.left() + 1.0, rect.center().y - 9.0),
             Vec2::new(3.0, 18.0),
         );
-        ui.painter().rect_filled(bar, Rounding::same(2.0), ACCENT);
+        ui.painter()
+            .rect_filled(bar, Rounding::same(2.0), pal().accent);
     }
-    let fg = if active { TEXT_PRI } else { TEXT_SEC };
+    let fg = if active {
+        pal().text_pri
+    } else {
+        pal().text_sec
+    };
     ui.painter().text(
         egui::pos2(rect.left() + 16.0, rect.center().y),
         egui::Align2::LEFT_CENTER,
         icon,
         FontId::proportional(15.0),
-        if active { C_BL_FG } else { TEXT_SEC },
+        if active {
+            pal().c_bl_fg
+        } else {
+            pal().text_sec
+        },
     );
     ui.painter().text(
         egui::pos2(rect.left() + 42.0, rect.center().y),
@@ -847,7 +1013,12 @@ fn sidebar_group(ui: &mut egui::Ui, label: &str) {
     ui.add_space(12.0);
     ui.horizontal(|ui| {
         ui.add_space(8.0);
-        ui.label(RichText::new(label).size(10.5).color(TEXT_MUT).strong());
+        ui.label(
+            RichText::new(label)
+                .size(10.5)
+                .color(pal().text_mut)
+                .strong(),
+        );
     });
     ui.add_space(2.0);
 }
@@ -868,8 +1039,8 @@ fn draw_sidebar(app: &mut RootCauseApp, ctx: &egui::Context) {
         .resizable(false)
         .frame(
             egui::Frame::none()
-                .fill(BG_PANEL)
-                .stroke(Stroke::new(1.0, BORDER))
+                .fill(pal().bg_panel)
+                .stroke(Stroke::new(1.0, pal().border))
                 .inner_margin(Margin::symmetric(10.0, 12.0)),
         )
         .show(ctx, |ui| {
@@ -883,12 +1054,12 @@ fn draw_sidebar(app: &mut RootCauseApp, ctx: &egui::Context) {
                         RichText::new("RootCause")
                             .size(15.0)
                             .strong()
-                            .color(TEXT_PRI),
+                            .color(pal().text_pri),
                     );
                     ui.label(
                         RichText::new("Windows Inspector")
                             .size(10.5)
-                            .color(TEXT_MUT),
+                            .color(pal().text_mut),
                     );
                 });
             });
@@ -928,8 +1099,8 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
     egui::TopBottomPanel::top("topbar")
         .frame(
             egui::Frame::none()
-                .fill(BG_APP)
-                .stroke(Stroke::new(1.0, BORDER))
+                .fill(pal().bg_app)
+                .stroke(Stroke::new(1.0, pal().border))
                 .inner_margin(Margin::symmetric(20.0, 12.0)),
         )
         .show(ctx, |ui| {
@@ -940,7 +1111,7 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
                     RichText::new(tr(es, en))
                         .size(18.0)
                         .strong()
-                        .color(TEXT_PRI),
+                        .color(pal().text_pri),
                 );
 
                 ui.add_space(16.0);
@@ -955,17 +1126,20 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
                 }
 
                 ui.add_space(10.0);
-                ui.checkbox(&mut app.auto_refresh, RichText::new("Auto").color(TEXT_SEC));
+                ui.checkbox(
+                    &mut app.auto_refresh,
+                    RichText::new("Auto").color(pal().text_sec),
+                );
                 ui.add(
                     egui::Slider::new(&mut app.refresh_interval_secs, 3..=30)
-                        .text(RichText::new("s").color(TEXT_MUT))
+                        .text(RichText::new("s").color(pal().text_mut))
                         .clamp_to_range(true),
                 );
 
                 ui.add_space(8.0);
                 ui.checkbox(
                     &mut app.notifications_enabled,
-                    RichText::new("🔔").color(TEXT_SEC),
+                    RichText::new("🔔").color(pal().text_sec),
                 )
                 .on_hover_text("Activar notificaciones toast cuando el estado sea Crítico");
 
@@ -976,7 +1150,7 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
                     [190.0, 26.0],
                     egui::TextEdit::singleline(&mut app.filter_text)
                         .hint_text(tr("Filtrar por nombre o ruta…", "Filter by name or path…"))
-                        .text_color(TEXT_PRI),
+                        .text_color(pal().text_pri),
                 );
 
                 if let Some(snap) = &app.snapshot {
@@ -995,16 +1169,16 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
                         alert_badge(
                             ui,
                             &format!("{crit} crítica{}", if crit != 1 { "s" } else { "" }),
-                            C_CR_FG,
-                            C_CR_BG,
+                            pal().c_cr_fg,
+                            pal().c_cr_bg,
                         );
                     }
                     if warn > 0 {
                         alert_badge(
                             ui,
                             &format!("{warn} aviso{}", if warn != 1 { "s" } else { "" }),
-                            C_WN_FG,
-                            C_WN_BG,
+                            pal().c_wn_fg,
+                            pal().c_wn_bg,
                         );
                     }
                 }
@@ -1018,16 +1192,16 @@ fn draw_statusbar(app: &RootCauseApp, ctx: &egui::Context) {
     egui::TopBottomPanel::bottom("statusbar")
         .frame(
             egui::Frame::none()
-                .fill(BG_PANEL)
-                .stroke(Stroke::new(1.0, BORDER))
+                .fill(pal().bg_panel)
+                .stroke(Stroke::new(1.0, pal().border))
                 .inner_margin(Margin::symmetric(16.0, 5.0)),
         )
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let (dot, txt) = if app.status_is_error {
-                    (C_CR_FG, C_CR_FG)
+                    (pal().c_cr_fg, pal().c_cr_fg)
                 } else {
-                    (C_OK_FG, TEXT_SEC)
+                    (pal().c_ok_fg, pal().text_sec)
                 };
                 ui.label(RichText::new("•").color(dot).size(14.0));
                 ui.label(RichText::new(&app.status_line).size(11.5).color(txt));
@@ -1075,11 +1249,11 @@ fn draw_tab_overview(
     };
     let score = compute_health_score(snap);
     let (score_fg, score_bg, score_label) = if score >= 80 {
-        (C_OK_FG, C_OK_BG, tr("Saludable", "Healthy"))
+        (pal().c_ok_fg, pal().c_ok_bg, tr("Saludable", "Healthy"))
     } else if score >= 50 {
-        (C_WN_FG, C_WN_BG, tr("Advertencia", "Warning"))
+        (pal().c_wn_fg, pal().c_wn_bg, tr("Advertencia", "Warning"))
     } else {
-        (C_CR_FG, C_CR_BG, tr("Crítico", "Critical"))
+        (pal().c_cr_fg, pal().c_cr_bg, tr("Crítico", "Critical"))
     };
 
     // ── Banner de veredicto (titular) ─────────────────────────────────────────
@@ -1110,12 +1284,14 @@ fn draw_tab_overview(
                         ui.horizontal(|ui| {
                             ui.label(RichText::new(headline).size(20.0).strong().color(score_fg));
                             ui.add_space(8.0);
-                            pill(ui, score_label, score_fg, BG_CARD);
+                            pill(ui, score_label, score_fg, pal().bg_card);
                         });
                         ui.add_space(4.0);
                         ui.add(
                             egui::Label::new(
-                                RichText::new(&ov.primary_reason).size(12.5).color(TEXT_SEC),
+                                RichText::new(&ov.primary_reason)
+                                    .size(12.5)
+                                    .color(pal().text_sec),
                             )
                             .wrap(true),
                         );
@@ -1278,21 +1454,24 @@ fn draw_tab_overview(
                         ui.add_space(4.0);
                         ui.label(RichText::new(&alert.title).strong().color(fg).size(13.5));
                         if let Some(pid) = alert.pid {
-                            pill(ui, &format!("PID {pid}"), TEXT_MUT, BG_CARD);
+                            pill(ui, &format!("PID {pid}"), pal().text_mut, pal().bg_card);
                         }
                     });
                     ui.add_space(2.0);
-                    ui.label(RichText::new(&alert.detail).color(TEXT_SEC));
+                    ui.label(RichText::new(&alert.detail).color(pal().text_sec));
                     ui.label(
                         RichText::new(&alert.hint)
                             .italics()
-                            .color(TEXT_MUT)
+                            .color(pal().text_mut)
                             .size(11.5),
                     );
                     if let Some(path) = &alert.path {
                         ui.add(
                             egui::Label::new(
-                                RichText::new(path).small().monospace().color(TEXT_MUT),
+                                RichText::new(path)
+                                    .small()
+                                    .monospace()
+                                    .color(pal().text_mut),
                             )
                             .wrap(true),
                         );
@@ -1323,14 +1502,14 @@ fn draw_tab_overview(
                     draw_sev_icon(ui, incident_sev, 18.0);
                     ui.label(RichText::new(&incident.title).strong().color(fg).size(14.0));
                     if let Some(risk) = incident.risk_level {
-                        alert_badge(ui, risk.label(), fg, BG_CARD);
+                        alert_badge(ui, risk.label(), fg, pal().bg_card);
                     }
                     if incident.risk_score > 0 {
                         pill(
                             ui,
                             &format!("Score {}", incident.risk_score),
-                            TEXT_PRI,
-                            BG_CARD,
+                            pal().text_pri,
+                            pal().bg_card,
                         );
                     }
                     if incident.anomaly_count > 0 {
@@ -1341,21 +1520,22 @@ fn draw_tab_overview(
                                 incident.anomaly_count,
                                 if incident.anomaly_count == 1 { "" } else { "s" }
                             ),
-                            TEXT_MUT,
-                            BG_CARD,
+                            pal().text_mut,
+                            pal().bg_card,
                         );
                     }
                 });
                 ui.add_space(6.0);
                 ui.add(
-                    egui::Label::new(RichText::new(&incident.summary).color(TEXT_SEC)).wrap(true),
+                    egui::Label::new(RichText::new(&incident.summary).color(pal().text_sec))
+                        .wrap(true),
                 );
                 if !incident.root_cause_hypothesis.is_empty() {
                     ui.add_space(4.0);
                     ui.add(
                         egui::Label::new(
                             RichText::new(format!("Hipotesis: {}", incident.root_cause_hypothesis))
-                                .color(TEXT_PRI)
+                                .color(pal().text_pri)
                                 .size(12.0),
                         )
                         .wrap(true),
@@ -1377,7 +1557,7 @@ fn draw_tab_overview(
                                                 .unwrap_or_default()
                                         ))
                                         .monospace()
-                                        .color(TEXT_SEC),
+                                        .color(pal().text_sec),
                                     )
                                     .wrap(true),
                                 );
@@ -1385,7 +1565,10 @@ fn draw_tab_overview(
                             if let Some(path) = event.exe_path.as_ref() {
                                 ui.add(
                                     egui::Label::new(
-                                        RichText::new(path).small().monospace().color(TEXT_MUT),
+                                        RichText::new(path)
+                                            .small()
+                                            .monospace()
+                                            .color(pal().text_mut),
                                     )
                                     .wrap(true),
                                 )
@@ -1405,7 +1588,7 @@ fn draw_tab_overview(
                                             .unwrap_or_default()
                                     ))
                                     .monospace()
-                                    .color(TEXT_SEC),
+                                    .color(pal().text_sec),
                                 );
                             }
                             if let Some(path) = event.exe_path.as_ref() {
@@ -1414,7 +1597,7 @@ fn draw_tab_overview(
                                         RichText::new(trunc(path, 72))
                                             .small()
                                             .monospace()
-                                            .color(TEXT_MUT),
+                                            .color(pal().text_mut),
                                     )
                                     .wrap(true),
                                 )
@@ -1432,7 +1615,7 @@ fn draw_tab_overview(
                                 incident.recommended_actions[0]
                             ))
                             .italics()
-                            .color(TEXT_MUT),
+                            .color(pal().text_mut),
                         )
                         .wrap(true),
                     );
@@ -1448,7 +1631,7 @@ fn draw_tab_overview(
                                     trunc(&item.value, if narrow_summary { 120 } else { 80 })
                                 ))
                                 .small()
-                                .color(TEXT_MUT),
+                                .color(pal().text_mut),
                             )
                             .wrap(true),
                         );
@@ -1511,18 +1694,30 @@ fn draw_tab_overview(
         let io_vals: Vec<f32> = history.iter().map(|s| s.io_write).collect();
 
         if stacked_summary {
-            sparkline_card(ui, "CPU %", &cpu_vals, C_BL_FG, sparkline_width);
+            sparkline_card(ui, "CPU %", &cpu_vals, pal().c_bl_fg, sparkline_width);
             ui.add_space(8.0);
-            sparkline_card(ui, "RAM %", &ram_vals, C_WN_FG, sparkline_width);
+            sparkline_card(ui, "RAM %", &ram_vals, pal().c_wn_fg, sparkline_width);
             ui.add_space(8.0);
-            sparkline_card(ui, "I/O Escrit. MB", &io_vals, C_CR_FG, sparkline_width);
+            sparkline_card(
+                ui,
+                "I/O Escrit. MB",
+                &io_vals,
+                pal().c_cr_fg,
+                sparkline_width,
+            );
         } else {
             ui.horizontal_wrapped(|ui| {
-                sparkline_card(ui, "CPU %", &cpu_vals, C_BL_FG, sparkline_width);
+                sparkline_card(ui, "CPU %", &cpu_vals, pal().c_bl_fg, sparkline_width);
                 ui.add_space(8.0);
-                sparkline_card(ui, "RAM %", &ram_vals, C_WN_FG, sparkline_width);
+                sparkline_card(ui, "RAM %", &ram_vals, pal().c_wn_fg, sparkline_width);
                 ui.add_space(8.0);
-                sparkline_card(ui, "I/O Escrit. MB", &io_vals, C_CR_FG, sparkline_width);
+                sparkline_card(
+                    ui,
+                    "I/O Escrit. MB",
+                    &io_vals,
+                    pal().c_cr_fg,
+                    sparkline_width,
+                );
             });
         }
     }
@@ -1533,8 +1728,8 @@ fn draw_tab_overview(
         section_header(ui, "▸  Características del equipo");
         ui.add_space(8.0);
         egui::Frame::none()
-            .fill(BG_CARD)
-            .stroke(Stroke::new(1.0, BORDER))
+            .fill(pal().bg_card)
+            .stroke(Stroke::new(1.0, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(14.0))
             .show(ui, |ui| {
@@ -1611,19 +1806,19 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
         if ui
             .add(
                 egui::Button::new(RichText::new("Todos").size(11.5).color(if sel_none {
-                    TEXT_PRI
+                    pal().text_pri
                 } else {
-                    TEXT_MUT
+                    pal().text_mut
                 }))
                 .fill(if sel_none {
-                    BG_CARD
+                    pal().bg_card
                 } else {
                     Color32::TRANSPARENT
                 })
                 .stroke(Stroke::new(
                     1.0,
                     if sel_none {
-                        BORDER
+                        pal().border
                     } else {
                         Color32::TRANSPARENT
                     },
@@ -1637,9 +1832,9 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
         // Sin glifo de color: los símbolos geométricos (■ ▲ ●) no están en la
         // fuente y salían como "□". El color del texto/relleno ya distingue.
         for (label, sev, fg, bg) in [
-            ("Crítico", Severity::Critical, C_CR_FG, C_CR_BG),
-            ("Aviso", Severity::Warning, C_WN_FG, C_WN_BG),
-            ("Sano", Severity::Healthy, C_OK_FG, C_OK_BG),
+            ("Crítico", Severity::Critical, pal().c_cr_fg, pal().c_cr_bg),
+            ("Aviso", Severity::Warning, pal().c_wn_fg, pal().c_wn_bg),
+            ("Sano", Severity::Healthy, pal().c_ok_fg, pal().c_ok_bg),
         ] {
             let selected = sev_filter == Some(sev);
             if ui
@@ -1647,7 +1842,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                     egui::Button::new(RichText::new(label).size(11.5).color(if selected {
                         fg
                     } else {
-                        TEXT_MUT
+                        pal().text_mut
                     }))
                     .fill(if selected { bg } else { Color32::TRANSPARENT })
                     .stroke(Stroke::new(
@@ -1680,7 +1875,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                 if count != 1 { "s" } else { "" }
             ))
             .size(11.0)
-            .color(TEXT_MUT),
+            .color(pal().text_mut),
         );
     });
     ui.add_space(6.0);
@@ -1716,7 +1911,11 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                 .take(30)
                 .enumerate()
             {
-                let row_bg = if i % 2 == 0 { BG_APP } else { BG_ROW_ALT };
+                let row_bg = if i % 2 == 0 {
+                    pal().bg_app
+                } else {
+                    pal().bg_row_alt
+                };
                 let fg = sev_fg(p.severity);
 
                 egui::Frame::none()
@@ -1736,28 +1935,31 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                             );
                             resp.on_hover_ui(|ui| {
                                 ui.set_max_width(420.0);
-                                ui.label(RichText::new(&p.name).strong().color(TEXT_PRI));
+                                ui.label(RichText::new(&p.name).strong().color(pal().text_pri));
                                 ui.label(
                                     RichText::new(&p.exe_path)
                                         .small()
                                         .monospace()
-                                        .color(TEXT_MUT),
+                                        .color(pal().text_mut),
                                 );
                                 if let Some(cmdline) = &p.command_line {
                                     ui.separator();
                                     ui.label(
                                         RichText::new("Línea de comandos:")
                                             .size(10.5)
-                                            .color(TEXT_MUT),
+                                            .color(pal().text_mut),
                                     );
                                     ui.label(
-                                        RichText::new(cmdline).small().monospace().color(C_BL_FG),
+                                        RichText::new(cmdline)
+                                            .small()
+                                            .monospace()
+                                            .color(pal().c_bl_fg),
                                     );
                                 }
                                 if !p.reasons.is_empty() {
                                     ui.separator();
                                     for r in &p.reasons {
-                                        ui.label(RichText::new(r).small().color(TEXT_SEC));
+                                        ui.label(RichText::new(r).small().color(pal().text_sec));
                                     }
                                 }
                             });
@@ -1769,7 +1971,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                                     RichText::new(format!("{}", p.pid))
                                         .monospace()
                                         .size(11.0)
-                                        .color(TEXT_MUT),
+                                        .color(pal().text_mut),
                                 ),
                             );
 
@@ -1790,7 +1992,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                                 egui::Label::new(
                                     RichText::new(format!("{:.0}", p.memory_mb))
                                         .size(12.0)
-                                        .color(TEXT_SEC),
+                                        .color(pal().text_sec),
                                 ),
                             );
                             pbar(
@@ -1809,7 +2011,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                                         .color(if p.io_write_mb_delta > 10.0 {
                                             fg
                                         } else {
-                                            TEXT_MUT
+                                            pal().text_mut
                                         }),
                                 ),
                             );
@@ -1820,7 +2022,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                                 egui::Label::new(
                                     RichText::new(format!("{:.1}", p.io_read_mb_delta))
                                         .size(12.0)
-                                        .color(TEXT_MUT),
+                                        .color(pal().text_mut),
                                 ),
                             );
 
@@ -1834,7 +2036,8 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
 
                             // Acción
                             if p.can_terminate
-                                && action_btn(ui, "Finalizar", C_CR_BG, C_CR_FG).clicked()
+                                && action_btn(ui, "Finalizar", pal().c_cr_bg, pal().c_cr_fg)
+                                    .clicked()
                             {
                                 to_kill = Some(p.pid);
                             }
@@ -1869,7 +2072,7 @@ fn draw_tab_connections<F: FnMut(&str)>(
     ui.horizontal(|ui| {
         ui.checkbox(
             only_public,
-            RichText::new("Solo IP públicas").color(TEXT_SEC),
+            RichText::new("Solo IP públicas").color(pal().text_sec),
         )
         .on_hover_text("Ocultar conexiones a IPs privadas / localhost");
         let total = snap.connections.len();
@@ -1886,13 +2089,13 @@ fn draw_tab_connections<F: FnMut(&str)>(
                 if shown != 1 { "es" } else { "" }
             ))
             .size(11.0)
-            .color(TEXT_MUT),
+            .color(pal().text_mut),
         );
         if shown < total {
             ui.label(
                 RichText::new(format!("de {total} totales"))
                     .size(11.0)
-                    .color(TEXT_MUT),
+                    .color(pal().text_mut),
             );
         }
     });
@@ -1930,7 +2133,11 @@ fn draw_tab_connections<F: FnMut(&str)>(
                 .take(30)
                 .enumerate()
             {
-                let row_bg = if i % 2 == 0 { BG_APP } else { BG_ROW_ALT };
+                let row_bg = if i % 2 == 0 {
+                    pal().bg_app
+                } else {
+                    pal().bg_row_alt
+                };
                 let fg = sev_fg(c.severity);
 
                 egui::Frame::none()
@@ -1950,14 +2157,18 @@ fn draw_tab_connections<F: FnMut(&str)>(
                             );
                             resp.on_hover_ui(|ui| {
                                 ui.set_max_width(360.0);
-                                ui.label(RichText::new(&c.process_name).strong().color(TEXT_PRI));
+                                ui.label(
+                                    RichText::new(&c.process_name)
+                                        .strong()
+                                        .color(pal().text_pri),
+                                );
                                 ui.label(
                                     RichText::new(&c.exe_path)
                                         .small()
                                         .monospace()
-                                        .color(TEXT_MUT),
+                                        .color(pal().text_mut),
                                 );
-                                ui.label(RichText::new(&c.reason).small().color(TEXT_SEC));
+                                ui.label(RichText::new(&c.reason).small().color(pal().text_sec));
                             });
 
                             // PID
@@ -1967,7 +2178,7 @@ fn draw_tab_connections<F: FnMut(&str)>(
                                     RichText::new(format!("{}", c.pid))
                                         .monospace()
                                         .size(11.0)
-                                        .color(TEXT_MUT),
+                                        .color(pal().text_mut),
                                 ),
                             );
 
@@ -1975,7 +2186,7 @@ fn draw_tab_connections<F: FnMut(&str)>(
                             ui.add_sized(
                                 [W_PROTO, 18.0],
                                 egui::Label::new(
-                                    RichText::new(&c.protocol).size(11.5).color(C_BL_FG),
+                                    RichText::new(&c.protocol).size(11.5).color(pal().c_bl_fg),
                                 ),
                             );
 
@@ -1983,7 +2194,7 @@ fn draw_tab_connections<F: FnMut(&str)>(
                             ui.add_sized(
                                 [W_STATE, 18.0],
                                 egui::Label::new(
-                                    RichText::new(&c.state).size(11.0).color(TEXT_SEC),
+                                    RichText::new(&c.state).size(11.0).color(pal().text_sec),
                                 ),
                             );
 
@@ -1995,7 +2206,7 @@ fn draw_tab_connections<F: FnMut(&str)>(
                                     RichText::new(&local_short)
                                         .monospace()
                                         .size(11.0)
-                                        .color(TEXT_MUT),
+                                        .color(pal().text_mut),
                                 ),
                             );
                             if c.local_address.len() > 22 {
@@ -2007,10 +2218,13 @@ fn draw_tab_connections<F: FnMut(&str)>(
                             let rr = ui.add_sized(
                                 [W_ADDR, 18.0],
                                 egui::Label::new(
-                                    RichText::new(&remote_short)
-                                        .monospace()
-                                        .size(11.0)
-                                        .color(if c.is_public_remote { fg } else { TEXT_MUT }),
+                                    RichText::new(&remote_short).monospace().size(11.0).color(
+                                        if c.is_public_remote {
+                                            fg
+                                        } else {
+                                            pal().text_mut
+                                        },
+                                    ),
                                 ),
                             );
                             if c.remote_address.len() > 22 {
@@ -2019,7 +2233,8 @@ fn draw_tab_connections<F: FnMut(&str)>(
 
                             // Bloquear
                             if c.is_public_remote
-                                && action_btn(ui, "Bloquear", C_CR_BG, C_CR_FG).clicked()
+                                && action_btn(ui, "Bloquear", pal().c_cr_bg, pal().c_cr_fg)
+                                    .clicked()
                             {
                                 to_block = Some(c.remote_address.clone());
                             }
@@ -2060,7 +2275,7 @@ fn draw_tab_temp(
 
     // ── Limpieza segura de %TEMP% (solo tu carpeta, >24h, salta lo en uso) ─────
     egui::Frame::none()
-        .fill(BG_CARD)
+        .fill(pal().bg_card)
         .rounding(Rounding::same(6.0))
         .inner_margin(Margin::same(8.0))
         .show(ui, |ui| {
@@ -2070,7 +2285,7 @@ fn draw_tab_temp(
                         .add(egui::Button::new(
                             RichText::new("🗑  Limpiar %TEMP% (>24h, no en uso)")
                                 .size(12.5)
-                                .color(TEXT_PRI),
+                                .color(pal().text_pri),
                         ))
                         .on_hover_text(
                             "Borra de tu carpeta %TEMP% solo lo no modificado en 24h; \
@@ -2083,21 +2298,23 @@ fn draw_tab_temp(
                     ui.label(
                         RichText::new("Seguro: solo tu %TEMP%, salta archivos en uso.")
                             .size(10.5)
-                            .color(TEXT_MUT),
+                            .color(pal().text_mut),
                     );
                 } else {
                     ui.label(
                         RichText::new("¿Confirmar? Se borrará lo no usado (>24h) de tu %TEMP%.")
                             .size(12.0)
                             .strong()
-                            .color(C_WN_FG),
+                            .color(pal().c_wn_fg),
                     );
                     if ui
                         .add(
                             egui::Button::new(
-                                RichText::new("Sí, limpiar").size(12.0).color(TEXT_PRI),
+                                RichText::new("Sí, limpiar")
+                                    .size(12.0)
+                                    .color(pal().text_pri),
                             )
-                            .fill(C_CR_BG),
+                            .fill(pal().c_cr_bg),
                         )
                         .clicked()
                     {
@@ -2105,7 +2322,7 @@ fn draw_tab_temp(
                     }
                     if ui
                         .add(egui::Button::new(
-                            RichText::new("Cancelar").size(12.0).color(TEXT_SEC),
+                            RichText::new("Cancelar").size(12.0).color(pal().text_sec),
                         ))
                         .clicked()
                     {
@@ -2115,7 +2332,7 @@ fn draw_tab_temp(
             });
             if let Some(msg) = result {
                 ui.add_space(4.0);
-                ui.label(RichText::new(msg).size(11.0).color(C_OK_FG));
+                ui.label(RichText::new(msg).size(11.0).color(pal().c_ok_fg));
             }
         });
     ui.add_space(10.0);
@@ -2141,7 +2358,11 @@ fn draw_tab_temp(
                 .filter(|e| matches_filter(&e.path, &e.note, filter))
                 .enumerate()
             {
-                let row_bg = if i % 2 == 0 { BG_APP } else { BG_ROW_ALT };
+                let row_bg = if i % 2 == 0 {
+                    pal().bg_app
+                } else {
+                    pal().bg_row_alt
+                };
                 let fg = sev_fg(e.severity);
 
                 egui::Frame::none()
@@ -2154,7 +2375,10 @@ fn draw_tab_temp(
                             let resp = ui.add_sized(
                                 [340.0, 18.0],
                                 egui::Label::new(
-                                    RichText::new(&short).monospace().size(11.5).color(TEXT_SEC),
+                                    RichText::new(&short)
+                                        .monospace()
+                                        .size(11.5)
+                                        .color(pal().text_sec),
                                 ),
                             );
                             if e.path.len() > 46 {
@@ -2180,7 +2404,7 @@ fn draw_tab_temp(
                                 egui::Label::new(
                                     RichText::new(format!("{}", e.file_count))
                                         .size(11.5)
-                                        .color(TEXT_MUT),
+                                        .color(pal().text_mut),
                                 ),
                             );
 
@@ -2189,7 +2413,7 @@ fn draw_tab_temp(
                             let nr = ui.label(
                                 RichText::new(&note_short)
                                     .size(11.0)
-                                    .color(TEXT_MUT)
+                                    .color(pal().text_mut)
                                     .italics(),
                             );
                             if e.note.len() > 50 {
@@ -2204,7 +2428,7 @@ fn draw_tab_temp(
     if !snap.temp.limitations.is_empty() {
         ui.add_space(6.0);
         for lim in &snap.temp.limitations {
-            ui.label(RichText::new(lim).small().italics().color(TEXT_MUT));
+            ui.label(RichText::new(lim).small().italics().color(pal().text_mut));
         }
     }
 
@@ -2240,8 +2464,8 @@ fn draw_docker_section(
     let Some(scan) = scan else {
         // Aún no se ha escaneado: tarjeta con botón.
         egui::Frame::none()
-            .fill(BG_CARD)
-            .stroke(Stroke::new(1.0, BORDER))
+            .fill(pal().bg_card)
+            .stroke(Stroke::new(1.0, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
@@ -2256,7 +2480,7 @@ fn draw_docker_section(
                              safely reclaim.",
                         ))
                         .size(12.0)
-                        .color(TEXT_SEC),
+                        .color(pal().text_sec),
                     )
                     .wrap(true),
                 );
@@ -2266,10 +2490,10 @@ fn draw_docker_section(
                         egui::Button::new(
                             RichText::new(tr("Escanear Docker", "Scan Docker"))
                                 .size(12.5)
-                                .color(C_BL_FG),
+                                .color(pal().c_bl_fg),
                         )
-                        .fill(C_BL_BG)
-                        .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.4)))
+                        .fill(pal().c_bl_bg)
+                        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.4)))
                         .rounding(Rounding::same(5.0)),
                     )
                     .clicked()
@@ -2283,8 +2507,8 @@ fn draw_docker_section(
     if !scan.available {
         // Docker no instalado o daemon caído.
         egui::Frame::none()
-            .fill(C_WN_BG)
-            .stroke(Stroke::new(1.0, C_WN_FG.linear_multiply(0.4)))
+            .fill(pal().c_wn_bg)
+            .stroke(Stroke::new(1.0, pal().c_wn_fg.linear_multiply(0.4)))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
@@ -2296,12 +2520,13 @@ fn draw_docker_section(
                                 .unwrap_or("Docker no está disponible."),
                         )
                         .size(12.0)
-                        .color(C_WN_FG),
+                        .color(pal().c_wn_fg),
                     )
                     .wrap(true),
                 );
                 ui.add_space(8.0);
-                if action_btn(ui, tr("Reintentar", "Retry"), C_BL_BG, C_BL_FG).clicked() {
+                if action_btn(ui, tr("Reintentar", "Retry"), pal().c_bl_bg, pal().c_bl_fg).clicked()
+                {
                     *action = Some(DockerUiAction::Scan);
                 }
             });
@@ -2310,8 +2535,8 @@ fn draw_docker_section(
 
     // ── Resumen: ocupado / recuperable + botón de reescaneo ────────────────────
     egui::Frame::none()
-        .fill(BG_CARD)
-        .stroke(Stroke::new(1.0, BORDER))
+        .fill(pal().bg_card)
+        .stroke(Stroke::new(1.0, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(12.0))
         .show(ui, |ui| {
@@ -2320,7 +2545,7 @@ fn draw_docker_section(
                     ui,
                     tr("Ocupado", "Used"),
                     &fmt_size_mb(scan.total_size_mb()),
-                    TEXT_PRI,
+                    pal().text_pri,
                 );
                 ui.add_space(16.0);
                 let recl = scan.total_reclaimable_mb();
@@ -2328,7 +2553,11 @@ fn draw_docker_section(
                     ui,
                     tr("Recuperable", "Reclaimable"),
                     &fmt_size_mb(recl),
-                    if recl > 100.0 { C_WN_FG } else { C_OK_FG },
+                    if recl > 100.0 {
+                        pal().c_wn_fg
+                    } else {
+                        pal().c_ok_fg
+                    },
                 );
                 ui.add_space(16.0);
                 docker_stat(
@@ -2336,13 +2565,15 @@ fn draw_docker_section(
                     tr("Imágenes colgantes", "Dangling images"),
                     &scan.dangling_count().to_string(),
                     if scan.dangling_count() > 0 {
-                        C_WN_FG
+                        pal().c_wn_fg
                     } else {
-                        TEXT_SEC
+                        pal().text_sec
                     },
                 );
                 ui.add_space(16.0);
-                if action_btn(ui, tr("Reescanear", "Rescan"), C_BL_BG, C_BL_FG).clicked() {
+                if action_btn(ui, tr("Reescanear", "Rescan"), pal().c_bl_bg, pal().c_bl_fg)
+                    .clicked()
+                {
                     *action = Some(DockerUiAction::Scan);
                 }
             });
@@ -2360,14 +2591,14 @@ fn draw_docker_section(
         ui.horizontal(|ui| {
             ui.add_sized(
                 [150.0, 18.0],
-                egui::Label::new(RichText::new(&c.kind).size(12.0).color(TEXT_SEC)),
+                egui::Label::new(RichText::new(&c.kind).size(12.0).color(pal().text_sec)),
             );
             ui.add_sized(
                 [70.0, 18.0],
                 egui::Label::new(
                     RichText::new(format!("{}/{}", c.active, c.total))
                         .size(11.5)
-                        .color(TEXT_MUT),
+                        .color(pal().text_mut),
                 ),
             );
             ui.add_sized(
@@ -2375,7 +2606,7 @@ fn draw_docker_section(
                 egui::Label::new(
                     RichText::new(fmt_size_mb(c.size_mb))
                         .size(12.0)
-                        .color(TEXT_PRI),
+                        .color(pal().text_pri),
                 ),
             );
             let recl = c.reclaimable_mb;
@@ -2387,7 +2618,7 @@ fn draw_docker_section(
                         fmt_size_mb(recl)
                     ))
                     .size(11.0)
-                    .color(C_WN_FG),
+                    .color(pal().c_wn_fg),
                 );
             }
         });
@@ -2401,15 +2632,15 @@ fn draw_docker_section(
             RichText::new(tr("Imágenes más grandes", "Largest images"))
                 .size(12.0)
                 .strong()
-                .color(TEXT_SEC),
+                .color(pal().text_sec),
         );
         ui.add_space(4.0);
         for img in scan.images.iter().take(8) {
             ui.horizontal(|ui| {
                 let (name, name_color) = if img.dangling {
-                    (tr("<colgante>", "<dangling>").to_owned(), C_WN_FG)
+                    (tr("<colgante>", "<dangling>").to_owned(), pal().c_wn_fg)
                 } else {
-                    (format!("{}:{}", img.repository, img.tag), TEXT_SEC)
+                    (format!("{}:{}", img.repository, img.tag), pal().text_sec)
                 };
                 let short = trunc(&name, 42);
                 let resp = ui.add_sized(
@@ -2429,14 +2660,14 @@ fn draw_docker_section(
                     egui::Label::new(
                         RichText::new(fmt_size_mb(img.size_mb))
                             .size(12.0)
-                            .color(TEXT_PRI),
+                            .color(pal().text_pri),
                     ),
                 );
                 ui.label(
                     RichText::new(&img.created)
                         .size(11.0)
                         .italics()
-                        .color(TEXT_MUT),
+                        .color(pal().text_mut),
                 );
             });
             ui.add_space(1.0);
@@ -2454,7 +2685,7 @@ fn draw_docker_section(
             ))
             .size(12.0)
             .strong()
-            .color(TEXT_SEC),
+            .color(pal().text_sec),
         );
         ui.label(
             RichText::new(tr(
@@ -2465,12 +2696,12 @@ fn draw_docker_section(
             ))
             .size(10.5)
             .italics()
-            .color(TEXT_MUT),
+            .color(pal().text_mut),
         );
         ui.add_space(4.0);
         ui.horizontal_wrapped(|ui| {
             for v in scan.volumes.iter().take(24) {
-                pill(ui, &trunc(&v.name, 28), TEXT_SEC, BG_CARD);
+                pill(ui, &trunc(&v.name, 28), pal().text_sec, pal().bg_card);
             }
         });
     }
@@ -2478,8 +2709,8 @@ fn draw_docker_section(
     // ── Purga guiada segura (2 pasos) ──────────────────────────────────────────
     ui.add_space(10.0);
     egui::Frame::none()
-        .fill(BG_PANEL)
-        .stroke(Stroke::new(1.0, BORDER))
+        .fill(pal().bg_panel)
+        .stroke(Stroke::new(1.0, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
@@ -2487,7 +2718,7 @@ fn draw_docker_section(
                 RichText::new(tr("Purga segura", "Safe cleanup"))
                     .size(12.5)
                     .strong()
-                    .color(TEXT_PRI),
+                    .color(pal().text_pri),
             );
             ui.label(
                 RichText::new(tr(
@@ -2497,7 +2728,7 @@ fn draw_docker_section(
                      tagged images or volumes.",
                 ))
                 .size(10.5)
-                .color(TEXT_MUT),
+                .color(pal().text_mut),
             );
             ui.add_space(6.0);
             docker_prune_row(
@@ -2519,9 +2750,9 @@ fn draw_docker_section(
     if let Some(msg) = result {
         ui.add_space(6.0);
         let color = if msg.starts_with('❌') {
-            C_CR_FG
+            pal().c_cr_fg
         } else {
-            C_OK_FG
+            pal().c_ok_fg
         };
         ui.label(RichText::new(msg).size(11.5).color(color));
     }
@@ -2530,7 +2761,7 @@ fn draw_docker_section(
 /// Métrica compacta etiqueta + valor para el resumen de Docker.
 fn docker_stat(ui: &mut egui::Ui, label: &str, value: &str, value_color: Color32) {
     ui.vertical(|ui| {
-        ui.label(RichText::new(label).size(10.5).color(TEXT_MUT));
+        ui.label(RichText::new(label).size(10.5).color(pal().text_mut));
         ui.label(RichText::new(value).size(15.0).strong().color(value_color));
     });
 }
@@ -2538,12 +2769,12 @@ fn docker_stat(ui: &mut egui::Ui, label: &str, value: &str, value_color: Color32
 /// Barra horizontal segmentada por categoría de Docker (estilo almacenamiento).
 fn docker_category_bar(ui: &mut egui::Ui, scan: &DockerScan) {
     let total = scan.total_size_mb().max(0.001);
-    let colors = [C_BL_FG, C_OK_FG, C_WN_FG, ACCENT];
+    let colors = [pal().c_bl_fg, pal().c_ok_fg, pal().c_wn_fg, pal().accent];
     let width = ui.available_width().clamp(200.0, 760.0);
     let h = 16.0;
     let (rect, _) = ui.allocate_exact_size(Vec2::new(width, h), Sense::hover());
     ui.painter()
-        .rect_filled(rect, Rounding::same(5.0), BG_PANEL);
+        .rect_filled(rect, Rounding::same(5.0), pal().bg_panel);
     let mut x = rect.left();
     for (i, c) in scan.categories.iter().enumerate() {
         let frac = (c.size_mb / total).clamp(0.0, 1.0) as f32;
@@ -2568,7 +2799,7 @@ fn docker_category_bar(ui: &mut egui::Ui, scan: &DockerScan) {
             ui.label(
                 RichText::new(format!("{} · {}", c.kind, fmt_size_mb(c.size_mb)))
                     .size(10.5)
-                    .color(TEXT_SEC),
+                    .color(pal().text_sec),
             );
             ui.add_space(8.0);
         }
@@ -2589,16 +2820,16 @@ fn docker_prune_row(
                 RichText::new(tr("¿Confirmar?", "Confirm?"))
                     .size(12.0)
                     .strong()
-                    .color(C_WN_FG),
+                    .color(pal().c_wn_fg),
             );
             if ui
                 .add(
                     egui::Button::new(
                         RichText::new(tr("Sí, purgar", "Yes, prune"))
                             .size(11.5)
-                            .color(TEXT_PRI),
+                            .color(pal().text_pri),
                     )
-                    .fill(C_CR_BG),
+                    .fill(pal().c_cr_bg),
                 )
                 .clicked()
             {
@@ -2608,7 +2839,7 @@ fn docker_prune_row(
                 .add(egui::Button::new(
                     RichText::new(tr("Cancelar", "Cancel"))
                         .size(11.5)
-                        .color(TEXT_SEC),
+                        .color(pal().text_sec),
                 ))
                 .clicked()
             {
@@ -2616,9 +2847,9 @@ fn docker_prune_row(
             }
         } else if ui
             .add(
-                egui::Button::new(RichText::new(label).size(11.5).color(TEXT_PRI))
-                    .fill(BG_CARD)
-                    .stroke(Stroke::new(1.0, BORDER)),
+                egui::Button::new(RichText::new(label).size(11.5).color(pal().text_pri))
+                    .fill(pal().bg_card)
+                    .stroke(Stroke::new(1.0, pal().border)),
             )
             .clicked()
         {
@@ -2651,13 +2882,17 @@ fn draw_tab_precision(
     ui.add_space(8.0);
 
     egui::Frame::none()
-        .fill(if recording { C_WN_BG } else { BG_CARD })
+        .fill(if recording {
+            pal().c_wn_bg
+        } else {
+            pal().bg_card
+        })
         .stroke(Stroke::new(
             1.0,
             if recording {
-                C_WN_FG.linear_multiply(0.5)
+                pal().c_wn_fg.linear_multiply(0.5)
             } else {
-                BORDER
+                pal().border
             },
         ))
         .rounding(Rounding::same(8.0))
@@ -2670,9 +2905,9 @@ fn draw_tab_precision(
                 tool_chip(ui, "Tracerpt", p.tracerpt_available);
                 ui.add_space(12.0);
                 let (txt, label) = if recording {
-                    (C_WN_FG, "GRABANDO")
+                    (pal().c_wn_fg, "GRABANDO")
                 } else {
-                    (TEXT_MUT, "En espera")
+                    (pal().text_mut, "En espera")
                 };
                 // Punto de estado pintado (los glifos ●/○ no están en la fuente).
                 let (dot_rect, _) = ui.allocate_exact_size(Vec2::splat(10.0), Sense::hover());
@@ -2682,21 +2917,25 @@ fn draw_tab_precision(
             });
 
             ui.add_space(10.0);
-            ui.label(RichText::new(&p.guidance).color(TEXT_SEC).size(13.0));
+            ui.label(RichText::new(&p.guidance).color(pal().text_sec).size(13.0));
 
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("Trazas:").color(TEXT_MUT).size(11.5));
+                ui.label(RichText::new("Trazas:").color(pal().text_mut).size(11.5));
                 ui.label(
                     RichText::new(&p.traces_directory)
                         .monospace()
                         .size(11.5)
-                        .color(TEXT_SEC),
+                        .color(pal().text_sec),
                 );
             });
             ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("Motor:").color(TEXT_MUT).size(11.5));
-                ui.label(RichText::new(&p.analyzer_label).size(11.5).color(TEXT_SEC));
+                ui.label(RichText::new("Motor:").color(pal().text_mut).size(11.5));
+                ui.label(
+                    RichText::new(&p.analyzer_label)
+                        .size(11.5)
+                        .color(pal().text_sec),
+                );
             });
 
             if let Some(path) = &p.last_trace_path {
@@ -2706,17 +2945,25 @@ fn draw_tab_precision(
                 info_row_ok(ui, "Resumen:", path);
             }
             if !p.status_detail.is_empty() {
-                ui.label(RichText::new(&p.status_detail).small().color(TEXT_MUT));
+                ui.label(
+                    RichText::new(&p.status_detail)
+                        .small()
+                        .color(pal().text_mut),
+                );
             }
 
             ui.add_space(12.0);
             ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("Descripción:").color(TEXT_SEC).size(13.0));
+                ui.label(
+                    RichText::new("Descripción:")
+                        .color(pal().text_sec)
+                        .size(13.0),
+                );
                 ui.add_sized(
                     [420.0, 28.0],
                     egui::TextEdit::singleline(precision_note)
                         .hint_text("Ej: disco al 100% mientras Windows Update descarga")
-                        .text_color(TEXT_PRI),
+                        .text_color(pal().text_pri),
                 );
             });
 
@@ -2724,22 +2971,22 @@ fn draw_tab_precision(
             ui.horizontal_wrapped(|ui| {
                 if p.wpr_available
                     && !recording
-                    && action_btn(ui, "Iniciar captura", C_OK_BG, C_OK_FG).clicked()
+                    && action_btn(ui, "Iniciar captura", pal().c_ok_bg, pal().c_ok_fg).clicked()
                 {
                     *precision_action = Some(PrecisionAction::Start);
                 }
                 if p.wpr_available && recording {
-                    if action_btn(ui, "Detener y guardar", C_WN_BG, C_WN_FG).clicked() {
+                    if action_btn(ui, "Detener y guardar", pal().c_wn_bg, pal().c_wn_fg).clicked() {
                         *precision_action = Some(PrecisionAction::Stop);
                     }
-                    if action_btn(ui, "×  Cancelar", C_CR_BG, C_CR_FG).clicked() {
+                    if action_btn(ui, "×  Cancelar", pal().c_cr_bg, pal().c_cr_fg).clicked() {
                         *precision_action = Some(PrecisionAction::Cancel);
                     }
                 }
                 if !recording
                     && p.tracerpt_available
                     && p.last_trace_path.is_some()
-                    && action_btn(ui, "⚡  Analizar ETL", C_BL_BG, C_BL_FG).clicked()
+                    && action_btn(ui, "⚡  Analizar ETL", pal().c_bl_bg, pal().c_bl_fg).clicked()
                 {
                     *precision_action = Some(PrecisionAction::Analyze);
                 }
@@ -2757,8 +3004,8 @@ fn draw_tab_precision(
 
 fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
     egui::Frame::none()
-        .fill(BG_CARD)
-        .stroke(Stroke::new(1.0, BORDER))
+        .fill(pal().bg_card)
+        .stroke(Stroke::new(1.0, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
@@ -2772,10 +3019,10 @@ fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
                 pill(
                     ui,
                     &format!("{} eventos", ta.total_events),
-                    TEXT_SEC,
-                    BG_ROW_ALT,
+                    pal().text_sec,
+                    pal().bg_row_alt,
                 );
-                pill(ui, &ta.confidence, C_WN_FG, C_WN_BG);
+                pill(ui, &ta.confidence, pal().c_wn_fg, pal().c_wn_bg);
             });
 
             ui.add_space(6.0);
@@ -2787,7 +3034,7 @@ fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
                 ui.label(
                     RichText::new(format!("Hallazgos ({})", ta.findings.len()))
                         .strong()
-                        .color(TEXT_PRI),
+                        .color(pal().text_pri),
                 );
                 egui::ScrollArea::vertical()
                     .id_source("etl_findings")
@@ -2803,12 +3050,14 @@ fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
                                 .inner_margin(Margin::same(8.0))
                                 .show(ui, |ui| {
                                     ui.label(RichText::new(&f.title).strong().color(fg));
-                                    ui.label(RichText::new(&f.detail).small().color(TEXT_SEC));
+                                    ui.label(
+                                        RichText::new(&f.detail).small().color(pal().text_sec),
+                                    );
                                     ui.label(
                                         RichText::new(format!("Evidencia: {}", f.evidence))
                                             .small()
                                             .monospace()
-                                            .color(TEXT_MUT),
+                                            .color(pal().text_mut),
                                     );
                                 });
                         }
@@ -2829,7 +3078,7 @@ fn trace_processes_col(ui: &mut egui::Ui, procs: &[TraceProcessSummary]) {
         RichText::new("Procesos repetidos")
             .strong()
             .size(12.0)
-            .color(TEXT_SEC),
+            .color(pal().text_sec),
     );
     ui.add_space(4.0);
     egui::ScrollArea::vertical()
@@ -2847,7 +3096,7 @@ fn trace_processes_col(ui: &mut egui::Ui, procs: &[TraceProcessSummary]) {
                         ui.label(
                             RichText::new(format!("× {}  {}", p.occurrences, trunc(&p.reason, 30)))
                                 .small()
-                                .color(TEXT_SEC),
+                                .color(pal().text_sec),
                         );
                     });
                 ui.add_space(2.0);
@@ -2860,7 +3109,7 @@ fn trace_paths_col(ui: &mut egui::Ui, paths: &[TracePathSummary]) {
         RichText::new("Rutas repetidas")
             .strong()
             .size(12.0)
-            .color(TEXT_SEC),
+            .color(pal().text_sec),
     );
     ui.add_space(4.0);
     egui::ScrollArea::vertical()
@@ -2882,7 +3131,7 @@ fn trace_paths_col(ui: &mut egui::Ui, paths: &[TracePathSummary]) {
                         ui.label(
                             RichText::new(format!("{}  × {}", p.category, p.occurrences))
                                 .small()
-                                .color(TEXT_MUT),
+                                .color(pal().text_mut),
                         );
                     });
                 ui.add_space(2.0);
@@ -2895,7 +3144,7 @@ fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
         RichText::new("Proveedores ETW")
             .strong()
             .size(12.0)
-            .color(TEXT_SEC),
+            .color(pal().text_sec),
     );
     ui.add_space(4.0);
     if !ta.providers.is_empty() {
@@ -2915,10 +3164,16 @@ fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
                         let short = trunc(name, 24);
                         ui.add_sized(
                             [120.0, 14.0],
-                            egui::Label::new(RichText::new(&short).size(10.5).color(TEXT_SEC)),
+                            egui::Label::new(
+                                RichText::new(&short).size(10.5).color(pal().text_sec),
+                            ),
                         );
-                        pbar(ui, *count as f32 / max_count, C_BL_FG, 60.0);
-                        ui.label(RichText::new(format!("{count}")).size(10.0).color(TEXT_MUT));
+                        pbar(ui, *count as f32 / max_count, pal().c_bl_fg, 60.0);
+                        ui.label(
+                            RichText::new(format!("{count}"))
+                                .size(10.0)
+                                .color(pal().text_mut),
+                        );
                     });
                 }
             });
@@ -2930,11 +3185,15 @@ fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
             RichText::new("Indicadores")
                 .size(11.0)
                 .strong()
-                .color(TEXT_SEC),
+                .color(pal().text_sec),
         );
         ui.add_space(2.0);
         for ind in ta.indicators.iter().take(6) {
-            ui.label(RichText::new(format!("· {ind}")).size(10.5).color(TEXT_MUT));
+            ui.label(
+                RichText::new(format!("· {ind}"))
+                    .size(10.5)
+                    .color(pal().text_mut),
+            );
         }
         ui.add_space(4.0);
     }
@@ -2944,15 +3203,15 @@ fn trace_context_col(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
             RichText::new("IPs públicas")
                 .size(11.0)
                 .strong()
-                .color(C_BL_FG),
+                .color(pal().c_bl_fg),
         );
         for ip in ta.public_ips.iter().take(5) {
-            ui.label(RichText::new(ip).small().monospace().color(TEXT_SEC));
+            ui.label(RichText::new(ip).small().monospace().color(pal().text_sec));
         }
         ui.add_space(4.0);
     }
     for lim in ta.limitations.iter().take(3) {
-        ui.label(RichText::new(lim).small().italics().color(TEXT_MUT));
+        ui.label(RichText::new(lim).small().italics().color(pal().text_mut));
     }
 }
 
@@ -2974,7 +3233,7 @@ fn draw_tab_history(
     if rows.is_empty() {
         ui.label(
             RichText::new("Sin historial aún — el historial se acumula con cada refresco.")
-                .color(TEXT_MUT),
+                .color(pal().text_mut),
         );
         return;
     }
@@ -2987,7 +3246,7 @@ fn draw_tab_history(
             [220.0, 24.0],
             egui::TextEdit::singleline(filter)
                 .hint_text("Filtrar por proceso o fecha…")
-                .text_color(TEXT_PRI),
+                .text_color(pal().text_pri),
         );
         ui.add_space(8.0);
         let total = rows.len();
@@ -3005,7 +3264,7 @@ fn draw_tab_history(
         ui.label(
             RichText::new(format!("{shown} / {total}"))
                 .size(11.0)
-                .color(TEXT_MUT),
+                .color(pal().text_mut),
         );
     });
     ui.add_space(6.0);
@@ -3038,13 +3297,17 @@ fn draw_tab_history(
                 })
                 .enumerate()
             {
-                let row_bg = if i % 2 == 0 { BG_APP } else { BG_ROW_ALT };
-                let (fg, bg) = if row.has_critical {
-                    (C_CR_FG, C_CR_BG)
-                } else if row.alerts_count > 0 {
-                    (C_WN_FG, C_WN_BG)
+                let row_bg = if i % 2 == 0 {
+                    pal().bg_app
                 } else {
-                    (C_OK_FG, BG_CARD)
+                    pal().bg_row_alt
+                };
+                let (fg, bg) = if row.has_critical {
+                    (pal().c_cr_fg, pal().c_cr_bg)
+                } else if row.alerts_count > 0 {
+                    (pal().c_wn_fg, pal().c_wn_bg)
+                } else {
+                    (pal().c_ok_fg, pal().bg_card)
                 };
 
                 egui::Frame::none()
@@ -3061,7 +3324,10 @@ fn draw_tab_history(
                             ui.add_sized(
                                 [150.0, 16.0],
                                 egui::Label::new(
-                                    RichText::new(ts).monospace().size(11.0).color(TEXT_SEC),
+                                    RichText::new(ts)
+                                        .monospace()
+                                        .size(11.0)
+                                        .color(pal().text_sec),
                                 ),
                             );
 
@@ -3110,7 +3376,7 @@ fn draw_tab_history(
                                 egui::Label::new(
                                     RichText::new(format!("{:.0}", row.temp_total_mb))
                                         .size(11.5)
-                                        .color(TEXT_MUT),
+                                        .color(pal().text_mut),
                                 ),
                             );
 
@@ -3119,7 +3385,7 @@ fn draw_tab_history(
                             let resp = ui.add_sized(
                                 [200.0, 16.0],
                                 egui::Label::new(
-                                    RichText::new(&dp_short).size(11.0).color(TEXT_SEC),
+                                    RichText::new(&dp_short).size(11.0).color(pal().text_sec),
                                 ),
                             );
                             if row.dominant_process.len() > 26 {
@@ -3134,7 +3400,7 @@ fn draw_tab_history(
                                         .size(11.5)
                                         .color(fg)
                                 } else {
-                                    RichText::new("—").size(11.5).color(TEXT_MUT)
+                                    RichText::new("—").size(11.5).color(pal().text_mut)
                                 }),
                             );
 
@@ -3146,9 +3412,13 @@ fn draw_tab_history(
                                     egui::Button::new(
                                         RichText::new(if is_a { "A ✅" } else { "A" })
                                             .size(11.0)
-                                            .color(if is_a { C_BL_FG } else { TEXT_MUT }),
+                                            .color(if is_a {
+                                                pal().c_bl_fg
+                                            } else {
+                                                pal().text_mut
+                                            }),
                                     )
-                                    .fill(if is_a { C_BL_BG } else { BG_CARD })
+                                    .fill(if is_a { pal().c_bl_bg } else { pal().bg_card })
                                     .rounding(Rounding::same(4.0)),
                                 )
                                 .on_hover_text("Marcar como punto A para comparación")
@@ -3161,9 +3431,13 @@ fn draw_tab_history(
                                     egui::Button::new(
                                         RichText::new(if is_b { "B ✅" } else { "B" })
                                             .size(11.0)
-                                            .color(if is_b { C_WN_FG } else { TEXT_MUT }),
+                                            .color(if is_b {
+                                                pal().c_wn_fg
+                                            } else {
+                                                pal().text_mut
+                                            }),
                                     )
-                                    .fill(if is_b { C_WN_BG } else { BG_CARD })
+                                    .fill(if is_b { pal().c_wn_bg } else { pal().bg_card })
                                     .rounding(Rounding::same(4.0)),
                                 )
                                 .on_hover_text("Marcar como punto B para comparación")
@@ -3197,13 +3471,18 @@ fn draw_tab_history(
         section_header(ui, "▸  Comparación A vs B");
         ui.add_space(8.0);
         egui::Frame::none()
-            .fill(BG_CARD)
-            .stroke(Stroke::new(1.0, BORDER))
+            .fill(pal().bg_card)
+            .stroke(Stroke::new(1.0, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
                 ui.columns(3, |cols| {
-                    cols[0].label(RichText::new("Métrica").strong().size(12.0).color(TEXT_MUT));
+                    cols[0].label(
+                        RichText::new("Métrica")
+                            .strong()
+                            .size(12.0)
+                            .color(pal().text_mut),
+                    );
                     cols[1].label(
                         RichText::new(format!(
                             "A  {}",
@@ -3211,7 +3490,7 @@ fn draw_tab_history(
                         ))
                         .strong()
                         .size(12.0)
-                        .color(C_BL_FG),
+                        .color(pal().c_bl_fg),
                     );
                     cols[2].label(
                         RichText::new(format!(
@@ -3220,7 +3499,7 @@ fn draw_tab_history(
                         ))
                         .strong()
                         .size(12.0)
-                        .color(C_WN_FG),
+                        .color(pal().c_wn_fg),
                     );
                 });
                 ui.separator();
@@ -3232,15 +3511,19 @@ fn draw_tab_history(
                 ] {
                     let delta = vb - va;
                     let delta_col = if delta > 0.5 {
-                        C_CR_FG
+                        pal().c_cr_fg
                     } else if delta < -0.5 {
-                        C_OK_FG
+                        pal().c_ok_fg
                     } else {
-                        TEXT_MUT
+                        pal().text_mut
                     };
                     ui.columns(3, |cols| {
-                        cols[0].label(RichText::new(label).size(12.0).color(TEXT_SEC));
-                        cols[1].label(RichText::new(format!("{va:.1}")).size(12.0).color(C_BL_FG));
+                        cols[0].label(RichText::new(label).size(12.0).color(pal().text_sec));
+                        cols[1].label(
+                            RichText::new(format!("{va:.1}"))
+                                .size(12.0)
+                                .color(pal().c_bl_fg),
+                        );
                         cols[2].label(
                             RichText::new(format!(
                                 "{vb:.1}  ({}{delta:.1})",
@@ -3253,11 +3536,11 @@ fn draw_tab_history(
                 }
                 ui.separator();
                 ui.columns(3, |cols| {
-                    cols[0].label(RichText::new("Alertas").size(12.0).color(TEXT_SEC));
+                    cols[0].label(RichText::new("Alertas").size(12.0).color(pal().text_sec));
                     cols[1].label(
                         RichText::new(format!("{}", row_a.alerts_count))
                             .size(12.0)
-                            .color(C_BL_FG),
+                            .color(pal().c_bl_fg),
                     );
                     let diff = row_b.alerts_count as i64 - row_a.alerts_count as i64;
                     cols[2].label(
@@ -3268,11 +3551,11 @@ fn draw_tab_history(
                         ))
                         .size(12.0)
                         .color(if diff > 0 {
-                            C_CR_FG
+                            pal().c_cr_fg
                         } else if diff < 0 {
-                            C_OK_FG
+                            pal().c_ok_fg
                         } else {
-                            TEXT_MUT
+                            pal().text_mut
                         }),
                     );
                 });
@@ -3312,17 +3595,21 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
                 ui.horizontal_wrapped(|ui| {
                     draw_service_icon(ui, sev, 14.0);
                     ui.add_space(4.0);
-                    ui.label(RichText::new(&svc.display_name).strong().color(TEXT_PRI));
+                    ui.label(
+                        RichText::new(&svc.display_name)
+                            .strong()
+                            .color(pal().text_pri),
+                    );
                     pill(ui, &svc.status, fg, bg);
                     pill(
                         ui,
                         &format!("Inicio {}", svc.start_type),
-                        TEXT_MUT,
-                        BG_ROW_ALT,
+                        pal().text_mut,
+                        pal().bg_row_alt,
                     );
                     if is_stoppable_service(svc)
                         && svc.status.eq_ignore_ascii_case("Running")
-                        && action_btn(ui, "Detener", C_WN_BG, C_WN_FG).clicked()
+                        && action_btn(ui, "Detener", pal().c_wn_bg, pal().c_wn_fg).clicked()
                     {
                         to_stop = Some(svc.name.clone());
                     }
@@ -3352,7 +3639,11 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
                     Severity::Warning
                 };
                 let fg = sev_fg(sev);
-                let row_bg = if i % 2 == 0 { BG_APP } else { BG_ROW_ALT };
+                let row_bg = if i % 2 == 0 {
+                    pal().bg_app
+                } else {
+                    pal().bg_row_alt
+                };
 
                 egui::Frame::none()
                     .fill(row_bg)
@@ -3371,7 +3662,7 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
                             );
                         });
                         let msg_short = trunc(&evt.message, 100);
-                        let mr = ui.label(RichText::new(&msg_short).small().color(TEXT_SEC));
+                        let mr = ui.label(RichText::new(&msg_short).small().color(pal().text_sec));
                         if evt.message.len() > 100 {
                             mr.on_hover_text(&evt.message);
                         }
@@ -3403,13 +3694,13 @@ fn draw_tab_autostart(
             ui.label(
                 RichText::new("🚀")
                     .size(40.0)
-                    .color(TEXT_MUT.linear_multiply(0.5)),
+                    .color(pal().text_mut.linear_multiply(0.5)),
             );
             ui.add_space(8.0);
             ui.label(
                 RichText::new("No se encontraron entradas de autostart")
                     .size(13.0)
-                    .color(TEXT_MUT),
+                    .color(pal().text_mut),
             );
             ui.add_space(4.0);
             ui.label(
@@ -3417,7 +3708,7 @@ fn draw_tab_autostart(
                     "Registro Run vacío · Carpetas Startup vacías · Sin tareas detectadas",
                 )
                 .size(11.0)
-                .color(TEXT_MUT.linear_multiply(0.6)),
+                .color(pal().text_mut.linear_multiply(0.6)),
             );
         });
         return;
@@ -3470,21 +3761,31 @@ fn draw_tab_autostart(
         pill(
             ui,
             &format!("{} entradas activas", n_active),
-            TEXT_SEC,
-            BG_CARD,
+            pal().text_sec,
+            pal().bg_card,
         );
         if n_critical > 0 {
-            pill(ui, &format!("{} sospechosas", n_critical), C_CR_FG, C_CR_BG);
+            pill(
+                ui,
+                &format!("{} sospechosas", n_critical),
+                pal().c_cr_fg,
+                pal().c_cr_bg,
+            );
         }
         if n_warn > 0 {
-            pill(ui, &format!("{} a revisar", n_warn), C_WN_FG, C_WN_BG);
+            pill(
+                ui,
+                &format!("{} a revisar", n_warn),
+                pal().c_wn_fg,
+                pal().c_wn_bg,
+            );
         }
         if !filter.is_empty() {
             pill(
                 ui,
                 &format!("{} visibles", filtered.len()),
-                C_BL_FG,
-                C_BL_BG,
+                pal().c_bl_fg,
+                pal().c_bl_bg,
             );
         }
     });
@@ -3493,13 +3794,13 @@ fn draw_tab_autostart(
     // Banner de cambios vs baseline conocida + acción para aceptar el estado actual
     if n_changes > 0 {
         egui::Frame::none()
-            .fill(C_CR_BG)
-            .stroke(Stroke::new(1.0, C_CR_FG.linear_multiply(0.4)))
+            .fill(pal().c_cr_bg)
+            .stroke(Stroke::new(1.0, pal().c_cr_fg.linear_multiply(0.4)))
             .rounding(Rounding::same(6.0))
             .inner_margin(Margin::same(10.0))
             .show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
-                    ui.label(RichText::new("⚠").color(C_CR_FG).size(14.0));
+                    ui.label(RichText::new("⚠").color(pal().c_cr_fg).size(14.0));
                     ui.add_space(4.0);
                     ui.label(
                         RichText::new(format!(
@@ -3507,16 +3808,31 @@ fn draw_tab_autostart(
                         ))
                         .size(12.0)
                         .strong()
-                        .color(TEXT_PRI),
+                        .color(pal().text_pri),
                     );
                     if n_added > 0 {
-                        pill(ui, &format!("+{n_added} nuevas"), C_CR_FG, C_CR_BG);
+                        pill(
+                            ui,
+                            &format!("+{n_added} nuevas"),
+                            pal().c_cr_fg,
+                            pal().c_cr_bg,
+                        );
                     }
                     if n_modified > 0 {
-                        pill(ui, &format!("~{n_modified} modificadas"), C_WN_FG, C_WN_BG);
+                        pill(
+                            ui,
+                            &format!("~{n_modified} modificadas"),
+                            pal().c_wn_fg,
+                            pal().c_wn_bg,
+                        );
                     }
                     if n_removed > 0 {
-                        pill(ui, &format!("−{n_removed} eliminadas"), TEXT_MUT, BG_CARD);
+                        pill(
+                            ui,
+                            &format!("−{n_removed} eliminadas"),
+                            pal().text_mut,
+                            pal().bg_card,
+                        );
                     }
                 });
                 ui.add_space(6.0);
@@ -3525,7 +3841,7 @@ fn draw_tab_autostart(
                         .add(egui::Button::new(
                             RichText::new("✅ Aceptar estado actual como baseline")
                                 .size(12.0)
-                                .color(TEXT_PRI),
+                                .color(pal().text_pri),
                         ))
                         .on_hover_text(
                             "Marca el estado actual de autoarranque como \"bueno conocido\". \
@@ -3541,7 +3857,7 @@ fn draw_tab_autostart(
                              persistencia de malware.",
                         )
                         .size(10.5)
-                        .color(TEXT_MUT),
+                        .color(pal().text_mut),
                     );
                 });
             });
@@ -3549,12 +3865,12 @@ fn draw_tab_autostart(
     } else if n_active > 0 {
         // Sin cambios: confirmación tranquila de que hay baseline y coincide.
         ui.horizontal(|ui| {
-            ui.label(RichText::new("✅").color(C_OK_FG).size(12.0));
+            ui.label(RichText::new("✅").color(pal().c_ok_fg).size(12.0));
             ui.add_space(4.0);
             ui.label(
                 RichText::new("Sin cambios respecto a la baseline conocida.")
                     .size(11.0)
-                    .color(TEXT_MUT),
+                    .color(pal().text_mut),
             );
         });
         ui.add_space(6.0);
@@ -3578,7 +3894,11 @@ fn draw_tab_autostart(
             for (i, entry) in filtered.iter().enumerate() {
                 let sev = entry.severity.to_severity();
                 let fg = sev_fg(sev);
-                let row_bg = if i % 2 == 0 { BG_APP } else { BG_ROW_ALT };
+                let row_bg = if i % 2 == 0 {
+                    pal().bg_app
+                } else {
+                    pal().bg_row_alt
+                };
 
                 egui::Frame::none()
                     .fill(row_bg)
@@ -3599,7 +3919,7 @@ fn draw_tab_autostart(
                                     RichText::new(&short_name)
                                         .size(12.0)
                                         .strong()
-                                        .color(TEXT_PRI),
+                                        .color(pal().text_pri),
                                 ),
                             );
                             if entry.name.len() > 24 {
@@ -3609,10 +3929,10 @@ fn draw_tab_autostart(
                             // Badge de cambio vs baseline (NUEVA / MODIFICADA / ELIMINADA)
                             if entry.change_status.is_change() {
                                 let (cfg, cbg) = match entry.change_status {
-                                    PersistenceChange::Added => (C_CR_FG, C_CR_BG),
-                                    PersistenceChange::Modified => (C_WN_FG, C_WN_BG),
+                                    PersistenceChange::Added => (pal().c_cr_fg, pal().c_cr_bg),
+                                    PersistenceChange::Modified => (pal().c_wn_fg, pal().c_wn_bg),
                                     PersistenceChange::Removed | PersistenceChange::Unchanged => {
-                                        (TEXT_MUT, BG_CARD)
+                                        (pal().text_mut, pal().bg_card)
                                     }
                                 };
                                 pill(ui, entry.change_status.label(), cfg, cbg);
@@ -3638,9 +3958,9 @@ fn draw_tab_autostart(
                                 let (kfg, kbg) = if entry.entry_kind.contains("HKLM")
                                     || entry.entry_kind.contains("Scheduled")
                                 {
-                                    (C_WN_FG, C_WN_BG)
+                                    (pal().c_wn_fg, pal().c_wn_bg)
                                 } else {
-                                    (C_BL_FG, C_BL_BG)
+                                    (pal().c_bl_fg, pal().c_bl_bg)
                                 };
                                 ui.allocate_ui_with_layout(
                                     Vec2::new(200.0, 18.0),
@@ -3656,7 +3976,7 @@ fn draw_tab_autostart(
                                 egui::Label::new(
                                     RichText::new(&short_cmd).size(11.5).monospace().color(
                                         if sev == Severity::Healthy {
-                                            TEXT_SEC
+                                            pal().text_sec
                                         } else {
                                             fg
                                         },
@@ -3671,12 +3991,14 @@ fn draw_tab_autostart(
                                         RichText::new(&entry.command)
                                             .monospace()
                                             .size(11.0)
-                                            .color(TEXT_PRI),
+                                            .color(pal().text_pri),
                                     );
                                     if !entry.note.is_empty() {
                                         ui.separator();
                                         ui.label(
-                                            RichText::new(&entry.note).size(11.0).color(C_WN_FG),
+                                            RichText::new(&entry.note)
+                                                .size(11.0)
+                                                .color(pal().c_wn_fg),
                                         );
                                     }
                                 });
@@ -3684,9 +4006,9 @@ fn draw_tab_autostart(
 
                             // Existe en disco
                             let (disk_txt, disk_col) = if entry.exists_on_disk {
-                                ("✅ Sí", C_OK_FG)
+                                ("✅ Sí", pal().c_ok_fg)
                             } else {
-                                ("❌ No", C_CR_FG)
+                                ("❌ No", pal().c_cr_fg)
                             };
                             ui.add_sized(
                                 [64.0, 18.0],
@@ -3702,13 +4024,13 @@ fn draw_tab_autostart(
     // Nota informativa al pie
     ui.add_space(12.0);
     egui::Frame::none()
-        .fill(C_BL_BG)
-        .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.3)))
+        .fill(pal().c_bl_bg)
+        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.3)))
         .rounding(Rounding::same(6.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("ℹ").color(C_BL_FG).size(13.0));
+                ui.label(RichText::new("ℹ").color(pal().c_bl_fg).size(13.0));
                 ui.add_space(4.0);
                 ui.label(
                     RichText::new(
@@ -3718,7 +4040,7 @@ fn draw_tab_autostart(
                          y pueden limpiarse de forma segura.",
                     )
                     .size(11.0)
-                    .color(TEXT_SEC),
+                    .color(pal().text_sec),
                 );
             });
         });
@@ -3731,12 +4053,14 @@ fn draw_tab_autostart(
 /// Callout informativo con fondo suave para el manual.
 fn manual_note(ui: &mut egui::Ui, text: &str) {
     egui::Frame::none()
-        .fill(C_BL_BG)
-        .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.3)))
+        .fill(pal().c_bl_bg)
+        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.3)))
         .rounding(Rounding::same(6.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
-            ui.add(egui::Label::new(RichText::new(text).size(12.0).color(TEXT_SEC)).wrap(true));
+            ui.add(
+                egui::Label::new(RichText::new(text).size(12.0).color(pal().text_sec)).wrap(true),
+            );
         });
 }
 
@@ -3749,8 +4073,15 @@ fn manual_item(ui: &mut egui::Ui, icon: &str, icon_color: Color32, title: &str, 
         );
         ui.add_space(4.0);
         ui.vertical(|ui| {
-            ui.label(RichText::new(title).size(13.0).strong().color(TEXT_PRI));
-            ui.add(egui::Label::new(RichText::new(desc).size(11.5).color(TEXT_SEC)).wrap(true));
+            ui.label(
+                RichText::new(title)
+                    .size(13.0)
+                    .strong()
+                    .color(pal().text_pri),
+            );
+            ui.add(
+                egui::Label::new(RichText::new(desc).size(11.5).color(pal().text_sec)).wrap(true),
+            );
         });
     });
     ui.add_space(9.0);
@@ -3772,14 +4103,21 @@ fn manual_item_why(
         );
         ui.add_space(4.0);
         ui.vertical(|ui| {
-            ui.label(RichText::new(title).size(13.5).strong().color(TEXT_PRI));
-            ui.add(egui::Label::new(RichText::new(what).size(11.5).color(TEXT_SEC)).wrap(true));
+            ui.label(
+                RichText::new(title)
+                    .size(13.5)
+                    .strong()
+                    .color(pal().text_pri),
+            );
+            ui.add(
+                egui::Label::new(RichText::new(what).size(11.5).color(pal().text_sec)).wrap(true),
+            );
             ui.add(
                 egui::Label::new(
                     RichText::new(format!("{} {}", tr("Por qué:", "Why:"), why))
                         .size(11.0)
                         .italics()
-                        .color(TEXT_MUT),
+                        .color(pal().text_mut),
                 )
                 .wrap(true),
             );
@@ -3798,7 +4136,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
                 RichText::new(tr("Manual de uso", "User manual"))
                     .size(20.0)
                     .strong()
-                    .color(TEXT_PRI),
+                    .color(pal().text_pri),
             );
             ui.label(
                 RichText::new(tr(
@@ -3806,7 +4144,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
                     "What each part does and —above all— why",
                 ))
                 .size(12.0)
-                .color(TEXT_MUT),
+                .color(pal().text_mut),
             );
         });
     });
@@ -3850,7 +4188,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "📊",
-        ACCENT,
+        pal().accent,
         tr("Resumen", "Overview"),
         tr(
             "Banner de veredicto, salud 0–100, tarjetas de CPU/RAM/Disco/Red/Temporales y la lista \"Dónde mirar primero\".",
@@ -3864,7 +4202,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "⚙",
-        ACCENT,
+        pal().accent,
         tr("Procesos", "Processes"),
         tr(
             "Procesos por severidad, con CPU, RAM, escritura de disco y score de riesgo. Puedes finalizar uno (con confirmación).",
@@ -3878,7 +4216,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "🌐",
-        ACCENT,
+        pal().accent,
         tr("Conexiones", "Connections"),
         tr(
             "Conexiones de red activas por proceso (netstat enriquecido con nombre y ruta). Puedes bloquear una IP con el firewall.",
@@ -3892,7 +4230,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "🗑",
-        ACCENT,
+        pal().accent,
         tr("Temporales / Almacenamiento", "Temporary / Storage"),
         tr(
             "Carpetas temporales que crecen (%TEMP%, Windows Temp, Windows Update) y ahora el espacio de Docker (imágenes, volúmenes, caché).",
@@ -3906,7 +4244,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "🎯",
-        ACCENT,
+        pal().accent,
         "ETW / WPR",
         tr(
             "Modo de precisión: inicia/detiene/resume una traza ETL con Windows Performance Recorder y heurísticas locales.",
@@ -3920,7 +4258,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "🔧",
-        ACCENT,
+        pal().accent,
         tr("Servicios", "Services"),
         tr(
             "Servicios de seguridad relevantes (Defender, Windows Update, BITS…) con su estado; los cambios se reportan como alertas.",
@@ -3934,7 +4272,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "🚀",
-        ACCENT,
+        pal().accent,
         "Autostart",
         tr(
             "Todo lo que arranca con Windows: Registro Run/RunOnce, carpetas Startup y tareas programadas. Marca cambios vs baseline.",
@@ -3948,7 +4286,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "🕒",
-        ACCENT,
+        pal().accent,
         tr("Historial", "History"),
         tr(
             "Capturas guardadas localmente en SQLite. Compara dos momentos (A vs B) para ver la evolución.",
@@ -3962,7 +4300,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item_why(
         ui,
         "⚙",
-        ACCENT,
+        pal().accent,
         tr("Configuración", "Settings"),
         tr(
             "Idioma (español / inglés), umbrales de detección, anomalías e intervalo de refresco. Se guarda sin reiniciar.",
@@ -3976,14 +4314,14 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "📖",
-        ACCENT,
+        pal().accent,
         tr("Manual", "Manual"),
         tr("Esta pantalla.", "This screen."),
     );
     manual_item(
         ui,
         "ℹ",
-        ACCENT,
+        pal().accent,
         tr("Acerca", "About"),
         tr(
             "Versión, autor, stack técnico, atajos y salud del propio agente.",
@@ -4046,7 +4384,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "•",
-        C_BL_FG,
+        pal().c_bl_fg,
         tr("Finalizar proceso", "Terminate process"),
         tr(
             "Termina un proceso por PID. Nunca finaliza procesos críticos del sistema.",
@@ -4056,7 +4394,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "•",
-        C_BL_FG,
+        pal().c_bl_fg,
         tr("Bloquear IP", "Block IP"),
         tr(
             "Crea una regla de firewall para una IP remota.",
@@ -4066,7 +4404,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "•",
-        C_BL_FG,
+        pal().c_bl_fg,
         tr("Detener servicio", "Stop service"),
         tr(
             "Solo servicios de una lista permitida (bits, dosvc, sysmain, wuauserv).",
@@ -4076,7 +4414,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "•",
-        C_BL_FG,
+        pal().c_bl_fg,
         tr("Limpiar %TEMP% / Docker", "Clean %TEMP% / Docker"),
         tr(
             "Borra lo no usado de %TEMP% (>24h) y purga dangling/caché de Docker. Confirmación de 2 pasos.",
@@ -4086,7 +4424,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "•",
-        C_BL_FG,
+        pal().c_bl_fg,
         tr("Aceptar baseline", "Accept baseline"),
         tr(
             "Marca el estado actual de autostart o servicios como el nuevo \"bueno conocido\".",
@@ -4100,7 +4438,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "•",
-        C_OK_FG,
+        pal().c_ok_fg,
         tr("Verde — Saludable", "Green — Healthy"),
         tr(
             "Sin señales fuertes; comportamiento normal.",
@@ -4110,7 +4448,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "•",
-        C_WN_FG,
+        pal().c_wn_fg,
         tr("Ámbar — Advertencia", "Amber — Warning"),
         tr(
             "Vale la pena revisar; consumo o cambios notables.",
@@ -4120,7 +4458,7 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     manual_item(
         ui,
         "•",
-        C_CR_FG,
+        pal().c_cr_fg,
         tr("Rojo — Crítico", "Red — Critical"),
         tr(
             "Señal fuerte: prioriza la revisión (proceso, conexión o cambio sospechoso).",
@@ -4172,8 +4510,8 @@ fn draw_tab_config(
     ui.add_space(20.0);
     ui.vertical_centered(|ui| {
         egui::Frame::none()
-            .fill(BG_CARD)
-            .stroke(Stroke::new(1.0, BORDER))
+            .fill(pal().bg_card)
+            .stroke(Stroke::new(1.0, pal().border))
             .rounding(Rounding::same(14.0))
             .inner_margin(Margin::same(28.0))
             .show(ui, |ui| {
@@ -4181,14 +4519,14 @@ fn draw_tab_config(
 
                 // Título
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("⚙").size(22.0).color(ACCENT));
+                    ui.label(RichText::new("⚙").size(22.0).color(pal().accent));
                     ui.add_space(6.0);
                     ui.vertical(|ui| {
                         ui.label(
                             RichText::new(tr("Configuración", "Settings"))
                                 .size(20.0)
                                 .strong()
-                                .color(TEXT_PRI),
+                                .color(pal().text_pri),
                         );
                         ui.label(
                             RichText::new(tr(
@@ -4196,9 +4534,53 @@ fn draw_tab_config(
                                 "Language, detection thresholds and behavior",
                             ))
                             .size(12.0)
-                            .color(TEXT_MUT),
+                            .color(pal().text_mut),
                         );
                     });
+                });
+
+                ui.add_space(16.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Apariencia (modo de tema) ─────────────────────────────────
+                section_header(ui, tr("▸  Apariencia", "▸  Appearance"));
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(tr(
+                        "Modo de interfaz. El acento se toma del icono de RootCause.",
+                        "Interface mode. The accent comes from the RootCause icon.",
+                    ))
+                    .size(11.0)
+                    .color(pal().text_mut),
+                );
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    for (mode, es, en) in [
+                        (ThemeMode::Light, "Claro", "Light"),
+                        (ThemeMode::Dark, "Oscuro", "Dark"),
+                        (ThemeMode::Windows, "Windows", "Windows"),
+                    ] {
+                        let selected = cfg.ui.theme == mode;
+                        let (fg, bg) = if selected {
+                            (pal().text_pri, pal().accent)
+                        } else {
+                            (pal().text_sec, pal().bg_panel)
+                        };
+                        if ui
+                            .add(
+                                egui::Button::new(RichText::new(tr(es, en)).size(12.5).color(fg))
+                                    .fill(bg)
+                                    .stroke(Stroke::new(1.0, pal().border))
+                                    .min_size(Vec2::new(112.0, 30.0))
+                                    .rounding(Rounding::same(6.0)),
+                            )
+                            .clicked()
+                        {
+                            cfg.ui.theme = mode;
+                        }
+                        ui.add_space(6.0);
+                    }
                 });
 
                 ui.add_space(16.0);
@@ -4214,19 +4596,19 @@ fn draw_tab_config(
                         "Switches the whole interface instantly. Saved automatically.",
                     ))
                     .size(11.0)
-                    .color(TEXT_MUT),
+                    .color(pal().text_mut),
                 );
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
                     for lang in [Lang::Es, Lang::En] {
                         let selected = cfg.ui.language == lang;
                         let (fg, bg) = if selected {
-                            (TEXT_PRI, ACCENT)
+                            (pal().text_pri, pal().accent)
                         } else {
-                            (TEXT_SEC, BG_PANEL)
+                            (pal().text_sec, pal().bg_panel)
                         };
                         // Sin banderas emoji: la NotoEmoji empaquetada no las trae y
-                        // saldrían como tofu. La selección se indica con el fondo ACCENT.
+                        // saldrían como tofu. La selección se indica con el fondo pal().accent.
                         if ui
                             .add(
                                 egui::Button::new(
@@ -4239,7 +4621,7 @@ fn draw_tab_config(
                                     .color(fg),
                                 )
                                 .fill(bg)
-                                .stroke(Stroke::new(1.0, BORDER))
+                                .stroke(Stroke::new(1.0, pal().border))
                                 .min_size(Vec2::new(150.0, 30.0))
                                 .rounding(Rounding::same(6.0)),
                             )
@@ -4271,20 +4653,23 @@ fn draw_tab_config(
                         ui.add_sized(
                             [120.0, 18.0],
                             egui::Label::new(
-                                RichText::new(tr("Ruta", "Path")).size(12.0).color(TEXT_MUT),
+                                RichText::new(tr("Ruta", "Path"))
+                                    .size(12.0)
+                                    .color(pal().text_mut),
                             ),
                         );
                         let resp = ui.label(
                             RichText::new(&path_short)
                                 .size(11.5)
                                 .monospace()
-                                .color(TEXT_SEC),
+                                .color(pal().text_sec),
                         );
                         if config_path.len() > 60 {
                             resp.on_hover_text(config_path);
                         }
                         if !config_path.is_empty()
-                            && action_btn(ui, tr("Abrir", "Open"), C_BL_BG, C_BL_FG).clicked()
+                            && action_btn(ui, tr("Abrir", "Open"), pal().c_bl_bg, pal().c_bl_fg)
+                                .clicked()
                         {
                             let _ = windows::powershell(&format!(
                                 "Start-Process notepad.exe '{}'",
@@ -4306,29 +4691,47 @@ fn draw_tab_config(
                 ui.add_space(8.0);
                 {
                     let th = &mut cfg.thresholds.process;
-                    threshold_row(ui, "CPU warning", &mut th.cpu_warning_percent, "%", C_WN_FG);
+                    threshold_row(
+                        ui,
+                        "CPU warning",
+                        &mut th.cpu_warning_percent,
+                        "%",
+                        pal().c_wn_fg,
+                    );
                     threshold_row(
                         ui,
                         "CPU crítico",
                         &mut th.cpu_critical_percent,
                         "%",
-                        C_CR_FG,
+                        pal().c_cr_fg,
                     );
-                    threshold_row(ui, "RAM warning", &mut th.memory_warning_mb, "MB", C_WN_FG);
-                    threshold_row(ui, "RAM crítico", &mut th.memory_critical_mb, "MB", C_CR_FG);
+                    threshold_row(
+                        ui,
+                        "RAM warning",
+                        &mut th.memory_warning_mb,
+                        "MB",
+                        pal().c_wn_fg,
+                    );
+                    threshold_row(
+                        ui,
+                        "RAM crítico",
+                        &mut th.memory_critical_mb,
+                        "MB",
+                        pal().c_cr_fg,
+                    );
                     threshold_row(
                         ui,
                         "I/O warning",
                         &mut th.io_write_warning_mb,
                         "MB/s",
-                        C_WN_FG,
+                        pal().c_wn_fg,
                     );
                     threshold_row(
                         ui,
                         "I/O crítico",
                         &mut th.io_write_critical_mb,
                         "MB/s",
-                        C_CR_FG,
+                        pal().c_cr_fg,
                     );
                 }
 
@@ -4345,7 +4748,7 @@ fn draw_tab_config(
                             egui::Label::new(
                                 RichText::new(tr("Estado", "Status"))
                                     .size(12.0)
-                                    .color(TEXT_MUT),
+                                    .color(pal().text_mut),
                             ),
                         );
                         let label = if an.enabled {
@@ -4353,7 +4756,11 @@ fn draw_tab_config(
                         } else {
                             tr("Deshabilitada", "Disabled")
                         };
-                        let color = if an.enabled { C_OK_FG } else { TEXT_MUT };
+                        let color = if an.enabled {
+                            pal().c_ok_fg
+                        } else {
+                            pal().text_mut
+                        };
                         if ui
                             .add(
                                 egui::Button::new(RichText::new(label).size(11.5).color(color))
@@ -4374,21 +4781,21 @@ fn draw_tab_config(
                         "CPU sostenida",
                         &mut an.cpu_sustained_percent,
                         "%",
-                        TEXT_SEC,
+                        pal().text_sec,
                     );
                     threshold_row(
                         ui,
                         "RAM crecimiento",
                         &mut an.memory_growth_mb,
                         "MB",
-                        TEXT_SEC,
+                        pal().text_sec,
                     );
                     threshold_row(
                         ui,
                         "Escritura agres.",
                         &mut an.aggressive_write_mb,
                         "MB/s",
-                        TEXT_SEC,
+                        pal().text_sec,
                     );
                 }
                 {
@@ -4398,7 +4805,7 @@ fn draw_tab_config(
                         tr("Refresco UI", "UI refresh"),
                         &mut secs,
                         "s",
-                        TEXT_SEC,
+                        pal().text_sec,
                     );
                     cfg.collection.refresh_interval_secs = secs.max(1.0) as u64;
                 }
@@ -4412,10 +4819,10 @@ fn draw_tab_config(
                             egui::Button::new(
                                 RichText::new(format!("💾  {}", tr("Guardar", "Save")))
                                     .size(12.5)
-                                    .color(C_OK_FG),
+                                    .color(pal().c_ok_fg),
                             )
                             .min_size(Vec2::new(130.0, 30.0))
-                            .fill(C_OK_BG),
+                            .fill(pal().c_ok_bg),
                         )
                         .on_hover_text(tr(
                             "Persiste los cambios en el JSON y los aplica sin reiniciar",
@@ -4431,7 +4838,7 @@ fn draw_tab_config(
                             "Changes apply on the next capture.",
                         ))
                         .size(11.0)
-                        .color(TEXT_MUT),
+                        .color(pal().text_mut),
                     );
                 });
             });
@@ -4445,8 +4852,8 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
     ui.vertical_centered(|ui| {
         // ── Tarjeta principal ─────────────────────────────────────────────────
         egui::Frame::none()
-            .fill(BG_CARD)
-            .stroke(Stroke::new(1.0, BORDER))
+            .fill(pal().bg_card)
+            .stroke(Stroke::new(1.0, pal().border))
             .rounding(Rounding::same(14.0))
             .inner_margin(Margin::same(32.0))
             .show(ui, |ui| {
@@ -4461,20 +4868,24 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                             RichText::new(meta::DISPLAY_NAME)
                                 .size(22.0)
                                 .strong()
-                                .color(TEXT_PRI),
+                                .color(pal().text_pri),
                         );
                         ui.add_space(2.0);
                         pill(
                             ui,
                             &format!("v{}  ·  {}", meta::VERSION, meta::LICENSE),
-                            C_BL_FG,
-                            C_BL_BG,
+                            pal().c_bl_fg,
+                            pal().c_bl_bg,
                         );
                     });
                 });
 
                 ui.add_space(16.0);
-                ui.label(RichText::new(meta::DESCRIPTION).size(13.0).color(TEXT_SEC));
+                ui.label(
+                    RichText::new(meta::DESCRIPTION)
+                        .size(13.0)
+                        .color(pal().text_sec),
+                );
 
                 if let Some(snap) = snapshot {
                     ui.add_space(18.0);
@@ -4494,7 +4905,7 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                 section_header(ui, "▸  Autor y contacto");
                 ui.add_space(10.0);
 
-                about_row(ui, "Autor", meta::AUTHOR, TEXT_PRI);
+                about_row(ui, "Autor", meta::AUTHOR, pal().text_pri);
                 if !meta::EMAIL.is_empty() {
                     about_link_row(ui, "Email", &format!("mailto:{}", meta::EMAIL), meta::EMAIL);
                 }
@@ -4511,23 +4922,33 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                 section_header(ui, "▸  Stack técnico");
                 ui.add_space(10.0);
 
-                about_row(ui, "Lenguaje", "Rust 2024 edition", TEXT_SEC);
-                about_row(ui, "GUI", "eframe / egui 0.27  ·  modo inmediato", TEXT_SEC);
+                about_row(ui, "Lenguaje", "Rust 2024 edition", pal().text_sec);
+                about_row(
+                    ui,
+                    "GUI",
+                    "eframe / egui 0.27  ·  modo inmediato",
+                    pal().text_sec,
+                );
                 about_row(
                     ui,
                     "Persistencia",
                     "SQLite vía rusqlite  ·  bundled",
-                    TEXT_SEC,
+                    pal().text_sec,
                 );
-                about_row(ui, "Métricas", "sysinfo  ·  bajo consumo", TEXT_SEC);
+                about_row(ui, "Métricas", "sysinfo  ·  bajo consumo", pal().text_sec);
                 about_row(
                     ui,
                     "Integración Windows",
                     "PowerShell · netstat · WPR · tracerpt",
-                    TEXT_SEC,
+                    pal().text_sec,
                 );
-                about_row(ui, "Plataforma", "Windows 10 / 11  ·  x64", TEXT_SEC);
-                about_row(ui, "CI/CD", "GitHub Actions  ·  windows-latest", TEXT_SEC);
+                about_row(ui, "Plataforma", "Windows 10 / 11  ·  x64", pal().text_sec);
+                about_row(
+                    ui,
+                    "CI/CD",
+                    "GitHub Actions  ·  windows-latest",
+                    pal().text_sec,
+                );
 
                 ui.add_space(18.0);
                 ui.add(egui::Separator::default());
@@ -4541,15 +4962,15 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                     )
                     .size(12.5)
                     .italics()
-                    .color(TEXT_MUT),
+                    .color(pal().text_mut),
                 );
 
                 ui.add_space(8.0);
 
                 // CLI hint
                 egui::Frame::none()
-                    .fill(BG_PANEL)
-                    .stroke(Stroke::new(1.0, BORDER))
+                    .fill(pal().bg_panel)
+                    .stroke(Stroke::new(1.0, pal().border))
                     .rounding(Rounding::same(6.0))
                     .inner_margin(Margin::same(10.0))
                     .show(ui, |ui| {
@@ -4557,14 +4978,14 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                             RichText::new("  $ rootcause --help")
                                 .monospace()
                                 .size(12.0)
-                                .color(C_OK_FG),
+                                .color(pal().c_ok_fg),
                         );
                         ui.label(
                             RichText::new(
                                 "Disponible también como herramienta de línea de comandos",
                             )
                             .size(11.0)
-                            .color(TEXT_MUT),
+                            .color(pal().text_mut),
                         );
                     });
 
@@ -4592,8 +5013,8 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                 ] {
                     ui.horizontal(|ui| {
                         egui::Frame::none()
-                            .fill(BG_PANEL)
-                            .stroke(Stroke::new(1.0, BORDER))
+                            .fill(pal().bg_panel)
+                            .stroke(Stroke::new(1.0, pal().border))
                             .rounding(Rounding::same(4.0))
                             .inner_margin(Margin::symmetric(8.0, 2.0))
                             .show(ui, |ui| {
@@ -4601,11 +5022,11 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                                     RichText::new(shortcut)
                                         .monospace()
                                         .size(11.5)
-                                        .color(C_BL_FG),
+                                        .color(pal().c_bl_fg),
                                 );
                             });
                         ui.add_space(6.0);
-                        ui.label(RichText::new(action).size(12.0).color(TEXT_SEC));
+                        ui.label(RichText::new(action).size(12.0).color(pal().text_sec));
                     });
                     ui.add_space(3.0);
                 }
@@ -4619,29 +5040,29 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                     section_header(ui, "▸  Este equipo");
                     ui.add_space(10.0);
 
-                    about_row(ui, "Nombre", &hw.host_name, TEXT_SEC);
-                    about_row(ui, "Sistema", &hw.os_name, TEXT_SEC);
-                    about_row(ui, "Versión OS", &hw.os_version, TEXT_SEC);
-                    about_row(ui, "Arquitectura", &hw.architecture, TEXT_SEC);
+                    about_row(ui, "Nombre", &hw.host_name, pal().text_sec);
+                    about_row(ui, "Sistema", &hw.os_name, pal().text_sec);
+                    about_row(ui, "Versión OS", &hw.os_version, pal().text_sec);
+                    about_row(ui, "Arquitectura", &hw.architecture, pal().text_sec);
                     about_row(
                         ui,
                         "CPU",
                         &format!("{}  ·  {} núcleos", hw.cpu_brand, hw.cpu_cores),
-                        TEXT_SEC,
+                        pal().text_sec,
                     );
                     if hw.cpu_freq_mhz > 0 {
                         about_row(
                             ui,
                             "Frecuencia",
                             &format!("{:.1} GHz", hw.cpu_freq_mhz as f32 / 1000.0),
-                            TEXT_SEC,
+                            pal().text_sec,
                         );
                     }
                     about_row(
                         ui,
                         "RAM total",
                         &format!("{:.1} GB", hw.total_ram_gb),
-                        TEXT_SEC,
+                        pal().text_sec,
                     );
                 }
 
@@ -4653,7 +5074,7 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                     ))
                     .size(11.0)
                     .italics()
-                    .color(TEXT_MUT),
+                    .color(pal().text_mut),
                 );
             });
     });
@@ -4664,9 +5085,9 @@ fn hw_row(ui: &mut egui::Ui, label: &str, value: &str) {
     ui.horizontal(|ui| {
         ui.add_sized(
             [140.0, 18.0],
-            egui::Label::new(RichText::new(label).size(11.5).color(TEXT_MUT)),
+            egui::Label::new(RichText::new(label).size(11.5).color(pal().text_mut)),
         );
-        ui.label(RichText::new(value).size(11.5).color(TEXT_SEC));
+        ui.label(RichText::new(value).size(11.5).color(pal().text_sec));
     });
     ui.add_space(3.0);
 }
@@ -4676,7 +5097,7 @@ fn about_row(ui: &mut egui::Ui, label: &str, value: &str, color: Color32) {
     ui.horizontal(|ui| {
         ui.add_sized(
             [120.0, 18.0],
-            egui::Label::new(RichText::new(label).size(12.0).color(TEXT_MUT)),
+            egui::Label::new(RichText::new(label).size(12.0).color(pal().text_mut)),
         );
         ui.label(RichText::new(value).size(12.0).color(color));
     });
@@ -4688,7 +5109,7 @@ fn threshold_row(ui: &mut egui::Ui, label: &str, value: &mut f32, unit: &str, co
     ui.horizontal(|ui| {
         ui.add_sized(
             [120.0, 18.0],
-            egui::Label::new(RichText::new(label).size(12.0).color(TEXT_MUT)),
+            egui::Label::new(RichText::new(label).size(12.0).color(pal().text_mut)),
         );
         ui.add(
             egui::DragValue::new(value)
@@ -4706,34 +5127,48 @@ fn threshold_row(ui: &mut egui::Ui, label: &str, value: &mut f32, unit: &str, co
 
 fn draw_agent_health_block(ui: &mut egui::Ui, health: &AgentHealth) {
     let (fg, bg) = match health.status {
-        AgentStatus::Healthy => (C_OK_FG, C_OK_BG),
-        AgentStatus::Recovered => (C_WN_FG, C_WN_BG),
-        AgentStatus::Degraded => (C_CR_FG, C_CR_BG),
+        AgentStatus::Healthy => (pal().c_ok_fg, pal().c_ok_bg),
+        AgentStatus::Recovered => (pal().c_wn_fg, pal().c_wn_bg),
+        AgentStatus::Degraded => (pal().c_cr_fg, pal().c_cr_bg),
     };
 
     ui.horizontal(|ui| {
         pill(ui, health.status.label(), fg, bg);
         if health.watchdog_backoff_active {
-            pill(ui, "Backoff sugerido", C_WN_FG, C_WN_BG);
+            pill(ui, "Backoff sugerido", pal().c_wn_fg, pal().c_wn_bg);
         }
         if health.config_changed {
-            pill(ui, "Config cambiada", C_BL_FG, C_BL_BG);
+            pill(ui, "Config cambiada", pal().c_bl_fg, pal().c_bl_bg);
         }
     });
     ui.add_space(6.0);
-    ui.label(RichText::new(&health.summary).size(12.0).color(TEXT_SEC));
+    ui.label(
+        RichText::new(&health.summary)
+            .size(12.0)
+            .color(pal().text_sec),
+    );
     ui.add_space(8.0);
-    about_row(ui, "Ultimo inicio", &health.last_start_at, TEXT_SEC);
-    about_row(ui, "Ultimo heartbeat", &health.last_heartbeat_at, TEXT_SEC);
+    about_row(ui, "Ultimo inicio", &health.last_start_at, pal().text_sec);
+    about_row(
+        ui,
+        "Ultimo heartbeat",
+        &health.last_heartbeat_at,
+        pal().text_sec,
+    );
     if let Some(last_shutdown) = health.last_clean_shutdown_at.as_ref() {
-        about_row(ui, "Ultimo cierre limpio", last_shutdown, TEXT_SEC);
+        about_row(ui, "Ultimo cierre limpio", last_shutdown, pal().text_sec);
     }
-    about_row(ui, "Huella config", &health.config_fingerprint, TEXT_MUT);
+    about_row(
+        ui,
+        "Huella config",
+        &health.config_fingerprint,
+        pal().text_mut,
+    );
     for note in health.notes.iter().take(3) {
         ui.label(
             RichText::new(format!("• {note}"))
                 .size(11.5)
-                .color(TEXT_MUT),
+                .color(pal().text_mut),
         );
     }
 }
@@ -4744,10 +5179,10 @@ fn about_link_row(ui: &mut egui::Ui, label: &str, url: &str, display: &str) {
     ui.horizontal(|ui| {
         ui.add_sized(
             [120.0, 18.0],
-            egui::Label::new(RichText::new(label).size(12.0).color(TEXT_MUT)),
+            egui::Label::new(RichText::new(label).size(12.0).color(pal().text_mut)),
         );
         let resp = ui.add(
-            egui::Button::new(RichText::new(display).size(12.0).color(C_BL_FG))
+            egui::Button::new(RichText::new(display).size(12.0).color(pal().c_bl_fg))
                 .fill(Color32::TRANSPARENT)
                 .stroke(Stroke::NONE),
         );
@@ -4797,27 +5232,27 @@ fn configure_fonts(ctx: &egui::Context) {
 
 fn apply_theme(ctx: &egui::Context) {
     let mut vis = egui::Visuals::dark();
-    vis.window_fill = BG_APP;
-    vis.panel_fill = BG_APP;
-    vis.faint_bg_color = BG_CARD;
-    vis.extreme_bg_color = BG_PANEL;
-    vis.widgets.noninteractive.bg_fill = BG_CARD;
-    vis.widgets.noninteractive.fg_stroke = Stroke::new(1.0, TEXT_SEC);
+    vis.window_fill = pal().bg_app;
+    vis.panel_fill = pal().bg_app;
+    vis.faint_bg_color = pal().bg_card;
+    vis.extreme_bg_color = pal().bg_panel;
+    vis.widgets.noninteractive.bg_fill = pal().bg_card;
+    vis.widgets.noninteractive.fg_stroke = Stroke::new(1.0, pal().text_sec);
     vis.widgets.noninteractive.rounding = Rounding::same(4.0);
-    vis.widgets.inactive.bg_fill = BG_CARD;
-    vis.widgets.inactive.fg_stroke = Stroke::new(1.0, TEXT_SEC);
+    vis.widgets.inactive.bg_fill = pal().bg_card;
+    vis.widgets.inactive.fg_stroke = Stroke::new(1.0, pal().text_sec);
     vis.widgets.inactive.rounding = Rounding::same(4.0);
     vis.widgets.hovered.bg_fill = Color32::from_rgb(38, 46, 57);
-    vis.widgets.hovered.fg_stroke = Stroke::new(1.0, TEXT_PRI);
+    vis.widgets.hovered.fg_stroke = Stroke::new(1.0, pal().text_pri);
     vis.widgets.hovered.rounding = Rounding::same(4.0);
-    vis.widgets.active.bg_fill = ACCENT;
-    vis.widgets.active.fg_stroke = Stroke::new(1.0, TEXT_PRI);
+    vis.widgets.active.bg_fill = pal().accent;
+    vis.widgets.active.fg_stroke = Stroke::new(1.0, pal().text_pri);
     vis.widgets.active.rounding = Rounding::same(4.0);
-    vis.selection.bg_fill = ACCENT.linear_multiply(0.35);
-    vis.selection.stroke = Stroke::new(1.0, C_BL_FG);
+    vis.selection.bg_fill = pal().accent.linear_multiply(0.35);
+    vis.selection.stroke = Stroke::new(1.0, pal().c_bl_fg);
     vis.window_rounding = Rounding::same(8.0);
-    vis.window_stroke = Stroke::new(1.0, BORDER);
-    vis.override_text_color = Some(TEXT_PRI);
+    vis.window_stroke = Stroke::new(1.0, pal().border);
+    vis.override_text_color = Some(pal().text_pri);
     ctx.set_visuals(vis);
 
     let mut style = (*ctx.style()).clone();
@@ -4828,7 +5263,7 @@ fn apply_theme(ctx: &egui::Context) {
     // tirador). La barra flotante por defecto es casi invisible sobre el fondo
     // oscuro y hacía creer que tabs como Resumen "no tienen scroll". Además se
     // pinta el tirador con color de primer plano (claro) y opacidad alta, porque
-    // el color de fondo por defecto (BG_CARD sobre BG_PANEL) es casi indistinguible
+    // el color de fondo por defecto (pal().bg_card sobre pal().bg_panel) es casi indistinguible
     // del fondo de la app.
     let mut scroll = egui::style::ScrollStyle::solid();
     scroll.bar_width = 12.0;
@@ -4860,10 +5295,10 @@ fn header_btn(ui: &mut egui::Ui, icon: &str, label: &str) -> egui::Response {
         egui::Button::new(
             RichText::new(format!("{icon}  {label}"))
                 .size(12.5)
-                .color(C_BL_FG),
+                .color(pal().c_bl_fg),
         )
-        .fill(C_BL_BG)
-        .stroke(Stroke::new(1.0, C_BL_FG.linear_multiply(0.4)))
+        .fill(pal().c_bl_bg)
+        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.4)))
         .rounding(Rounding::same(5.0)),
     )
 }
@@ -4906,7 +5341,7 @@ fn pbar(ui: &mut egui::Ui, fraction: f32, color: Color32, width: f32) {
     let h = 7.0;
     let (rect, _) = ui.allocate_exact_size(Vec2::new(width, h), Sense::hover());
     ui.painter()
-        .rect_filled(rect, Rounding::same(3.5), BG_PANEL);
+        .rect_filled(rect, Rounding::same(3.5), pal().bg_panel);
     if fraction > 0.005 {
         let filled_w = (rect.width() * fraction.clamp(0.0, 1.0)).max(6.0);
         let filled = egui::Rect::from_min_size(rect.min, Vec2::new(filled_w, h));
@@ -4943,7 +5378,7 @@ fn health_score_card(
                 ui.label(
                     RichText::new("Salud del sistema")
                         .size(10.0)
-                        .color(TEXT_MUT),
+                        .color(pal().text_mut),
                 );
             });
         });
@@ -4971,11 +5406,22 @@ fn overview_card(
             // ui.vertical: el Frame hereda el layout del padre (aquí horizontal_wrapped),
             // que apilaría las etiquetas en fila y las solaparía. Forzamos columna.
             ui.vertical(|ui| {
-                ui.label(RichText::new(title).size(10.0).color(TEXT_MUT).strong());
+                ui.label(
+                    RichText::new(title)
+                        .size(10.0)
+                        .color(pal().text_mut)
+                        .strong(),
+                );
                 ui.add_space(4.0);
-                ui.label(RichText::new(value).size(17.0).strong().color(TEXT_PRI));
+                ui.label(
+                    RichText::new(value)
+                        .size(17.0)
+                        .strong()
+                        .color(pal().text_pri),
+                );
                 ui.add(
-                    egui::Label::new(RichText::new(subtitle).size(10.5).color(TEXT_MUT)).wrap(true),
+                    egui::Label::new(RichText::new(subtitle).size(10.5).color(pal().text_mut))
+                        .wrap(true),
                 );
                 ui.add_space(6.0);
                 pbar(ui, fraction.clamp(0.0, 1.0), fg, ui.available_width() - 2.0);
@@ -5006,7 +5452,7 @@ fn mini_process_card(ui: &mut egui::Ui, p: &ProcessInsight, width: f32) {
                     ui.label(
                         RichText::new(format!("PID {}", p.pid))
                             .size(11.0)
-                            .color(TEXT_MUT),
+                            .color(pal().text_mut),
                     );
                 });
             });
@@ -5020,7 +5466,7 @@ fn mini_process_card(ui: &mut egui::Ui, p: &ProcessInsight, width: f32) {
                 ui.label(
                     RichText::new(format!("RAM {:.0}MB", p.memory_mb))
                         .size(11.5)
-                        .color(TEXT_SEC),
+                        .color(pal().text_sec),
                 );
             });
             pbar(ui, p.cpu_percent / 100.0, fg, ui.available_width() - 2.0);
@@ -5047,8 +5493,13 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
                 ui.set_min_height(125.0);
                 ui.horizontal_wrapped(|ui| {
                     ui.label(RichText::new(&anomaly.title).strong().color(fg));
-                    alert_badge(ui, anomaly.severity.label(), fg, BG_CARD);
-                    pill(ui, &format!("Score {}", anomaly.score), TEXT_MUT, BG_CARD);
+                    alert_badge(ui, anomaly.severity.label(), fg, pal().bg_card);
+                    pill(
+                        ui,
+                        &format!("Score {}", anomaly.score),
+                        pal().text_mut,
+                        pal().bg_card,
+                    );
                 });
                 if let Some(name) = anomaly.process_name.as_ref() {
                     ui.add(
@@ -5062,22 +5513,26 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
                                     .unwrap_or_default()
                             ))
                             .size(11.5)
-                            .color(TEXT_SEC),
+                            .color(pal().text_sec),
                         )
                         .wrap(true),
                     );
                 }
                 ui.add_space(4.0);
                 ui.add(
-                    egui::Label::new(RichText::new(&anomaly.summary).size(11.5).color(TEXT_SEC))
-                        .wrap(true),
+                    egui::Label::new(
+                        RichText::new(&anomaly.summary)
+                            .size(11.5)
+                            .color(pal().text_sec),
+                    )
+                    .wrap(true),
                 );
                 ui.add_space(4.0);
                 ui.add(
                     egui::Label::new(
                         RichText::new(format!("Hipotesis: {}", anomaly.root_cause_hypothesis))
                             .size(11.0)
-                            .color(TEXT_MUT),
+                            .color(pal().text_mut),
                     )
                     .wrap(true),
                 );
@@ -5087,7 +5542,7 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
                         RichText::new(&anomaly.recommended_action)
                             .italics()
                             .size(11.0)
-                            .color(TEXT_MUT),
+                            .color(pal().text_mut),
                     )
                     .wrap(true),
                 );
@@ -5098,7 +5553,7 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
 /// Cabecera de tabla con columnas.
 fn table_header(ui: &mut egui::Ui, cols: &[(&str, f32)]) {
     egui::Frame::none()
-        .fill(BG_PANEL)
+        .fill(pal().bg_panel)
         .inner_margin(Margin::symmetric(6.0, 6.0))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -5107,11 +5562,11 @@ fn table_header(ui: &mut egui::Ui, cols: &[(&str, f32)]) {
                         ui.add_sized(
                             [w, 16.0],
                             egui::Label::new(
-                                RichText::new(hdr).size(11.0).strong().color(TEXT_MUT),
+                                RichText::new(hdr).size(11.0).strong().color(pal().text_mut),
                             ),
                         );
                     } else {
-                        ui.label(RichText::new(hdr).size(11.0).strong().color(TEXT_MUT));
+                        ui.label(RichText::new(hdr).size(11.0).strong().color(pal().text_mut));
                     }
                 }
             });
@@ -5122,8 +5577,8 @@ fn table_header(ui: &mut egui::Ui, cols: &[(&str, f32)]) {
 fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32, width: f32) {
     let height = 52.0;
     egui::Frame::none()
-        .fill(BG_CARD)
-        .stroke(Stroke::new(1.0, BORDER))
+        .fill(pal().bg_card)
+        .stroke(Stroke::new(1.0, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(8.0))
         .show(ui, |ui| {
@@ -5136,7 +5591,7 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
                 ui.set_min_height(height);
                 // Label + último valor
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(label).size(10.0).color(TEXT_MUT));
+                    ui.label(RichText::new(label).size(10.0).color(pal().text_mut));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let last = values.last().copied().unwrap_or(0.0);
                         ui.label(
@@ -5153,7 +5608,7 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
                 let available = ui.available_width().max(40.0);
                 let (rect, _) = ui.allocate_exact_size(Vec2::new(available, 26.0), Sense::hover());
                 ui.painter()
-                    .rect_filled(rect, Rounding::same(3.0), BG_PANEL);
+                    .rect_filled(rect, Rounding::same(3.0), pal().bg_panel);
 
                 if values.len() >= 2 {
                     let max_val = values.iter().cloned().fold(0.0_f32, f32::max).max(1.0);
@@ -5191,9 +5646,15 @@ fn section_header(ui: &mut egui::Ui, title: &str) {
         .trim();
     ui.horizontal(|ui| {
         let (bar, _) = ui.allocate_exact_size(Vec2::new(3.0, 14.0), egui::Sense::hover());
-        ui.painter().rect_filled(bar, Rounding::same(1.5), ACCENT);
+        ui.painter()
+            .rect_filled(bar, Rounding::same(1.5), pal().accent);
         ui.add_space(7.0);
-        ui.label(RichText::new(clean).strong().size(13.0).color(TEXT_SEC));
+        ui.label(
+            RichText::new(clean)
+                .strong()
+                .size(13.0)
+                .color(pal().text_sec),
+        );
     });
     ui.add_space(2.0);
     let r = ui.available_rect_before_wrap();
@@ -5202,16 +5663,16 @@ fn section_header(ui: &mut egui::Ui, title: &str) {
             egui::pos2(r.left(), r.top() + 1.0),
             egui::pos2(r.right(), r.top() + 1.0),
         ],
-        Stroke::new(1.0, BORDER),
+        Stroke::new(1.0, pal().border),
     );
 }
 
 /// Chip de herramienta disponible/no disponible.
 fn tool_chip(ui: &mut egui::Ui, name: &str, ok: bool) {
     let (fg, bg) = if ok {
-        (C_OK_FG, C_OK_BG)
+        (pal().c_ok_fg, pal().c_ok_bg)
     } else {
-        (TEXT_MUT, BG_ROW_ALT)
+        (pal().text_mut, pal().bg_row_alt)
     };
     pill(
         ui,
@@ -5222,16 +5683,16 @@ fn tool_chip(ui: &mut egui::Ui, name: &str, ok: bool) {
 }
 
 fn info_row(ui: &mut egui::Ui, label: &str, value: &str) {
-    info_row_colored(ui, label, value, TEXT_SEC);
+    info_row_colored(ui, label, value, pal().text_sec);
 }
 
 fn info_row_ok(ui: &mut egui::Ui, label: &str, value: &str) {
-    info_row_colored(ui, label, value, C_OK_FG);
+    info_row_colored(ui, label, value, pal().c_ok_fg);
 }
 
 fn info_row_colored(ui: &mut egui::Ui, label: &str, value: &str, color: Color32) {
     ui.horizontal_wrapped(|ui| {
-        ui.label(RichText::new(label).size(11.5).color(TEXT_MUT));
+        ui.label(RichText::new(label).size(11.5).color(pal().text_mut));
         let short = trunc(value, 60);
         let resp = ui.label(RichText::new(&short).size(11.5).monospace().color(color));
         if value.len() > 60 {
@@ -5245,7 +5706,7 @@ fn loading_screen(ui: &mut egui::Ui) {
         ui.label(
             RichText::new("Capturando datos del sistema…")
                 .size(16.0)
-                .color(TEXT_MUT),
+                .color(pal().text_mut),
         );
     });
 }
@@ -5260,11 +5721,11 @@ fn draw_logo_icon(ui: &mut egui::Ui, size: f32) {
     let c = rect.center();
     let sw = (size * 0.07).max(1.5);
     ui.painter()
-        .circle_stroke(c, size * 0.42, Stroke::new(sw, ACCENT));
+        .circle_stroke(c, size * 0.42, Stroke::new(sw, pal().accent));
     ui.painter()
-        .circle_stroke(c, size * 0.22, Stroke::new(sw, ACCENT));
+        .circle_stroke(c, size * 0.22, Stroke::new(sw, pal().accent));
     ui.painter()
-        .circle_filled(c, (size * 0.08).max(1.5), ACCENT);
+        .circle_filled(c, (size * 0.08).max(1.5), pal().accent);
 }
 
 /// Lupa de búsqueda simplificada.
@@ -5273,13 +5734,13 @@ fn draw_search_icon(ui: &mut egui::Ui, size: f32) {
     let center = rect.center() - Vec2::new(1.5, 1.5);
     let r = size * 0.28;
     ui.painter()
-        .circle_stroke(center, r, Stroke::new(1.5, TEXT_MUT));
+        .circle_stroke(center, r, Stroke::new(1.5, pal().text_mut));
     ui.painter().line_segment(
         [
             center + Vec2::new(r * 0.7, r * 0.7),
             rect.right_bottom() - Vec2::new(1.0, 1.0),
         ],
-        Stroke::new(1.5, TEXT_MUT),
+        Stroke::new(1.5, pal().text_mut),
     );
 }
 
@@ -5294,7 +5755,7 @@ fn draw_health_ring(ui: &mut egui::Ui, fraction: f32, color: Color32, size: f32)
     ui.painter().circle_stroke(
         center,
         (r_out + r_in) / 2.0,
-        Stroke::new(r_out - r_in, BG_PANEL),
+        Stroke::new(r_out - r_in, pal().bg_panel),
     );
 
     // Arco relleno (aproximado con segmentos)
@@ -5440,17 +5901,17 @@ fn severity_for_value(v: f32, warn: f32, crit: f32) -> Severity {
 
 fn sev_fg(sev: Severity) -> Color32 {
     match sev {
-        Severity::Healthy => C_OK_FG,
-        Severity::Warning => C_WN_FG,
-        Severity::Critical => C_CR_FG,
+        Severity::Healthy => pal().c_ok_fg,
+        Severity::Warning => pal().c_wn_fg,
+        Severity::Critical => pal().c_cr_fg,
     }
 }
 
 fn sev_bg(sev: Severity) -> Color32 {
     match sev {
-        Severity::Healthy => C_OK_BG,
-        Severity::Warning => C_WN_BG,
-        Severity::Critical => C_CR_BG,
+        Severity::Healthy => pal().c_ok_bg,
+        Severity::Warning => pal().c_wn_bg,
+        Severity::Critical => pal().c_cr_bg,
     }
 }
 
@@ -5465,7 +5926,7 @@ fn sev_dot(_sev: Severity) -> &'static str {
 fn empty_state(ui: &mut egui::Ui, msg: &str) {
     ui.add_space(16.0);
     ui.vertical_centered(|ui| {
-        ui.label(RichText::new(msg).size(12.5).color(TEXT_MUT));
+        ui.label(RichText::new(msg).size(12.5).color(pal().text_mut));
     });
     ui.add_space(16.0);
 }
