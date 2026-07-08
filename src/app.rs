@@ -143,6 +143,8 @@ pub struct RootCauseApp {
     // Limpieza de %TEMP% (tab Temporales): confirmación de 2 pasos + resultado
     temp_clean_confirm: bool,
     temp_clean_result: Option<String>,
+    // Ajuste de ventana al monitor hecho una sola vez al arranque
+    window_fitted: bool,
 }
 
 impl RootCauseApp {
@@ -175,6 +177,7 @@ impl RootCauseApp {
             config_path: String::new(),
             temp_clean_confirm: false,
             temp_clean_result: None,
+            window_fitted: false,
         };
         match inspector {
             Ok(svc) => {
@@ -431,11 +434,22 @@ impl eframe::App for RootCauseApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Maximizar en los primeros frames (cuando el viewport ya existe). El flag
-        // del ViewportBuilder y el comando en new() no se aplican en eframe 0.27;
-        // aquí sí. Solo en el arranque para no pelear con el resize del usuario.
-        if ctx.frame_nr() < 3 {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+        // Ajustar la ventana al monitor UNA sola vez al arranque. El comando
+        // `Maximized` del viewport no se aplica de forma fiable en eframe 0.27, así
+        // que fijamos el tamaño interior al del monitor menos un margen (barra de
+        // tareas + decoración) y la posicionamos arriba-izquierda. Se reintenta
+        // cada frame hasta que el backend reporta el tamaño del monitor.
+        if !self.window_fitted {
+            if let Some(monitor) = ctx.input(|i| i.viewport().monitor_size)
+                && monitor.x > 100.0
+                && monitor.y > 100.0
+            {
+                let w = (monitor.x - 24.0).clamp(760.0, 2400.0);
+                let h = (monitor.y - 110.0).clamp(560.0, 1500.0);
+                ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(8.0, 8.0)));
+                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(w, h)));
+                self.window_fitted = true;
+            }
         }
         ctx.request_repaint_after(Duration::from_secs(1));
 
@@ -975,7 +989,7 @@ fn draw_tab_overview(
                 ui,
                 "RED",
                 &format!(
-                    "↓{:.1}  ↑{:.1} MB",
+                    "Rx {:.1}  Tx {:.1} MB",
                     ov.network_rx_mb_delta, ov.network_tx_mb_delta
                 ),
                 "Actividad entre refrescos",
