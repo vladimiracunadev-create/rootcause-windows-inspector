@@ -2415,7 +2415,7 @@ fn docker_stat(ui: &mut egui::Ui, label: &str, value: &str, value_color: Color32
 fn docker_category_bar(ui: &mut egui::Ui, scan: &DockerScan) {
     let total = scan.total_size_mb().max(0.001);
     let colors = [C_BL_FG, C_OK_FG, C_WN_FG, ACCENT];
-    let width = ui.available_width().min(760.0).max(200.0);
+    let width = ui.available_width().clamp(200.0, 760.0);
     let h = 16.0;
     let (rect, _) = ui.allocate_exact_size(Vec2::new(width, h), Sense::hover());
     ui.painter()
