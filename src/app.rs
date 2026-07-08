@@ -143,11 +143,6 @@ pub struct RootCauseApp {
 impl RootCauseApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         apply_theme(&cc.egui_ctx);
-        // El flag `with_maximized` del ViewportBuilder no se aplica de forma fiable
-        // en eframe 0.27; el comando de viewport en runtime sí maximiza la ventana
-        // para que se adapte a cualquier pantalla/escala.
-        cc.egui_ctx
-            .send_viewport_cmd(egui::ViewportCommand::Maximized(true));
         let inspector = InspectorService::new();
         let mut app = Self {
             inspector: None,
@@ -413,6 +408,12 @@ impl eframe::App for RootCauseApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Maximizar en los primeros frames (cuando el viewport ya existe). El flag
+        // del ViewportBuilder y el comando en new() no se aplican en eframe 0.27;
+        // aquí sí. Solo en el arranque para no pelear con el resize del usuario.
+        if ctx.frame_nr() < 3 {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+        }
         ctx.request_repaint_after(Duration::from_secs(1));
 
         // ── Atajos de teclado ──────────────────────────────────────────────────
@@ -649,10 +650,10 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 ui.add_space(10.0);
 
                 // Botones principales
-                if header_btn(ui, "⟳", "Actualizar").clicked() {
+                if header_btn(ui, "🔄", "Actualizar").clicked() {
                     app.refresh_now();
                 }
-                if header_btn(ui, "↓", "Exportar JSON").clicked() {
+                if header_btn(ui, "💾", "Exportar JSON").clicked() {
                     app.export_snapshot();
                 }
 
@@ -868,7 +869,7 @@ fn draw_tab_overview(
             ui,
             "RED",
             &format!(
-                "↓{:.1}  ↑{:.1} MB",
+                "Rx {:.1}  Tx {:.1} MB",
                 ov.network_rx_mb_delta, ov.network_tx_mb_delta
             ),
             "Actividad entre refrescos",
@@ -3571,12 +3572,18 @@ fn overview_card(
         .show(ui, |ui| {
             ui.set_min_size(Vec2::new(width, 90.0));
             ui.set_max_width(width);
-            ui.label(RichText::new(title).size(10.0).color(TEXT_MUT).strong());
-            ui.add_space(4.0);
-            ui.label(RichText::new(value).size(17.0).strong().color(TEXT_PRI));
-            ui.add(egui::Label::new(RichText::new(subtitle).size(10.5).color(TEXT_MUT)).wrap(true));
-            ui.add_space(6.0);
-            pbar(ui, fraction.clamp(0.0, 1.0), fg, ui.available_width() - 2.0);
+            // ui.vertical: el Frame hereda el layout del padre (aquí horizontal_wrapped),
+            // que apilaría las etiquetas en fila y las solaparía. Forzamos columna.
+            ui.vertical(|ui| {
+                ui.label(RichText::new(title).size(10.0).color(TEXT_MUT).strong());
+                ui.add_space(4.0);
+                ui.label(RichText::new(value).size(17.0).strong().color(TEXT_PRI));
+                ui.add(
+                    egui::Label::new(RichText::new(subtitle).size(10.5).color(TEXT_MUT)).wrap(true),
+                );
+                ui.add_space(6.0);
+                pbar(ui, fraction.clamp(0.0, 1.0), fg, ui.available_width() - 2.0);
+            });
         });
 }
 
