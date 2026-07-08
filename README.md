@@ -9,7 +9,7 @@
 ║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝      ║
 ║                                                                                   ║
 ║                     W I N D O W S   I N S P E C T O R                             ║
-║               Forensic diagnostics · Built in Rust · v0.15.0                      ║
+║               Forensic diagnostics · Built in Rust · v0.16.0                      ║
 ╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -17,7 +17,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
-[![Version](https://img.shields.io/badge/version-0.15.0-green.svg)](docs/ROADMAP.md)
+[![Version](https://img.shields.io/badge/version-0.16.0-green.svg)](docs/ROADMAP.md)
 
 🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-windows-inspector/)**
 
@@ -129,7 +129,7 @@ Posicionamiento honesto:
 | **CLI-only** | Núcleo alternativo | Producción | `--no-default-features` | Sí |
 | **PowerShell module** | Adaptador | Producción | `Import-Module RootCause` | Sí |
 | **VS Code Extension** | Adaptador | Producción | `code --install-extension` | Sí |
-| **Tray icon** | Extensión del runtime | Skeleton | Feature `tray` futura | No |
+| **Tray icon** | Extensión del runtime | Producción | Incluido en la edición GUI | Sí |
 | **Windows Service** | Extensión del runtime | Skeleton | Feature `service` futura | No |
 | **RootCause Demo** | Perfil de distribución | Opcional | Instalador demo separado | No por defecto |
 
@@ -192,7 +192,7 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 - Módulo PowerShell (`RootCause.psm1`) — 9 cmdlets nativos
 - Manifests de distribución: Scoop, Winget, Chocolatey
 - Extensión VS Code con status bar, alertas y panel de diagnóstico
-- Skeletons documentados: Tray icon y Windows Service
+- Tray icon activo (color por severidad); skeleton documentado: Windows Service
 - Scripts de verificación, build, empaquetado y análisis ETL
 - Documentación profunda de arquitectura, requisitos, operación y CI
 - Modo de precisión WPR/ETW integrado en la interfaz
@@ -390,7 +390,7 @@ rootcause-windows-inspector/
         ├── inspector.rs  ← orquestador principal + get_hardware_info()
         ├── persistence.rs← SQLite + snapshots + incidentes + audit trail
         ├── rules.rs      ← rule engine ligero y correlación de incidentes
-        ├── tray.rs       ← skeleton tray icon (activa con feature `tray`)
+        ├── tray.rs       ← icono de bandeja (edición GUI; color por severidad)
         ├── windows.rs    ← PowerShell, WPR, toast, cmdlines
         ├── network.rs    ← netstat + clasificación
         ├── temp_scan.rs  ← temporales y cachés

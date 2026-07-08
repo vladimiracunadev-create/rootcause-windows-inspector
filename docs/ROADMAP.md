@@ -15,8 +15,9 @@
 | [v0.12](#v012-entregado) | ✅ Entregado | Detección de cambios de autoarranque contra baseline |
 | [v0.13](#v013-entregado) | ✅ Entregado | Detección de cambios en servicios + motor genérico de baseline |
 | [v0.14](#v014-entregado) | ✅ Entregado | Overhaul de UI (ventana, scroll, glifos) + fix de colección PowerShell |
-| [v0.15](#v015-entregado-version-actual) | ✅ **Actual** | Idioma ES/EN + tab Configuración, sección Docker, banner de veredicto y Manual profundo |
-| [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: tray icon, firma digital, publicación |
+| [v0.15](#v015-entregado) | ✅ Entregado | Idioma ES/EN + tab Configuración, sección Docker, banner de veredicto y Manual profundo |
+| [v0.16](#v016-entregado-version-actual) | ✅ **Actual** | Icono de bandeja con color por severidad, tooltip de veredicto y menú de acciones |
+| [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: firma digital, publicación, cerrar-a-bandeja |
 | [v2.0+](#v20-largo-plazo) | 🔭 Largo plazo | Windows Service 24/7, ediciones Seguridad y Enterprise |
 
 ---
@@ -114,7 +115,17 @@
 - FIX de codificacion: la salida de PowerShell se fuerza a UTF-8 (antes los acentos salian como "cuadrado" en nombres de servicios, eventos y rutas)
 - version bump a 0.14.0
 
-## v0.15 Entregado (version actual)
+## v0.16 Entregado (version actual)
+- Tray: icono de bandeja del sistema activo en la edicion GUI (feature `gui` arrastra la crate `tray-icon`)
+- Tray: el icono es un punto de color segun la salud global (verde = saludable, ambar = advertencia, rojo = critico)
+- Tray: tooltip con el veredicto actual y el score de salud
+- Tray: menu contextual con Mostrar ventana / Actualizar ahora / Exportar snapshot / Salir (drenado cada frame)
+- Tray: creado en el hilo del event-loop de winit; creacion no fatal (si el SO lo rechaza, la app sigue sin bandeja)
+- El modulo `src/services/tray.rs` deja de ser skeleton y pasa a implementacion real
+- Pendiente para v1.0: cerrar-a-bandeja (mantener el proceso al cerrar la ventana)
+- version bump a 0.16.0
+
+## v0.15 Entregado
 - UI: interfaz bilingue espanol / ingles con selector persistente; motor i18n con helper tr(es,en) e idioma guardado en la config (`ui.language`)
 - UI: nuevo tab Configuracion (Ctrl+9) que reune idioma, umbrales de deteccion, anomalias e intervalo de refresco (movidos desde Acerca)
 - UI: banner de veredicto tipo hero en el Resumen (aro de salud + titular + causa dominante en una linea)
@@ -125,7 +136,7 @@
 - version bump a 0.15.0
 
 ## v1.0 Objetivo de distribucion formal
-- tray icon activo (monitor proactivo en bandeja del sistema)
+- tray icon: cerrar-a-bandeja (el icono base ya se entrego en v0.16)
 - firma digital (elimina alerta SmartScreen)
 - publicacion en Scoop/Winget/Chocolatey con releases reales
 - documentacion madura de instalacion y operacion

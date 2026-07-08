@@ -37,7 +37,7 @@ Ejemplos:
 | CLI-only | Nucleo alternativo | Produccion | Si | No | Build con `--no-default-features` |
 | PowerShell Module | Adaptador | Produccion | Si | Si | Wrapper sobre comandos CLI |
 | VS Code Extension | Adaptador | Produccion | Si | Si | Wrapper sobre `status --json`, `export`, `snapshot` |
-| Tray icon | Extension de runtime | Skeleton | No | Si | Arquitectura documentada, no GA |
+| Tray icon | Extension de runtime | Produccion | Si | Si | Incluido en la edicion GUI (color por severidad + menu) |
 | Windows Service | Extension de runtime | Skeleton | No | Si | Arquitectura documentada, no GA |
 | RootCause Demo | Perfil de distribucion | Opcional | No por defecto | No | Instalador alternativo con branding y mensajes demo |
 
@@ -79,10 +79,9 @@ Ejemplos:
 - verificar `rootcause` en PATH o configurar `rootcause.executablePath`.
 
 ### No publicables como produccion todavia
-- `Tray icon`
 - `Windows Service`
 
-No deben venderse como descargas finales hasta salir de skeleton.
+No debe venderse como descarga final hasta salir de skeleton.
 
 ---
 
@@ -93,7 +92,7 @@ No deben venderse como descargas finales hasta salir de skeleton.
 - RootCause tiene multiples **modalidades reales**.
 - El runtime principal es la app Windows en GUI y CLI.
 - PowerShell y VS Code son **adaptadores**, no motores alternativos.
-- Tray icon y Windows Service **no** estan listos para venderse como produccion.
+- Windows Service **no** esta listo para venderse como produccion (Tray icon sí, desde v0.16.0).
 
 ### Lo que no se debe volver a mezclar
 
