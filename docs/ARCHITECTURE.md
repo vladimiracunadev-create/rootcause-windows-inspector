@@ -99,8 +99,8 @@ Responsabilidades:
 Capa de interfaz.
 
 Responsabilidades:
-- layout general con 10 tabs (Resumen, Procesos, Conexiones, Temporales, ETW/WPR, Servicios, Autostart, Historial, Manual, Acerca),
-- atajos de teclado: `F5` = actualizar, `Ctrl+E` = exportar, `Ctrl+1…9` y `Ctrl+0` = cambio de tab,
+- layout general con 11 tabs en una **barra lateral** (NavigationView estilo Windows 11): Resumen, Procesos, Conexiones, Temporales, ETW/WPR, Servicios, Autostart, Historial, Configuración, Manual, Acerca,
+- atajos de teclado: `F5` = actualizar, `Ctrl+E` = exportar, `Ctrl+1…9` y `Ctrl+0` = cambio de tab (Acerca solo por clic),
 - semáforo,
 - sparklines de CPU / RAM / I/O (ring buffer `VecDeque<MetricSample>`, max 60 muestras),
 - sección "Características del equipo" en tab Resumen (datos de `HardwareInfo`),

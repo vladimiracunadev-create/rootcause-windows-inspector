@@ -83,6 +83,10 @@ El modo principal. Bajo consumo, útil para observación frecuente.
 - ⚙️ Detección de cambios en servicios de Windows (vía CLI `rootcause services` + alertas `service-change` en incidentes; no es un tab de la GUI): vigila `StartMode` + ruta del binario de cada servicio contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) — captura servicios nuevos, secuestro del binario o cambios de modo de arranque (ej. deshabilitar Defender)
 - 🗑️ Limpieza segura de temporales: botón **Limpiar %TEMP%** en el tab Temporales (y `rootcause clean-temp`) — borra solo tu `%TEMP%`, solo lo no usado en 24 h, saltando lo que esté en uso; confirmación de dos pasos y `--yes` en CLI
 - 📖 Tab Manual: guía integrada que explica qué hace cada pestaña, la detección por baseline y las acciones seguras
+- 🐳 Espacio de Docker (tab Temporales): imágenes, volúmenes y espacio recuperable vía `docker system df`, con purga guiada segura de 2 pasos (solo imágenes *dangling* + caché de build; los volúmenes no se autoborran) y `rootcause docker [--json|--prune-images|--prune-cache]`
+- 🌍 Interfaz bilingüe **español / inglés** con selector persistente en el tab Configuración
+- 🎨 Modos de tema **Claro / Oscuro / Windows** (este último sigue el tema del sistema); acento derivado del icono
+- 🪟 Interfaz estilo **Windows 11 / Fluent**: barra lateral de navegación (NavigationView), tipografía nativa Segoe UI e iconos de línea
 - 💻 CLI completa: `rootcause --help` con todos los comandos desde consola
 
 ### 2 · Modo de precisión ETW/WPR
