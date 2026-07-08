@@ -606,8 +606,10 @@ impl eframe::App for RootCauseApp {
             }
         }
 
-        draw_header(self, ctx);
-        draw_tabbar(self, ctx);
+        // Orden: barra lateral (izquierda, altura completa) primero, luego la
+        // topbar sobre el contenido, la barra de estado abajo y el panel central.
+        draw_sidebar(self, ctx);
+        draw_topbar(self, ctx);
         draw_statusbar(self, ctx);
 
         egui::CentralPanel::default()
@@ -791,38 +793,160 @@ impl eframe::App for RootCauseApp {
 
 // ── Header ─────────────────────────────────────────────────────────────────────
 
-fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
-    egui::TopBottomPanel::top("header")
+/// Devuelve (icono, etiqueta_es, etiqueta_en) de una pestaña buscándola en `Tab::ALL`.
+fn tab_meta(tab: Tab) -> (&'static str, &'static str, &'static str) {
+    Tab::ALL
+        .iter()
+        .find(|(t, _, _, _)| *t == tab)
+        .map(|&(_, icon, es, en)| (icon, es, en))
+        .unwrap_or(("", "", ""))
+}
+
+/// Fila de navegación de la barra lateral: icono + etiqueta, alineados a la
+/// izquierda, con resaltado y barra de acento cuando está activa.
+fn sidebar_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egui::Response {
+    let w = ui.available_width();
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new(w, 34.0), Sense::click());
+    let bg = if active {
+        BG_CARD
+    } else if resp.hovered() {
+        Color32::from_rgb(26, 33, 44)
+    } else {
+        Color32::TRANSPARENT
+    };
+    if bg != Color32::TRANSPARENT {
+        ui.painter().rect_filled(rect, Rounding::same(5.0), bg);
+    }
+    if active {
+        let bar = egui::Rect::from_min_size(
+            egui::pos2(rect.left() + 1.0, rect.center().y - 9.0),
+            Vec2::new(3.0, 18.0),
+        );
+        ui.painter().rect_filled(bar, Rounding::same(2.0), ACCENT);
+    }
+    let fg = if active { TEXT_PRI } else { TEXT_SEC };
+    ui.painter().text(
+        egui::pos2(rect.left() + 16.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        icon,
+        FontId::proportional(15.0),
+        if active { C_BL_FG } else { TEXT_SEC },
+    );
+    ui.painter().text(
+        egui::pos2(rect.left() + 42.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        label,
+        FontId::proportional(13.5),
+        fg,
+    );
+    resp
+}
+
+/// Encabezado de grupo dentro de la barra lateral.
+fn sidebar_group(ui: &mut egui::Ui, label: &str) {
+    ui.add_space(12.0);
+    ui.horizontal(|ui| {
+        ui.add_space(8.0);
+        ui.label(RichText::new(label).size(10.5).color(TEXT_MUT).strong());
+    });
+    ui.add_space(2.0);
+}
+
+/// Dibuja una fila de navegación y cambia de pestaña si se pulsa.
+fn nav(ui: &mut egui::Ui, app: &mut RootCauseApp, tab: Tab) {
+    let (icon, es, en) = tab_meta(tab);
+    if sidebar_item(ui, icon, tr(es, en), app.active_tab == tab).clicked() {
+        app.active_tab = tab;
+    }
+}
+
+// ── Barra lateral de navegación (NavigationView estilo Windows 11) ──────────────
+
+fn draw_sidebar(app: &mut RootCauseApp, ctx: &egui::Context) {
+    egui::SidePanel::left("nav")
+        .exact_width(232.0)
+        .resizable(false)
         .frame(
             egui::Frame::none()
                 .fill(BG_PANEL)
                 .stroke(Stroke::new(1.0, BORDER))
-                .inner_margin(Margin::symmetric(16.0, 10.0)),
+                .inner_margin(Margin::symmetric(10.0, 12.0)),
         )
         .show(ctx, |ui| {
-            // horizontal_wrapped: los controles del header (botones, slider, buscador,
-            // badges) bajan de línea si no caben en vez de recortarse a la derecha.
+            // Marca
+            ui.horizontal(|ui| {
+                ui.add_space(4.0);
+                draw_logo_icon(ui, 26.0);
+                ui.add_space(9.0);
+                ui.vertical(|ui| {
+                    ui.label(
+                        RichText::new("RootCause")
+                            .size(15.0)
+                            .strong()
+                            .color(TEXT_PRI),
+                    );
+                    ui.label(
+                        RichText::new("Windows Inspector")
+                            .size(10.5)
+                            .color(TEXT_MUT),
+                    );
+                });
+            });
+            ui.add_space(14.0);
+
+            // Navegación superior
+            nav(ui, app, Tab::Overview);
+            sidebar_group(ui, tr("ACTIVIDAD", "ACTIVITY"));
+            nav(ui, app, Tab::Processes);
+            nav(ui, app, Tab::Connections);
+            sidebar_group(ui, tr("SISTEMA", "SYSTEM"));
+            nav(ui, app, Tab::TempFiles);
+            nav(ui, app, Tab::Services);
+            nav(ui, app, Tab::Autostart);
+            sidebar_group(ui, tr("ANÁLISIS", "ANALYSIS"));
+            nav(ui, app, Tab::Precision);
+            nav(ui, app, Tab::History);
+
+            // Elementos inferiores anclados abajo: empujar con un espaciador
+            // calculado (más robusto que un layout bottom-up dentro del panel).
+            let bottom_block = 34.0 * 3.0 + 16.0;
+            let avail = ui.available_height();
+            ui.add_space(if avail > bottom_block {
+                avail - bottom_block
+            } else {
+                12.0
+            });
+            nav(ui, app, Tab::Config);
+            nav(ui, app, Tab::Manual);
+            nav(ui, app, Tab::About);
+        });
+}
+
+// ── Barra superior (título de la vista + controles) ─────────────────────────────
+
+fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
+    egui::TopBottomPanel::top("topbar")
+        .frame(
+            egui::Frame::none()
+                .fill(BG_APP)
+                .stroke(Stroke::new(1.0, BORDER))
+                .inner_margin(Margin::symmetric(20.0, 12.0)),
+        )
+        .show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
-                // Logo icon
-                draw_logo_icon(ui, 32.0);
-                ui.add_space(8.0);
+                // Título de la vista activa
+                let (_, es, en) = tab_meta(app.active_tab);
                 ui.label(
-                    RichText::new("RootCause")
-                        .size(16.0)
+                    RichText::new(tr(es, en))
+                        .size(18.0)
                         .strong()
                         .color(TEXT_PRI),
                 );
-                ui.label(
-                    RichText::new("Windows Inspector")
-                        .size(11.0)
-                        .color(TEXT_MUT),
-                );
 
-                ui.add_space(14.0);
+                ui.add_space(16.0);
                 ui.separator();
                 ui.add_space(10.0);
 
-                // Botones principales
                 if header_btn(ui, "🔄", "Actualizar").clicked() {
                     app.refresh_now();
                 }
@@ -831,10 +955,6 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 }
 
                 ui.add_space(10.0);
-                ui.separator();
-                ui.add_space(8.0);
-
-                // Auto refresco
                 ui.checkbox(&mut app.auto_refresh, RichText::new("Auto").color(TEXT_SEC));
                 ui.add(
                     egui::Slider::new(&mut app.refresh_interval_secs, 3..=30)
@@ -843,7 +963,6 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 );
 
                 ui.add_space(8.0);
-
                 ui.checkbox(
                     &mut app.notifications_enabled,
                     RichText::new("🔔").color(TEXT_SEC),
@@ -851,17 +970,15 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                 .on_hover_text("Activar notificaciones toast cuando el estado sea Crítico");
 
                 ui.add_space(8.0);
-                // Buscador
                 draw_search_icon(ui, 14.0);
                 ui.add_space(4.0);
                 ui.add_sized(
-                    [200.0, 26.0],
+                    [190.0, 26.0],
                     egui::TextEdit::singleline(&mut app.filter_text)
-                        .hint_text("Filtrar por nombre o ruta…")
+                        .hint_text(tr("Filtrar por nombre o ruta…", "Filter by name or path…"))
                         .text_color(TEXT_PRI),
                 );
 
-                // Badges de alerta en el header
                 if let Some(snap) = &app.snapshot {
                     let crit = snap
                         .alerts
@@ -889,39 +1006,6 @@ fn draw_header(app: &mut RootCauseApp, ctx: &egui::Context) {
                             C_WN_FG,
                             C_WN_BG,
                         );
-                    }
-                }
-            });
-        });
-}
-
-// ── Barra de tabs ──────────────────────────────────────────────────────────────
-
-fn draw_tabbar(app: &mut RootCauseApp, ctx: &egui::Context) {
-    egui::TopBottomPanel::top("tabbar")
-        .frame(
-            egui::Frame::none()
-                .fill(BG_PANEL)
-                .stroke(Stroke::new(1.0, BORDER))
-                .inner_margin(Margin::symmetric(12.0, 0.0)),
-        )
-        .show(ctx, |ui| {
-            // horizontal_wrapped: si los 9 tabs no caben a lo ancho, bajan de línea
-            // en vez de recortarse (antes se cortaban en pantallas angostas).
-            ui.horizontal_wrapped(|ui| {
-                for (idx, &(tab, icon, es, en)) in Tab::ALL.iter().enumerate() {
-                    let selected = app.active_tab == tab;
-                    let resp = tab_btn(ui, icon, tr(es, en), selected);
-                    // Atajos: idx 0..8 → Ctrl+1..9, idx 9 → Ctrl+0, idx 10 sin atajo.
-                    let resp = if idx < 9 {
-                        resp.on_hover_text(format!("Ctrl+{}", idx + 1))
-                    } else if idx == 9 {
-                        resp.on_hover_text("Ctrl+0")
-                    } else {
-                        resp
-                    };
-                    if resp.clicked() {
-                        app.active_tab = tab;
                     }
                 }
             });
@@ -4760,40 +4844,6 @@ fn apply_theme(ctx: &egui::Context) {
 }
 
 /// Botón de tab con indicador de selección.
-fn tab_btn(ui: &mut egui::Ui, icon: &str, label: &str, selected: bool) -> egui::Response {
-    let (fg, bg) = if selected {
-        (TEXT_PRI, BG_CARD)
-    } else {
-        (TEXT_SEC, Color32::TRANSPARENT)
-    };
-    let resp = ui.add(
-        egui::Button::new(
-            RichText::new(format!("{icon}  {label}"))
-                .size(12.5)
-                .color(fg),
-        )
-        .fill(bg)
-        .stroke(if selected {
-            Stroke::new(1.0, BORDER)
-        } else {
-            Stroke::NONE
-        })
-        .rounding(Rounding::same(5.0)),
-    );
-    // Línea de acento inferior para el tab activo
-    if selected {
-        let r = resp.rect;
-        ui.painter().line_segment(
-            [
-                egui::pos2(r.left() + 4.0, r.bottom() + 1.0),
-                egui::pos2(r.right() - 4.0, r.bottom() + 1.0),
-            ],
-            Stroke::new(2.0, ACCENT),
-        );
-    }
-    resp
-}
-
 /// Botón de acción primario.
 fn action_btn(ui: &mut egui::Ui, label: &str, bg: Color32, fg: Color32) -> egui::Response {
     ui.add(
