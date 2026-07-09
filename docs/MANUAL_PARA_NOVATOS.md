@@ -1,6 +1,8 @@
 # 📘 Manual para novatos: uso del proyecto sin saber de software
 
 > Guía en lenguaje simple para entender **qué hace RootCause** y **cómo se usa sin perderse**, sin necesidad de saber programar.
+>
+> ¿Quieres el detalle claro de **qué es cada cosa** (cada pestaña, cada término, con glosario)? Ese está en el **[Manual de usuario](MANUAL_USUARIO.md)**. Este documento es la versión introductoria.
 
 ## 1. Para quién es este manual
 
@@ -47,22 +49,16 @@ En este caso, el repositorio es la casa completa del proyecto.
 
 ---
 
-## 4. Qué significa que no venga el `.exe`
+## 4. Cómo obtener el programa (ya no necesitas compilarlo)
 
-El `.exe` es el archivo final ejecutable de Windows. Este repositorio no lo trae incluido.
+El `.exe` es el archivo final ejecutable de Windows. **Ya hay versiones publicadas listas para usar** — no necesitas saber programar ni compilar nada:
 
-Eso **no** significa que falte el proyecto. Significa que se entrega:
+- **Descarga directa:** entra a la [página del producto](https://vladimiracunadev-create.github.io/rootcause-windows-inspector/) o a las [Releases en GitHub](https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest) y baja **`RootCause-Portable.zip`** (o el `rootcause.exe` suelto). Lo extraes y lo abres. Eso es todo.
+- **La primera vez** Windows puede mostrar un aviso de "editor desconocido" (SmartScreen), porque el programa aún no tiene firma digital. Es esperable: pulsa *Más información → Ejecutar de todas formas*.
 
-- el código fuente,
-- la documentación,
-- y la ruta para construir el ejecutable en una máquina Windows.
+El **código fuente** también está en el repositorio (junto con la documentación) por si quieres revisarlo o **construir tú mismo** el ejecutable — la guía está en `docs/BUILD_WINDOWS.md`. Pero para solo usarlo, con la descarga basta.
 
-Esto es normal cuando se quiere:
-
-- revisar el código,
-- generar un ejecutable alineado con el sistema real,
-- evitar subir binarios opacos,
-- y mantener un proceso más profesional.
+> En versiones muy antiguas el repositorio no incluía binario y había que compilarlo; **eso ya cambió**: hoy cada versión se publica con su `.exe` verificado.
 
 ---
 
@@ -191,9 +187,9 @@ Eso permite verificar si:
 Orden recomendado:
 
 1. `README.md`
-2. `docs/RECLUTADORES.md`
-3. `docs/REPOSITORIO_ANALISIS.md`
-4. `docs/MANUAL_PARA_NOVATOS.md`
+2. `docs/MANUAL_USUARIO.md` (qué es cada cosa, en claro — con glosario)
+3. `docs/RECLUTADORES.md`
+4. `docs/REPOSITORIO_ANALISIS.md`
 5. `docs/RUST_PARA_ROOTCAUSE.md` si luego quieres entender más.
 
 ---
