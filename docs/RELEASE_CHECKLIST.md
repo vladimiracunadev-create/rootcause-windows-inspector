@@ -74,7 +74,7 @@ Checklist profesional antes de distribuir artefactos.
 
 ## 6) Transparencia y seguridad
 
-- [ ] se deja claro que el repo no incluye `.exe`
+- [ ] el release publica el `.exe` y los artefactos verificados (SHA-256)
 - [ ] se deja claro si el binario está firmado o no
 - [ ] se dejan claros los permisos requeridos
 - [ ] se dejan claros los límites del modo de precisión actual
