@@ -77,7 +77,7 @@ El modo principal. Bajo consumo, útil para observación frecuente.
 - 🗃️ Exportación JSON · Historial SQLite con comparación A vs B
 - ⚡ Filtro de severidad por proceso (Critical / Warning / Normal)
 - 🔔 Notificaciones toast cuando aparece proceso Critical
-- ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…9` cambio de tab
+- ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…8` primeras 8 tabs · `Ctrl+9` Configuración · `Ctrl+0` Manual (Acerca solo por clic)
 - 🖥️ Info de hardware del equipo: OS, CPU, núcleos, frecuencia, RAM
 - 🚀 Tab Autostart: registro Run (HKCU/HKLM) y carpetas Startup con severidad y verificación en disco — detecta cambios contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) y genera alertas `persistence-change`
 - ⚙️ Detección de cambios en servicios de Windows (vía CLI `rootcause services` + alertas `service-change` en incidentes; no es un tab de la GUI): vigila `StartMode` + ruta del binario de cada servicio contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) — captura servicios nuevos, secuestro del binario o cambios de modo de arranque (ej. deshabilitar Defender)
@@ -219,16 +219,19 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 
 ## 🗂️ Secciones de la interfaz
 
+Las **11 secciones** viven en una **barra lateral** (NavigationView estilo Windows 11), agrupadas por tema:
+
 | Tab | Descripción |
 |---|---|
-| **Overview** | Semáforo global + sparklines + características del equipo |
+| **Resumen** | Banner de veredicto + semáforo global + sparklines + características del equipo |
 | **Procesos** | Tabla con filtro de severidad + command line de proceso |
 | **Conexiones** | Conexiones activas por proceso + bloqueo de IP |
-| **Temporales** | Cachés de Windows (TEMP, SoftwareDistribution, etc.) + botón **Limpiar %TEMP%** (>24h, no en uso) |
+| **Temporales** | Cachés de Windows (TEMP, SoftwareDistribution, etc.) + botón **Limpiar %TEMP%** + **gestión de Docker** (imágenes, volúmenes, purga segura) |
 | **ETW / WPR** | Captura WPR + resumen de traza ETL |
 | **Servicios** | wuauserv, BITS, DoSvc, SysMain + eventos recientes |
 | **Autostart** | Registro Run/RunOnce, carpetas Startup y tareas programadas + detección de cambios vs baseline |
 | **Historial** | Snapshots SQLite + comparación A vs B con deltas |
+| **Configuración** | Apariencia (modos Claro/Oscuro/Windows), idioma ES/EN y umbrales de detección |
 | **Manual** | Guía integrada: qué hace cada tab, detección por baseline y acciones seguras |
 | **Acerca** | Versión, autor, GitHub, atajos de teclado, hardware |
 

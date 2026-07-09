@@ -77,7 +77,7 @@ Punto de entrada. Detecta args CLI → `cli::run()` o GUI.
 Constantes del producto: `VERSION`, `DISPLAY_NAME`, `DESCRIPTION`, `AUTHOR`, `EMAIL`, `GITHUB`, `GITLAB`, `LICENSE`. Único lugar de verdad.
 
 ### `cli.rs`
-Interfaz de línea de comandos completa: `--help`, `--version`, `status`, `snapshot`, `history [N]`, `incidents [N]`, `export`, `config show/init`, `ai explain-latest`, `wpr start/stop/cancel/analyze`, `autostart`, `services`, `kill`, `block-ip`, `stop-service`, `--gui`.
+Interfaz de línea de comandos completa: `--help`, `--version`, `status`, `snapshot`, `history [N]`, `incidents [N]`, `export`, `config show/init`, `ai explain-latest`, `wpr start/stop/cancel/analyze`, `autostart`, `services`, `clean-temp`, `docker [--json|--prune-images|--prune-cache]`, `kill`, `block-ip`, `stop-service`, `--gui`.
 
 ### `app.rs`
 Capa de presentación y estado visual.

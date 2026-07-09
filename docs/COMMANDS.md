@@ -366,6 +366,24 @@ Notas:
 - Equivalente en la GUI: botón **🗑 Limpiar %TEMP%** en el tab **Temporales**, con
   confirmación de dos pasos.
 
+### Espacio de Docker
+
+```powershell
+rootcause docker                 # muestra uso de disco de Docker (imágenes, volúmenes, recuperable)
+rootcause docker --json          # lo mismo en JSON
+rootcause docker --prune-images  # borra imágenes colgantes (dangling) — seguro
+rootcause docker --prune-cache   # borra la caché de build — seguro
+```
+
+Notas:
+- Lee del propio Docker (`docker system df`, `docker images`, `docker volume ls`).
+  Si Docker no está instalado o el daemon no responde, informa y no falla.
+- La purga solo toca lo **regenerable**: imágenes *dangling* y caché de build. Los
+  **volúmenes nunca se borran** (contienen datos de contenedores) — se listan para
+  revisión manual.
+- Equivalente en la GUI: sección **Docker** en el tab **Temporales**, con purga
+  guiada de dos pasos.
+
 ### IA opcional por API
 
 ```powershell

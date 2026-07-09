@@ -4,7 +4,7 @@ Pagina web publica del producto [RootCause Windows Inspector](https://github.com
 
 Ver online: https://vladimiracunadev-create.github.io/rootcause-windows-inspector
 
-**Version actual:** v0.13.0
+**Version actual:** v0.17.0
 
 ---
 
@@ -25,7 +25,8 @@ landing/                    <- subdirectorio servido por GitHub Pages
 
 - **nucleo publicado hoy:** GUI Desktop y CLI-only
 - **integraciones publicadas hoy:** PowerShell Module y VS Code Extension
-- **experimental / skeleton:** Tray icon y Windows Service
+- **produccion (desde v0.16):** Tray icon
+- **experimental / skeleton:** Windows Service
 - **perfil alternativo:** RootCause Demo
 
 La landing no debe volver a mezclar:
@@ -40,7 +41,7 @@ La landing no debe volver a mezclar:
 | Hero | - | Titulo, badges, boton de descarga |
 | Caracteristicas | `#features` | Features del producto principal |
 | Ediciones | `#editions` | Modalidades reales + estado |
-| Pestañas | - | Tabla de las 9 pestañas de la GUI |
+| Pestañas | - | Tabla de las 11 secciones de la GUI (barra lateral, estilo Windows 11) |
 | Requisitos | `#requirements` | Minimos, recomendados, modo precision |
 | Instalacion | `#install` | GUI, portable, CLI-only, PowerShell y VS Code |
 | CLI | `#cli` | Referencia de comandos + demo terminal |
@@ -71,9 +72,10 @@ Artefactos esperados del release principal:
 - `RootCause.psm1`: integracion; requiere `rootcause.exe`
 - `RootCause-VSCode-Extension.vsix`: integracion; requiere `rootcause.exe`
 
-## Evolucion visible en la landing para v0.13.0
+## Evolucion visible en la landing (version actual)
 
 - mantener un bloque breve sobre seguridad y resiliencia del agente
+- reflejar las features actuales: gestion de espacio de Docker, idioma ES/EN, modos de tema Claro/Oscuro/Windows, rediseno Windows 11 (barra lateral, iconos de linea), icono de bandeja de produccion
 - mencionar heartbeat local, integridad basica de configuracion y deteccion de cierre abrupto previo
 - Tab Autostart con baseline en SQLite y deteccion de cambios de persistencia (`persistence-change`): entradas NUEVA / MODIFICADA / ELIMINADA, aceptables con `rootcause autostart --accept`
 - deteccion de cambios en servicios de Windows sobre un motor generico de baseline reutilizable (generaliza el patron de autostart): servicio NUEVO / MODIFICADO / ELIMINADO por StartMode + ruta del binario, alertas `service-change`, aceptables con `rootcause services --accept` (listado con `rootcause services` / `rootcause services --json`)

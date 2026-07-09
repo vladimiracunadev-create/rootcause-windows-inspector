@@ -93,12 +93,21 @@ rootcause-windows-inspector/
     ├── cli.rs
     ├── meta.rs
     ├── models.rs
+    ├── config.rs
+    ├── i18n.rs
     └── services/
+        ├── ai.rs
+        ├── anomaly.rs
+        ├── baseline.rs
+        ├── docker.rs
         ├── etl.rs
         ├── inspector.rs
         ├── network.rs
         ├── persistence.rs
+        ├── resilience.rs
+        ├── rules.rs
         ├── temp_scan.rs
+        ├── tray.rs
         └── windows.rs
 ```
 

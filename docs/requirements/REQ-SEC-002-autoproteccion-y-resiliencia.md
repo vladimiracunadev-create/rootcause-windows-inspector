@@ -59,7 +59,7 @@ RootCause ya se apoya en componentes persistentes y operativos:
 - configuracion local;
 - historial SQLite y exportaciones JSON;
 - auditoria de acciones;
-- skeletons para tray icon y Windows Service;
+- icono de bandeja de producción (desde v0.16) y skeleton para Windows Service;
 - CLI y GUI que dependen de continuidad y confianza en el estado local.
 
 Si el producto evoluciona para detectar anomalias compatibles con seguridad, tambien debe poder evidenciar cuando el propio agente deja de correr o es alterado, porque esa interrupcion ya es relevante para el diagnostico.

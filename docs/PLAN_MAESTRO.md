@@ -36,7 +36,7 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 | ~~No monitorea entradas de autostart/registro~~ ✅ **Resuelto** — Tab Autostart + tareas programadas (v0.11) + detección de cambios contra baseline (v0.12) | Entregado |
 | Sin firma digital → SmartScreen en primera ejecución | → Fase 6: firma digital |
 | Solo 1 test unitario | → Fase 3: tests para funciones críticas |
-| Sin configuración de umbrales por el usuario | → Fase 4: archivo `rootcause.toml` |
+| ~~Sin configuración de umbrales por el usuario~~ ✅ resuelto | editable en el tab Configuración (v0.15) |
 | Binario único — no hay opción ligera para sysadmins | → Fase 2: edición CLI-only |
 
 ---
@@ -44,9 +44,9 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 ## II. Estado técnico — hito v0.7 (snapshot histórico)
 
 > Nota: esta sección es un registro del hito v0.7. El estado actual del producto es
-> v0.14.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
-> hasta hoy: detección de anomalías, baseline de autoarranque y de servicios, overhaul
-> de UI y colección PowerShell robusta).
+> v0.17.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
+> hasta hoy: detección de anomalías, baseline de autoarranque y de servicios, Docker,
+> idioma ES/EN, icono de bandeja y el rediseño Windows 11 / Fluent con modos de tema).
 
 ### ✅ Completado en v0.7
 - Feature flags GUI/CLI-only en `Cargo.toml` (eframe/egui opcionales)
@@ -106,16 +106,8 @@ bash/MSYS2 usa `link.exe` incorrecto. Siempre usar `run_fmt.ps1` para formato.
 | CLI-only .exe | ✅ Producción | ~4 MB | `cargo build --release --no-default-features` |
 | PowerShell module | ✅ Producción | ~1 KB | `packaging/powershell/RootCause.psm1` |
 | VS Code Extension | ✅ Producción | TypeScript | `vscode-extension/` |
-| Tray icon | ⚙ Skeleton | — | `src/services/tray.rs` (activar feature `tray`) |
+| Tray icon | ✅ Producción (v0.16) | — | `src/services/tray.rs` (edición GUI; color por severidad + menú) |
 | Windows Service | ⚙ Skeleton | — | `src/bin/rootcause-service.rs` (activar feature `service`) |
-
-**Para activar Tray icon** (próxima versión):
-```toml
-# Cargo.toml
-tray = ["dep:tray-icon"]
-[dependencies]
-tray-icon = { version = "0.14", optional = true }
-```
 
 **Para activar Windows Service** (próxima versión):
 ```toml
@@ -181,13 +173,13 @@ Motor genérico: v0.13 generaliza el patrón de autostart de v0.12 en un **motor
 Alertas: genera alertas kind `service-change` para servicios nuevos/modificados/eliminados.
 Aceptación y listado: CLI `rootcause services --accept` fija la baseline. `rootcause services` lista solo los cambios; `rootcause services --json` incluye el campo `change_status` por servicio.
 
-#### 4.3 Tray icon (monitor proactivo)
-Qué hace: ícono en bandeja del sistema. Cambia de color (verde/amarillo/rojo) según severidad. Click abre la ventana completa. El programa corre en segundo plano sin que el usuario lo vea.
-Por qué importa: transforma RootCause de herramienta reactiva (abro cuando hay problema) a monitor proactivo (me avisa cuando hay problema).
-Implementación: requiere actualizar eframe a 0.28+ que incluye soporte de tray nativo.
+#### 4.3 Tray icon (monitor proactivo) ✅ v0.16.0
+Qué hace: ícono en bandeja del sistema. Cambia de color (verde/amarillo/rojo) según severidad, tooltip con el veredicto y menú (Mostrar / Actualizar / Exportar / Salir).
+Por qué importa: transforma RootCause de herramienta reactiva a monitor proactivo.
+Implementación: entregado con la crate `tray-icon` (feature `gui`) sin necesidad de eframe 0.28. Pendiente para v1.0: cerrar-a-bandeja (mantener el proceso al cerrar la ventana).
 
-#### 4.4 Alertas y umbrales configurables ✅ v0.11.0
-Panel de configuración en tab Acerca con edición inline de umbrales (CPU, RAM, I/O, anomalías, refresco) y botón Guardar que persiste a `rootcause-config.json` sin reiniciar.
+#### 4.4 Alertas y umbrales configurables ✅ v0.11.0 (movido al tab Configuración en v0.15)
+Edición inline de umbrales (CPU, RAM, I/O, anomalías, refresco) en el tab **Configuración**, con botón Guardar que persiste a `rootcause-config.json` sin reiniciar.
 `save_config(&mut self, config)` implementado en `InspectorService` y `ConfigManager::save_to_path()` en `config.rs`.
 
 #### 4.5 `--output` en CLI ✅ Implementado
@@ -262,7 +254,7 @@ Entregado (coincide con los tags/releases publicados en GitHub):
 
 Pendiente:
 
-- **v1.0** ⏳ — tray icon activo, firma digital, publicación real en Scoop/Winget/Chocolatey, EMAIL + GitLab en `meta.rs`
+- **v1.0** ⏳ — cerrar-a-bandeja (el tray icon base ya se entregó en v0.16), firma digital, publicación real en Scoop/Winget/Chocolatey, EMAIL + GitLab en `meta.rs`
 - **v2.0+** ⏳ — Windows Service 24/7, edición Seguridad (SOC), edición Enterprise, MSIX / Microsoft Store
 
 ---

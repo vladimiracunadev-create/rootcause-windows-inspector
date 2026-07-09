@@ -7,7 +7,7 @@ Esta guía explica cómo usar el software en un caso real de lentitud de Windows
 ## 1) Flujo mínimo recomendado
 
 1. abre la app,
-2. deja correr algunos refrescos — observa las sparklines de CPU / RAM / I/O en el tab **Overview**,
+2. deja correr algunos refrescos — observa las sparklines de CPU / RAM / I/O en el tab **Resumen**,
 3. mira el semáforo,
 4. revisa “Dónde mirar primero”,
 5. ve al tab **Procesos** y usa el filtro de severidad para concentrarte en lo Critical primero,
@@ -230,8 +230,10 @@ rootcause --gui
 | `Ctrl + 6`   | Ir a tab Servicios            |
 | `Ctrl + 7`   | Ir a tab Autostart            |
 | `Ctrl + 8`   | Ir a tab Historial            |
-| `Ctrl + 9`   | Ir a tab Manual               |
-| `Ctrl + 0`   | Ir a tab Acerca               |
+| `Ctrl + 9`   | Ir a tab Configuración        |
+| `Ctrl + 0`   | Ir a tab Manual               |
+
+(El tab **Acerca** no tiene atajo numérico; se abre con clic en la barra lateral.)
 
 ---
 
@@ -250,7 +252,7 @@ Los mismos datos aparecen en el tab **Acerca**, junto con la tabla de atajos de 
 
 ## 9) Funciones nuevas en v0.6
 
-### Sparklines (tab Overview)
+### Sparklines (tab Resumen)
 Muestra las últimas 60 muestras de CPU%, RAM% e I/O Write como mini-gráficos de línea. Útil para identificar picos recientes sin haber estado mirando la pantalla en ese momento.
 
 ### Filtro de severidad (tab Procesos)
@@ -335,9 +337,9 @@ mostrando en cada scan.
 
 ---
 
-## 11) Edición de umbrales (v0.11)
+## 11) Edición de umbrales
 
-En el tab **Acerca** → sección "Configuración operativa":
+En el tab **Configuración** (Ctrl+9) → sección "Configuración operativa" (se movió aquí desde Acerca en v0.15):
 
 1. Arrastra o edita directamente los valores de CPU, RAM, I/O (warning y crítico), CPU sostenida, crecimiento de RAM, escritura agresiva y refresco.
 2. Pulsa **Guardar** — los cambios se escriben en `rootcause-config.json` y se aplican en la próxima captura sin reiniciar la app.
