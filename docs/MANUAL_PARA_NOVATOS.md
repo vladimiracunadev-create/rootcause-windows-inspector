@@ -18,19 +18,25 @@ Este documento está pensado para una persona que:
 
 ## 2. Qué es este software, dicho en simple
 
-Este software intenta descubrir por qué un computador con Windows se pone lento.
+Es un **software forense de ciberseguridad** para Windows. En simple: **vigila si el
+computador se comporta de forma rara** (usa demasiado disco, red, memoria, o algo
+cambió sin que tú lo hicieras) porque eso **puede ser el primer aviso de que algo
+está pasando** — desde una simple lentitud hasta un programa malicioso.
 
-Ejemplos de problemas que quiere detectar:
+La idea clave: **muchas veces no importa saber al instante qué es; lo que importa es
+notar que "algo se salió de lo normal"**. Ese es el primer indicio.
 
-- un programa que usa mucho disco,
-- un programa que gasta demasiada memoria,
-- una actualización de Windows corriendo en segundo plano,
-- una carpeta temporal que creció demasiado,
-- una conexión rara a internet,
-- un proceso que parece fuera de lugar.
+Ejemplos de cosas que quiere detectar:
 
-> No está pensado para "arreglar todo automáticamente".
-> Está pensado para **mostrarte el problema principal con claridad**.
+- un programa que usa mucho disco (podría ser algo cifrando tus archivos),
+- un programa que gasta demasiada memoria o CPU sin razón,
+- una conexión rara a internet (algo enviando información hacia afuera),
+- algo nuevo que arranca solo con Windows, o un servicio que cambió (un intruso
+  intentando "quedarse"),
+- una carpeta temporal que creció demasiado.
+
+> No está pensado para "arreglar todo automáticamente" ni reemplaza a tu antivirus.
+> Está pensado para **avisarte temprano y mostrarte el problema principal con claridad**.
 
 ---
 

@@ -23,11 +23,15 @@
 
 ---
 
-**RootCause** es un software de escritorio para **Windows** escrito en **Rust** orientado a un problema real: descubrir con claridad **qué proceso, carpeta, servicio, conexión o traza ETL** está degradando el equipo cuando aparecen síntomas como disco al 100 %, crecimiento anormal de `%TEMP%`, lentitud general, consumo alto de memoria o actividad de red sin explicación.
+**RootCause es un software forense de ciberseguridad para Windows**, escrito en **Rust**.
+
+Nace de una idea que es su razón de existir: **cualquier distorsión anómala de los recursos de un equipo —CPU, disco, memoria, red, procesos, autoarranque o servicios— puede ser el primer indicio de que algo está ocurriendo.** No solo lentitud: también malware activo, persistencia, exfiltración, un binario secuestrado o un control de seguridad que se apagó. RootCause **vigila esas distorsiones de forma agnóstica** (no necesita saber *qué* amenaza es para notar que "algo se comporta distinto"), **correlaciona las señales** en incidentes y **explica la causa raíz con evidencia** — el indicio temprano que te dice **dónde mirar**.
 
 > **Diagnóstico primero. Intervención después.**
 
-No intenta ser un "limpiador mágico". Busca **explicar la causa dominante**, dejar evidencia y dar una ruta profesional hacia mayor precisión cuando la observación liviana no basta.
+Es un **sensor forense y de apoyo a la decisión**, no un antivirus ni un EDR: no elimina malware ni bloquea por firma — **detecta indicios de comportamiento** (persistencia, tráfico saliente inusual, ejecución en rutas sospechosas, escritura agresiva tipo ransomware, cryptojacking…), deja registro y **complementa** a tu antivirus/EDR. También responde el lado "rendimiento" del mismo problema: qué proceso, carpeta, servicio o conexión está degradando el equipo.
+
+> 🛡️ **Qué detecta hoy, amenaza por amenaza (con honestidad):** [`docs/DETECCION_AMENAZAS.md`](docs/DETECCION_AMENAZAS.md)
 
 ---
 

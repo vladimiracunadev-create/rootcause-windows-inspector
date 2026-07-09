@@ -5,9 +5,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description"
-    content="RootCause Windows Inspector – Monitor forense ligero para Windows. Descubre qué proceso, servicio o conexión está degradando tu equipo." />
-  <meta property="og:title" content="RootCause Windows Inspector" />
-  <meta property="og:description" content="Monitor forense ligero para Windows. Escrito en Rust. Telemetría: cero." />
+    content="RootCause — software forense de ciberseguridad para Windows. Toda distorsión anómala de recursos (CPU, disco, red, procesos, autoarranque, servicios) puede ser el primer indicio de una amenaza: RootCause la detecta, correlaciona y explica la causa raíz con evidencia." />
+  <meta property="og:title" content="RootCause — software forense de ciberseguridad para Windows" />
+  <meta property="og:description" content="El indicio temprano de que algo ocurre en tu Windows. Detecta la distorsión de recursos que delata malware, persistencia o exfiltración. Escrito en Rust. Telemetría: cero." />
   <meta property="og:type" content="website" />
   <title>RootCause Windows Inspector</title>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
@@ -55,8 +55,9 @@
       </div>
 
       <p class="hero-sub">
-        Monitor forense ligero para Windows – descubre con claridad<br />
-        <strong>qué proceso, servicio o conexión</strong> está degradando tu equipo.
+        Software <strong>forense de ciberseguridad</strong> para Windows.<br />
+        Toda distorsión anómala de recursos —CPU, disco, red, procesos, autoarranque, servicios—<br />
+        puede ser el <strong>primer indicio de que algo está ocurriendo</strong>.
       </p>
 
       <div class="badges">
@@ -339,7 +340,8 @@ choco install rootcause-windows-inspector</code></pre>
   <!-- ═══════════════════════════════  REQUIREMENTS  ══════════════════════ -->
   <section id="security-evolution" class="section">
     <div class="container">
-      <h2 class="section-title">🛡 Evolución de seguridad y resiliencia</h2>
+      <h2 class="section-title">🛡 Enfoque forense de ciberseguridad</h2>
+      <p class="section-sub" style="margin-bottom:1.2rem">Su razón de ser: <strong>toda distorsión de recursos puede ser el primer indicio de una amenaza</strong>. RootCause detecta señales de comportamiento —persistencia, tráfico saliente inusual, ejecución en rutas sospechosas, escritura agresiva tipo <em>ransomware</em>, <em>cryptojacking</em>, un control de seguridad apagado— las correlaciona en incidentes y explica la causa raíz con evidencia. Complementa a tu antivirus/EDR; no lo reemplaza. <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/DETECCION_AMENAZAS.md">Qué detecta hoy, amenaza por amenaza →</a></p>
       <p class="section-sub">v0.9–v0.17 incorporan autoprotección del agente, tab Autostart con heurística de severidad y baseline en SQLite que detecta cambios de persistencia (NUEVA / MODIFICADA / ELIMINADA), un motor genérico de baseline que vigila también los servicios de Windows (NUEVO / MODIFICADO / ELIMINADO con alertas <code>service-change</code>), edición inline de umbrales, limpieza segura de <code>%TEMP%</code>, gestión del espacio de Docker (imágenes, volúmenes y purga guiada segura), interfaz bilingüe español / inglés, un manual integrado con el porqué de cada parte, un icono de bandeja con color según la salud del sistema, una colección de datos más robusta (UTF-8, servicios y eventos siempre poblados) y un rediseño de interfaz estilo Windows 11 (barra lateral, iconos de línea, Segoe UI y modos Claro/Oscuro/Windows) — sin convertir RootCause en un antivirus.</p>
 
       <div class="feature-grid">

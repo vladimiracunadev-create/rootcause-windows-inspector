@@ -5,25 +5,37 @@ lenguaje claro. No necesitas ser técnico para leerlo: cada término difícil se
 la primera vez que aparece. Si algo sigue sin quedar claro, es un fallo del manual —
 no tuyo.
 
-> **En una frase:** RootCause te dice, con evidencia, **qué está degradando tu PC con
-> Windows** (qué proceso, carpeta, servicio, conexión o cambio) — y solo después te
-> deja actuar, con confirmación.
+> **En una frase:** RootCause es un **software forense de ciberseguridad** para Windows.
+> Parte de que **cualquier distorsión anómala de recursos —CPU, disco, memoria, red,
+> procesos, autoarranque, servicios— puede ser el primer indicio de que algo está
+> ocurriendo** (una amenaza, malware, un cambio no autorizado). Lo detecta, lo explica
+> con evidencia y te dice **dónde mirar** — y solo después te deja actuar, con confirmación.
 
 ---
 
 ## 1. El problema que resuelve
 
-Windows, cuando va lento o raro, no te da una respuesta clara. Ves el disco al 100 %,
-el ventilador a tope o la RAM llena, pero **no sabes quién tiene la culpa**. El
-Administrador de tareas muestra números sueltos; no explica la **causa**.
+Cuando algo va mal en Windows —lentitud, disco al 100 %, actividad de red rara, un
+cambio que no hiciste— **no sabes quién tiene la culpa**. El Administrador de tareas
+muestra números sueltos; no explica la **causa**, y no te dice si es un problema de
+rendimiento o el síntoma de una **amenaza de seguridad**.
 
-RootCause responde preguntas concretas en una sola ventana:
+Ese es el punto clave: **la distorsión de recursos es agnóstica**. Un proceso que
+escribe disco sin parar puede ser un backup… o un *ransomware* cifrando. Una CPU al
+100 % puede ser un render… o un *cryptojacker*. Una conexión saliente rara puede ser
+una actualización… o **exfiltración**. RootCause no adivina cuál es, pero **nota la
+señal temprana** y la pone delante de ti con contexto.
 
-- ¿Qué proceso está cargando el disco **ahora mismo**?
-- ¿Qué carpeta temporal creció y cuánto?
-- ¿Esa lentitud viene de Windows Update, del antivirus, de Docker?
-- ¿Qué programa mantiene conexiones a Internet que no reconozco?
-- ¿Cambió algo en el arranque de mi equipo sin que yo lo hiciera?
+Responde preguntas concretas en una sola ventana:
+
+- ¿Qué proceso está cargando el disco **ahora mismo** (y podría ser cifrado en curso)?
+- ¿Qué programa mantiene conexiones a Internet que no reconozco (posible C2 o fuga)?
+- ¿Cambió algo en el **arranque** o en los **servicios** sin que yo lo hiciera (persistencia)?
+- ¿Se apagó "de repente" un control de seguridad (evasión de defensas)?
+- ¿Qué carpeta temporal creció, o cuánto ocupa Docker, y qué es seguro liberar?
+
+> Para el mapa completo **amenaza por amenaza** de qué detecta RootCause hoy (con
+> honestidad sobre sus límites), ver [`DETECCION_AMENAZAS.md`](DETECCION_AMENAZAS.md).
 
 ## 2. La idea central: diagnóstico primero, intervención después
 
