@@ -87,6 +87,7 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 ---
 
 ## 🔒 Seguridad
+- **[Qué hace RootCause frente a cada amenaza (hoy)](DETECCION_AMENAZAS.md)** — mapa honesto amenaza → detección
 - [SECURITY.md](../SECURITY.md)
 - [Registro de requerimientos de seguridad y resiliencia](requirements/README.md)
 
