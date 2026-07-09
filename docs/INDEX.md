@@ -9,6 +9,7 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 ## 👤 Lectura rápida según perfil
 
 ### Usuario final o dueño del problema
+- **[Manual de usuario](MANUAL_USUARIO.md)** — qué es cada cosa, en claro (con glosario)
 - [Manual para novatos](MANUAL_PARA_NOVATOS.md)
 - [Operación del software](OPERACION.md)
 - [Modo de precisión ETW/WPR](PRECISION_MODE_ETW.md)

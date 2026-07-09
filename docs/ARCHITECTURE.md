@@ -60,7 +60,9 @@ src/
     ├── persistence.rs
     ├── baseline.rs
     ├── temp_scan.rs
+    ├── docker.rs
     ├── etl.rs
+    ├── tray.rs
     └── windows.rs
 ```
 
@@ -158,6 +160,17 @@ Parsea `netstat` y clasifica conexiones.
 
 ### `services/temp_scan.rs`
 Escanea rutas temporales y cachés relevantes.
+
+### `services/docker.rs`
+Inspecciona el espacio ocupado por Docker apoyándose en su CLI (`docker system df`,
+`docker images`, `docker volume ls`). Devuelve imágenes, volúmenes y espacio
+recuperable, y expone purga segura de imágenes *dangling* y caché de build
+(`prune_dangling_images`, `prune_build_cache`). Nunca borra volúmenes. Compilado solo
+en la edición GUI.
+
+### `services/tray.rs`
+Icono de bandeja del sistema (feature `gui`, crate `tray-icon`): punto de color por
+severidad, tooltip de veredicto y menú de acciones. En la edición CLI-only queda vacío.
 
 ### `services/windows.rs`
 Adaptador de utilidades nativas de Windows.

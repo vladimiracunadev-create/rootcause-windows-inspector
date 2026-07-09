@@ -2,6 +2,18 @@
 
 > Historial de versiones entregadas y objetivos futuros de RootCause. El detalle de cada versión se conserva más abajo; esta tabla es solo un resumen de navegación.
 
+<!--
+CONVENCIÓN DE MANTENIMIENTO (leer antes de bumpear versión, para no romper el orden):
+1. Las secciones de detalle van en ORDEN ASCENDENTE (v0.5 → … → v1.0 → v2.0). El
+   changelog es HISTÓRICO: no se reescribe, solo se AÑADE.
+2. Al publicar vX.Y: (a) añade una fila a la tabla; (b) añade "## vX.Y Entregado"
+   con sus bullets JUSTO ANTES de "## v1.0 Objetivo…"; (c) mueve el marcador
+   "✅ **Actual**" a la fila nueva y deja la anterior como "✅ Entregado".
+3. El marcador de versión ACTUAL vive SOLO en la tabla (la celda Estado). Los
+   encabezados de sección NO llevan sufijo "(version actual)" — así el ancla
+   (#vXY-entregado) es estable y no hay que reeditar enlaces cada release.
+-->
+
 ## Resumen de versiones
 
 | Versión | Estado | Hito principal |
@@ -17,7 +29,7 @@
 | [v0.14](#v014-entregado) | ✅ Entregado | Overhaul de UI (ventana, scroll, glifos) + fix de colección PowerShell |
 | [v0.15](#v015-entregado) | ✅ Entregado | Idioma ES/EN + tab Configuración, sección Docker, banner de veredicto y Manual profundo |
 | [v0.16](#v016-entregado) | ✅ Entregado | Icono de bandeja con color por severidad, tooltip de veredicto y menú de acciones |
-| [v0.17](#v017-entregado-version-actual) | ✅ **Actual** | Rediseño Fluent/Win11: barra lateral, iconos de línea, Segoe UI, logo del radar, modos de tema |
+| [v0.17](#v017-entregado) | ✅ **Actual** | Rediseño Fluent/Win11: barra lateral, iconos de línea, Segoe UI, logo del radar, modos de tema |
 | [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: firma digital, publicación, cerrar-a-bandeja |
 | [v2.0+](#v20-largo-plazo) | 🔭 Largo plazo | Windows Service 24/7, ediciones Seguridad y Enterprise |
 
@@ -116,16 +128,15 @@
 - FIX de codificacion: la salida de PowerShell se fuerza a UTF-8 (antes los acentos salian como "cuadrado" en nombres de servicios, eventos y rutas)
 - version bump a 0.14.0
 
-## v0.17 Entregado (version actual)
-- Rediseño de interfaz estilo **Windows 11 / Fluent**, inspirado en la calidez de PC Manager sin clonarlo, conservando la densidad de datos
-- Barra lateral (NavigationView) con navegacion agrupada (Actividad / Sistema / Analisis) en vez de las 11 pestañas superiores; Config/Manual/Acerca anclados abajo
-- Iconos de linea dibujados con el Painter (sin emoji ni fuente externa) en la navegacion
-- Tipografia nativa: Segoe UI (proporcional) y Consolas (monoespaciada) del sistema
-- Logo de la marca: radar de circulos concentricos (igual que el .ico) en header e icono de ventana
-- Modos de tema **Claro / Oscuro / Windows** (sigue el tema del sistema) seleccionables en Configuracion; persistido en `config.ui.theme`
-- Colores en runtime (Palette/tokens) con acento = azul del icono (#1f6feb) en todos los modos
-- Banner de veredicto tipo hero en el Resumen (de v0.15) integrado en el nuevo lenguaje visual
-- version bump a 0.17.0
+## v0.15 Entregado
+- UI: interfaz bilingue espanol / ingles con selector persistente; motor i18n con helper tr(es,en) e idioma guardado en la config (`ui.language`)
+- UI: nuevo tab Configuracion (Ctrl+9) que reune idioma, umbrales de deteccion, anomalias e intervalo de refresco (movidos desde Acerca)
+- UI: banner de veredicto tipo hero en el Resumen (aro de salud + titular + causa dominante en una linea)
+- Almacenamiento: seccion Docker en el tab Temporales (docker system df / images / volume ls) con barra segmentada por categoria, tablas de imagenes y volumenes, y purga guiada segura de 2 pasos (solo imagenes dangling + cache de build; los volumenes nunca se autoborran porque contienen datos)
+- CLI: nuevo comando `rootcause docker [--json | --prune-images | --prune-cache]`
+- UI: Manual reescrito con el porque de cada parte (bilingue) + secciones nuevas (leelo en 30 segundos, Docker); ahora 11 tabs (Configuracion = Ctrl+9, Manual = Ctrl+0, Acerca solo por clic)
+- Inspirado en la UX de Microsoft PC Manager, sin clonarlo: se toma su lenguaje visual amigable y se resuelve mejor lo que insinua (baseline, causa raiz)
+- version bump a 0.15.0
 
 ## v0.16 Entregado
 - Tray: icono de bandeja del sistema activo en la edicion GUI (feature `gui` arrastra la crate `tray-icon`)
@@ -137,15 +148,16 @@
 - Pendiente para v1.0: cerrar-a-bandeja (mantener el proceso al cerrar la ventana)
 - version bump a 0.16.0
 
-## v0.15 Entregado
-- UI: interfaz bilingue espanol / ingles con selector persistente; motor i18n con helper tr(es,en) e idioma guardado en la config (`ui.language`)
-- UI: nuevo tab Configuracion (Ctrl+9) que reune idioma, umbrales de deteccion, anomalias e intervalo de refresco (movidos desde Acerca)
-- UI: banner de veredicto tipo hero en el Resumen (aro de salud + titular + causa dominante en una linea)
-- Almacenamiento: seccion Docker en el tab Temporales (docker system df / images / volume ls) con barra segmentada por categoria, tablas de imagenes y volumenes, y purga guiada segura de 2 pasos (solo imagenes dangling + cache de build; los volumenes nunca se autoborran porque contienen datos)
-- CLI: nuevo comando `rootcause docker [--json | --prune-images | --prune-cache]`
-- UI: Manual reescrito con el porque de cada parte (bilingue) + secciones nuevas (leelo en 30 segundos, Docker); ahora 11 tabs (Configuracion = Ctrl+9, Manual = Ctrl+0, Acerca solo por clic)
-- Inspirado en la UX de Microsoft PC Manager, sin clonarlo: se toma su lenguaje visual amigable y se resuelve mejor lo que insinua (baseline, causa raiz)
-- version bump a 0.15.0
+## v0.17 Entregado
+- Rediseño de interfaz estilo **Windows 11 / Fluent**, inspirado en la calidez de PC Manager sin clonarlo, conservando la densidad de datos
+- Barra lateral (NavigationView) con navegacion agrupada (Actividad / Sistema / Analisis) en vez de las 11 pestañas superiores; Config/Manual/Acerca anclados abajo
+- Iconos de linea dibujados con el Painter (sin emoji ni fuente externa) en la navegacion
+- Tipografia nativa: Segoe UI (proporcional) y Consolas (monoespaciada) del sistema
+- Logo de la marca: radar de circulos concentricos (igual que el .ico) en header e icono de ventana
+- Modos de tema **Claro / Oscuro / Windows** (sigue el tema del sistema) seleccionables en Configuracion; persistido en `config.ui.theme`
+- Colores en runtime (Palette/tokens) con acento = azul del icono (#1f6feb) en todos los modos
+- Banner de veredicto tipo hero en el Resumen (de v0.15) integrado en el nuevo lenguaje visual
+- version bump a 0.17.0
 
 ## v1.0 Objetivo de distribucion formal
 - tray icon: cerrar-a-bandeja (el icono base ya se entrego en v0.16)

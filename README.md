@@ -19,7 +19,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
 [![Version](https://img.shields.io/badge/version-0.17.0-green.svg)](docs/ROADMAP.md)
 
-🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-windows-inspector/)**
+🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-windows-inspector/)**  ·  📘 **[Manual de usuario →](docs/MANUAL_USUARIO.md)** (qué es cada cosa, en claro)
 
 ---
 
@@ -408,7 +408,7 @@ rootcause-windows-inspector/
 | Perfil | Documento |
 |---|---|
 | 🧑‍💻 Desarrollador | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/RUST_PARA_ROOTCAUSE.md`](docs/RUST_PARA_ROOTCAUSE.md) |
-| 👤 Usuario final | [`docs/MANUAL_PARA_NOVATOS.md`](docs/MANUAL_PARA_NOVATOS.md) · [`docs/OPERACION.md`](docs/OPERACION.md) |
+| 👤 Usuario final | **[`docs/MANUAL_USUARIO.md`](docs/MANUAL_USUARIO.md)** (manual claro y completo) · [`docs/MANUAL_PARA_NOVATOS.md`](docs/MANUAL_PARA_NOVATOS.md) · [`docs/OPERACION.md`](docs/OPERACION.md) |
 | 🏢 Reclutador | [`docs/RECLUTADORES.md`](docs/RECLUTADORES.md) · [`docs/REPOSITORIO_ANALISIS.md`](docs/REPOSITORIO_ANALISIS.md) |
 | 🔬 Arquitectura | [`docs/ARQUITECTURA_ESCALABILIDAD.md`](docs/ARQUITECTURA_ESCALABILIDAD.md) · [`docs/ARQUITECTURA_EVOLUTIVA.md`](docs/ARQUITECTURA_EVOLUTIVA.md) |
 | 🛡️ Evolucion y resiliencia | [`docs/requirements/README.md`](docs/requirements/README.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) |
