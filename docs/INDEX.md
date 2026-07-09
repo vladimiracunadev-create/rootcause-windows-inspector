@@ -89,6 +89,7 @@ Este índice organiza la documentación del proyecto por perfil de lectura y por
 ## 🔒 Seguridad
 - **[Qué hace RootCause frente a cada amenaza (hoy)](DETECCION_AMENAZAS.md)** — mapa honesto amenaza → detección
 - **[Comparativa con el open source de seguridad/DFIR](COMPARATIVA_OSS.md)** — qué tomar/evitar de osquery, Velociraptor, Sysmon, Sigma… + oportunidades en Rust
+- **[Guía sencilla: cómo tomar cosas de la competencia](GUIA_COMPETENCIA.md)** — semáforo de licencias + 5 pasos, caso a caso (versión corta y clara)
 - [SECURITY.md](../SECURITY.md)
 - [Registro de requerimientos de seguridad y resiliencia](requirements/README.md)
 

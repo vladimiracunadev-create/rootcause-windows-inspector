@@ -115,6 +115,7 @@ Estas lineas ya quedaron formalizadas como documentacion viva del producto, no c
 - [`Registro permanente de requerimientos`](docs/requirements/README.md): concentra estado, prioridad y trazabilidad con el roadmap tecnico.
 - [`Qué hace RootCause frente a cada amenaza (hoy)`](docs/DETECCION_AMENAZAS.md): mapa **honesto** de cada familia de amenaza de ciberseguridad → qué detecta RootCause hoy (o por qué queda fuera de alcance), partiendo de que toda distorsión de recursos puede ser el primer indicio.
 - [`Comparativa con el open source de seguridad/DFIR`](docs/COMPARATIVA_OSS.md): RootCause frente a osquery, Velociraptor, Wazuh, Sysmon, Sigma, Hayabusa/Chainsaw…, con **qué tomar / qué evitar** (y compatibilidad de licencias) y las **oportunidades priorizadas en Rust** para mejorar el producto antes de lanzarlo.
+- [`Guía sencilla: cómo tomar cosas de la competencia`](docs/GUIA_COMPETENCIA.md): la versión **corta y clara** — semáforo de licencias y 5 pasos, caso a caso, para decidir cuándo se puede tomar código y cuándo solo la idea.
 
 - [`Modulo de deteccion de comportamiento anomalo (V1)`](docs/MODULO_DETECCION_ANOMALIAS.md): describe la implementacion inicial ya integrada en el repositorio, con heuristicas locales, correlacion simple, incidentes resumidos, configuracion y salida visible en GUI/CLI.
 
