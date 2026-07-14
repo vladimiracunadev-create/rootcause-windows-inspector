@@ -4671,8 +4671,8 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
         pal().accent,
         tr("Configuración", "Settings"),
         tr(
-            "Idioma (español / inglés), umbrales de detección, anomalías e intervalo de refresco. Se guarda sin reiniciar.",
-            "Language (Spanish / English), detection thresholds, anomalies and refresh interval. Saved without restarting.",
+            "Modo de apariencia (claro / oscuro / Windows), idioma (español / inglés), reporte forense diario, umbrales de detección, anomalías e intervalo de refresco. Se guarda sin reiniciar.",
+            "Appearance mode (light / dark / Windows), language (Spanish / English), daily forensic report, detection thresholds, anomalies and refresh interval. Saved without restarting.",
         ),
         tr(
             "Cada equipo tiene un \"normal\" distinto; ajustar umbrales evita falsos positivos o puntos ciegos.",
@@ -4741,6 +4741,56 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     );
 
     ui.add_space(16.0);
+    section_header(ui, tr("Reportes forenses", "Forensic reports"));
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        tr(
+            "El botón \"Reporte forense\" (barra superior) vuelca la captura actual a un documento \
+             Markdown archivable: veredicto de salud, incidentes y anomalías, alertas \"dónde mirar \
+             primero\", cambios de autoarranque vs baseline, procesos de mayor riesgo, conexiones \
+             salientes a IP pública y temporales. En Configuración → Reportes forenses puedes activar \
+             que se genere uno solo al CAMBIAR EL DÍA (con la app abierta). Desde consola: `rootcause \
+             report`. El porqué: un incidente se investiga y se comunica mejor con un informe fechado \
+             que con una pantalla; y son INDICIOS con evidencia, no veredictos.",
+            "The \"Forensic report\" button (top bar) dumps the current snapshot to an archivable \
+             Markdown document: health verdict, incidents and anomalies, \"where to look first\" \
+             alerts, autostart changes vs baseline, top-risk processes, outbound public-IP \
+             connections and temp files. In Settings → Forensic reports you can enable generating one \
+             automatically when the DAY CHANGES (with the app open). From the console: `rootcause \
+             report`. The why: an incident is investigated and communicated better with a dated report \
+             than with a screen; and these are LEADS with evidence, not verdicts.",
+        ),
+    );
+
+    ui.add_space(16.0);
+    section_header(
+        ui,
+        tr(
+            "Optimización segura (1 clic)",
+            "Safe optimization (1 click)",
+        ),
+    );
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        tr(
+            "El botón \"Optimizar\" (barra superior) hace, tras confirmar, una limpieza honesta: borra \
+             de %TEMP% solo lo que tiene más de 24 h y no está en uso, y purga de Docker lo regenerable \
+             (imágenes colgantes y caché de build). Al terminar muestra los MB liberados reales. Lo que \
+             NO hace —a propósito—: no \"vacía la RAM\" ni promete acelerones mágicos; no toca tus datos \
+             ni los volúmenes de Docker. El porqué: optimizar debe liberar disco real y medible, nunca \
+             ser un placebo que empeore las cosas al reabrir programas.",
+            "The \"Optimize\" button (top bar) performs, after confirmation, an honest cleanup: it \
+             deletes from %TEMP% only what is older than 24 h and not in use, and prunes Docker's \
+             regenerable data (dangling images and build cache). When done it shows the real MB freed. \
+             What it does NOT do —on purpose—: it doesn't \"empty the RAM\" or promise magic speedups; \
+             it doesn't touch your data or Docker volumes. The why: optimizing must free real, \
+             measurable disk, never be a placebo that makes things worse when apps reopen.",
+        ),
+    );
+
+    ui.add_space(16.0);
     section_header(
         ui,
         tr(
@@ -4787,6 +4837,26 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
         tr(
             "Borra lo no usado de %TEMP% (>24h) y purga dangling/caché de Docker. Confirmación de 2 pasos.",
             "Removes unused %TEMP% (>24h) and prunes Docker dangling/cache. Two-step confirmation.",
+        ),
+    );
+    manual_item(
+        ui,
+        "•",
+        pal().c_bl_fg,
+        tr("Optimización segura", "Safe optimization"),
+        tr(
+            "Un clic: %TEMP% (>24h, no en uso) + Docker regenerable. Confirmación previa; muestra los MB liberados. No toca RAM ni datos.",
+            "One click: %TEMP% (>24h, not in use) + regenerable Docker. Prior confirmation; shows MB freed. Never touches RAM or data.",
+        ),
+    );
+    manual_item(
+        ui,
+        "•",
+        pal().c_bl_fg,
+        tr("Reporte forense", "Forensic report"),
+        tr(
+            "Genera un informe Markdown fechado de la captura actual (o automático al cambiar el día).",
+            "Generates a dated Markdown report of the current snapshot (or automatically on day change).",
         ),
     );
     manual_item(
@@ -4841,12 +4911,13 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
         ui,
         tr(
             "Todo funciona también sin interfaz. `rootcause --help` lista los comandos: status, snapshot, \
-             history, autostart, services, clean-temp, docker, wpr, kill, block-ip, stop-service, config, \
-             ai. El porqué: en servidores sin escritorio o dentro de scripts, el diagnóstico debe seguir \
-             estando a un comando de distancia.",
+             history, autostart, services, clean-temp, docker, report, wpr, kill, block-ip, stop-service, \
+             config, ai. El porqué: en servidores sin escritorio o dentro de scripts, el diagnóstico debe \
+             seguir estando a un comando de distancia.",
             "Everything works without a GUI too. `rootcause --help` lists the commands: status, snapshot, \
-             history, autostart, services, clean-temp, docker, wpr, kill, block-ip, stop-service, config, \
-             ai. The why: on headless servers or inside scripts, diagnostics must stay one command away.",
+             history, autostart, services, clean-temp, docker, report, wpr, kill, block-ip, stop-service, \
+             config, ai. The why: on headless servers or inside scripts, diagnostics must stay one command \
+             away.",
         ),
     );
 
