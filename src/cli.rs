@@ -4,6 +4,7 @@ use crate::meta;
 use crate::models::{AiIncidentAdvice, IncidentSummary, SnapshotRow, SystemSnapshot};
 use crate::services::docker;
 use crate::services::inspector::InspectorService;
+use crate::services::report;
 use serde::Serialize;
 use std::fs;
 
@@ -46,6 +47,7 @@ pub fn run(args: &[String]) -> i32 {
         "services" => cmd_services(&args[1..]),
         "clean-temp" => cmd_clean_temp(&args[1..]),
         "docker" => cmd_docker(&args[1..]),
+        "report" => cmd_report(&args[1..]),
         other => {
             eprintln!(
                 "Comando desconocido: '{other}'\nUsa  rootcause --help  para ver todas las opciones."
@@ -97,6 +99,9 @@ ESPACIO DE DOCKER:
   rootcause docker [--json]               Imágenes, volúmenes y espacio recuperable (docker system df)
   rootcause docker --prune-images         Elimina imágenes colgantes (dangling) — seguro
   rootcause docker --prune-cache          Elimina la caché de build — seguro
+
+REPORTE FORENSE:
+  rootcause report [--output PATH]        Genera un reporte forense de actividad (Markdown)
 
 CONFIGURACIÓN E IA OPCIONAL:
   rootcause config show [--json]          Ver ruta y configuración efectiva
@@ -864,6 +869,45 @@ fn cmd_docker(args: &[String]) -> i32 {
         "  Purga segura:  rootcause docker --prune-images   ·   rootcause docker --prune-cache"
     );
     0
+}
+
+fn cmd_report(args: &[String]) -> i32 {
+    let mut insp = match init_inspector() {
+        Ok(i) => i,
+        Err(c) => return c,
+    };
+    let hw = insp.get_hardware_info();
+    let snap = match insp.collect_snapshot() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("No se pudo capturar el sistema: {e}");
+            return 1;
+        }
+    };
+    let content = report::build_report(&snap, &hw);
+    if let Some(path) = option_value(args, "--output") {
+        match std::fs::write(path, &content) {
+            Ok(()) => {
+                println!("Reporte forense escrito en {path}");
+                0
+            }
+            Err(e) => {
+                eprintln!("No se pudo escribir el reporte: {e}");
+                1
+            }
+        }
+    } else {
+        match report::save_report(&content) {
+            Ok(p) => {
+                println!("Reporte forense generado: {}", p.display());
+                0
+            }
+            Err(e) => {
+                eprintln!("No se pudo guardar el reporte: {e}");
+                1
+            }
+        }
+    }
 }
 
 /// Trunca una cadena para la salida de consola.

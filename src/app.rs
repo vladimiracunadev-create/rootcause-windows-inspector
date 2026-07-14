@@ -14,6 +14,7 @@ use crate::models::{
 };
 use crate::services::docker::{self, DockerScan};
 use crate::services::inspector::InspectorService;
+use crate::services::report;
 use crate::services::tray::{Tray, TrayAction};
 use crate::services::windows;
 use eframe::egui::{self, Color32, FontId, Margin, RichText, Rounding, Sense, Stroke, Vec2};
@@ -185,6 +186,39 @@ fn system_prefers_dark() -> bool {
 }
 
 /// Fija el modo de tema: resuelve la paleta y reaplica los `Visuals` de egui.
+/// Lee el marcador de la última fecha en que se generó el reporte diario.
+fn read_last_daily_marker() -> Option<chrono::NaiveDate> {
+    let path = report::reports_dir().join(".last-daily");
+    let raw = std::fs::read_to_string(path).ok()?;
+    chrono::NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d").ok()
+}
+
+/// Persiste el marcador de la última fecha en que se generó el reporte diario.
+fn write_last_daily_marker(day: chrono::NaiveDate) {
+    let dir = report::reports_dir();
+    if std::fs::create_dir_all(&dir).is_ok() {
+        let _ = std::fs::write(dir.join(".last-daily"), day.to_string());
+    }
+}
+
+/// Abre una ruta local con la aplicación por defecto de Windows (visor de Markdown/txt).
+fn open_path_in_default_app(path: &std::path::Path) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW evita una ventana de consola parpadeante.
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", ""])
+            .arg(path.as_os_str())
+            .creation_flags(0x0800_0000)
+            .spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+    }
+}
+
 fn set_theme(ctx: &egui::Context, mode: crate::config::ThemeMode) {
     let p = match mode {
         crate::config::ThemeMode::Light => Palette::LIGHT,
@@ -327,6 +361,14 @@ pub struct RootCauseApp {
     docker_result: Option<String>,
     // Icono de bandeja del sistema (None si el SO lo rechaza o falla la creación)
     tray: Option<Tray>,
+    // Reporte forense automático: última fecha en que se generó el reporte diario
+    // (persistida en un marcador junto a los reportes). Evita duplicados el mismo día.
+    daily_report_last: Option<chrono::NaiveDate>,
+    // Optimización segura (estilo PC Manager): modal de confirmación de 2 pasos y
+    // resumen honesto de lo liberado. `optimize_result` en Some conmuta el modal a
+    // vista de resultado.
+    optimize_confirm: bool,
+    optimize_result: Option<String>,
 }
 
 impl RootCauseApp {
@@ -366,6 +408,9 @@ impl RootCauseApp {
             // El icono de bandeja se crea aquí, en el hilo del event-loop de winit
             // (necesario para que sus mensajes de Windows se bombeen). No fatal.
             tray: Tray::new(),
+            daily_report_last: read_last_daily_marker(),
+            optimize_confirm: false,
+            optimize_result: None,
         };
         match inspector {
             Ok(svc) => {
@@ -467,6 +512,47 @@ impl RootCauseApp {
                 self.status_line = format!("Error al exportar: {e}");
                 self.status_is_error = true;
             }
+        }
+    }
+
+    /// Genera un reporte forense de la captura actual, lo guarda y lo abre.
+    fn generate_report_now(&mut self) {
+        let Some(snap) = self.snapshot.as_ref() else {
+            self.status_line = "Sin captura para el reporte todavía".into();
+            self.status_is_error = true;
+            return;
+        };
+        let content = report::build_report(snap, &self.hardware_info);
+        match report::save_report(&content) {
+            Ok(path) => {
+                self.status_line = format!("Reporte forense generado → {}", path.display());
+                self.status_is_error = false;
+                open_path_in_default_app(&path);
+            }
+            Err(e) => {
+                self.status_line = format!("Error al generar el reporte: {e}");
+                self.status_is_error = true;
+            }
+        }
+    }
+
+    /// Si el reporte diario automático está activo y cambió el día, genera un
+    /// reporte del estado actual (una vez por día) y persiste el marcador.
+    fn maybe_generate_daily_report(&mut self) {
+        if !self.cached_config.ui.daily_report {
+            return;
+        }
+        let Some(snap) = self.snapshot.as_ref() else {
+            return;
+        };
+        let today = chrono::Local::now().date_naive();
+        if self.daily_report_last == Some(today) {
+            return;
+        }
+        let content = report::build_report(snap, &self.hardware_info);
+        if report::save_report(&content).is_ok() {
+            self.daily_report_last = Some(today);
+            write_last_daily_marker(today);
         }
     }
 
@@ -616,6 +702,42 @@ impl RootCauseApp {
         self.last_refresh_at = Instant::now() - Duration::from_secs(self.refresh_interval_secs);
     }
 
+    /// Optimización segura (un clic): limpia %TEMP% (solo archivos no usados y con
+    /// más de 24 h) y purga lo **regenerable** de Docker (imágenes colgantes y
+    /// caché de build). No toca la RAM ni "acelera" nada de forma placebo: solo
+    /// libera disco real y reporta con honestidad lo conseguido.
+    fn execute_safe_optimize(&mut self) {
+        let mut lines: Vec<String> = Vec::new();
+
+        // 1) %TEMP% — reutiliza la limpieza segura ya existente (no borra en uso ni reciente).
+        if let Some(insp) = self.inspector.as_ref() {
+            let r = insp.clean_temp(false);
+            lines.push(format!(
+                "• %TEMP%: {:.1} MB liberados · {} archivos borrados ({} en uso y {} recientes: intactos)",
+                r.freed_mb, r.deleted_count, r.skipped_in_use, r.skipped_recent
+            ));
+        }
+
+        // 2) Docker — solo lo regenerable. Si Docker no está, el propio mensaje lo indica.
+        match docker::prune_dangling_images() {
+            Ok(msg) => lines.push(format!("• Docker imágenes colgantes: {msg}")),
+            Err(e) => lines.push(format!("• Docker imágenes colgantes: {e}")),
+        }
+        match docker::prune_build_cache() {
+            Ok(msg) => lines.push(format!("• Docker caché de build: {msg}")),
+            Err(e) => lines.push(format!("• Docker caché de build: {e}")),
+        }
+
+        self.optimize_result = Some(lines.join("\n"));
+        self.status_line = "Optimización segura completada".to_owned();
+        self.status_is_error = false;
+        // Refrescar la vista para reflejar el disco liberado.
+        self.last_refresh_at = Instant::now() - Duration::from_secs(self.refresh_interval_secs);
+        if self.docker_scan.is_some() {
+            self.docker_scan = Some(docker::scan());
+        }
+    }
+
     /// Ejecuta una acción de Docker (escaneo o purga) de forma síncrona. Docker
     /// puede tardar 1–2 s; se hace bajo demanda (pulsando un botón), no en el
     /// bucle de refresco, así que el bloqueo puntual es aceptable.
@@ -717,6 +839,10 @@ impl eframe::App for RootCauseApp {
         {
             self.refresh_now();
         }
+
+        // Reporte forense diario automático: si está activo y cambió el día, se
+        // genera una vez (guardado barato: comparación de fecha por frame).
+        self.maybe_generate_daily_report();
 
         // Recargar historial cuando el tab está activo y los datos son viejos (> 30 s)
         if self.active_tab == Tab::History
@@ -945,6 +1071,89 @@ impl eframe::App for RootCauseApp {
                         }
                     });
             });
+
+        // ── Modal: Optimización segura (estilo PC Manager, honesto) ────────────
+        if self.optimize_confirm {
+            let mut do_optimize = false;
+            let mut close = false;
+            egui::Window::new(tr("Optimización segura", "Safe optimization"))
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ctx, |ui| {
+                    ui.set_max_width(470.0);
+                    if let Some(result) = self.optimize_result.as_ref() {
+                        ui.label(
+                            RichText::new(tr("Listo. Esto se liberó:", "Done. This was freed:"))
+                                .size(13.0)
+                                .strong()
+                                .color(pal().text_pri),
+                        );
+                        ui.add_space(6.0);
+                        ui.label(RichText::new(result.as_str()).size(12.0).color(pal().text_sec));
+                        ui.add_space(10.0);
+                        if action_btn(ui, tr("Cerrar", "Close"), pal().accent, pal().text_pri)
+                            .clicked()
+                        {
+                            close = true;
+                        }
+                    } else {
+                        ui.label(
+                            RichText::new(tr(
+                                "Optimización segura y auditada. Va a:",
+                                "Safe, audited optimization. It will:",
+                            ))
+                            .size(13.0)
+                            .strong()
+                            .color(pal().text_pri),
+                        );
+                        ui.add_space(6.0);
+                        ui.label(
+                            RichText::new(tr(
+                                "• Limpiar %TEMP%: solo archivos de más de 24 h y que no estén en uso.\n\
+                                 • Purgar Docker: imágenes colgantes y caché de build (regenerables).\n\n\
+                                 No toca tus datos, ni volúmenes de Docker, ni la RAM. Solo libera disco real.",
+                                "• Clean %TEMP%: only files older than 24 h and not in use.\n\
+                                 • Prune Docker: dangling images and build cache (regenerable).\n\n\
+                                 It won't touch your data, Docker volumes, or RAM. It only frees real disk.",
+                            ))
+                            .size(12.0)
+                            .color(pal().text_sec),
+                        );
+                        ui.add_space(12.0);
+                        ui.horizontal(|ui| {
+                            if action_btn(
+                                ui,
+                                tr("Optimizar ahora", "Optimize now"),
+                                pal().accent,
+                                pal().text_pri,
+                            )
+                            .clicked()
+                            {
+                                do_optimize = true;
+                            }
+                            ui.add_space(8.0);
+                            if action_btn(
+                                ui,
+                                tr("Cancelar", "Cancel"),
+                                pal().c_bl_bg,
+                                pal().c_bl_fg,
+                            )
+                            .clicked()
+                            {
+                                close = true;
+                            }
+                        });
+                    }
+                });
+            if do_optimize {
+                self.execute_safe_optimize();
+            }
+            if close {
+                self.optimize_confirm = false;
+                self.optimize_result = None;
+            }
+        }
     }
 }
 
@@ -1275,6 +1484,13 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
                 }
                 if header_btn(ui, "💾", "Exportar JSON").clicked() {
                     app.export_snapshot();
+                }
+                if header_btn(ui, "📊", "Reporte forense").clicked() {
+                    app.generate_report_now();
+                }
+                if header_btn(ui, "🚀", "Optimizar").clicked() {
+                    app.optimize_confirm = true;
+                    app.optimize_result = None;
                 }
 
                 ui.add_space(10.0);
@@ -4784,6 +5000,57 @@ fn draw_tab_config(
                         ui.add_space(6.0);
                     }
                 });
+
+                ui.add_space(16.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Reportes forenses ─────────────────────────────────────────
+                section_header(ui, tr("▸  Reportes forenses", "▸  Forensic reports"));
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(tr(
+                        "Puedes generar un reporte cuando quieras con el botón «Reporte \
+                         forense» de la barra superior. Si activas esta opción, RootCause \
+                         además generará uno automáticamente al cambiar el día (una vez al día).",
+                        "You can generate a report anytime with the «Forensic report» button \
+                         in the top bar. If you enable this, RootCause will also generate one \
+                         automatically when the day changes (once per day).",
+                    ))
+                    .size(11.0)
+                    .color(pal().text_mut),
+                );
+                ui.add_space(6.0);
+                if ui
+                    .checkbox(
+                        &mut cfg.ui.daily_report,
+                        RichText::new(tr(
+                            "Generar un reporte diario automáticamente",
+                            "Generate a daily report automatically",
+                        ))
+                        .size(12.5)
+                        .color(pal().text_sec),
+                    )
+                    .changed()
+                {
+                    *save_requested = true;
+                }
+                ui.add_space(6.0);
+                if action_btn(
+                    ui,
+                    tr("Abrir carpeta de reportes", "Open reports folder"),
+                    pal().c_bl_bg,
+                    pal().c_bl_fg,
+                )
+                .clicked()
+                {
+                    let dir = report::reports_dir();
+                    let _ = std::fs::create_dir_all(&dir);
+                    let _ = windows::powershell(&format!(
+                        "Start-Process explorer.exe '{}'",
+                        dir.display().to_string().replace('\'', "''")
+                    ));
+                }
 
                 ui.add_space(16.0);
                 ui.add(egui::Separator::default());
