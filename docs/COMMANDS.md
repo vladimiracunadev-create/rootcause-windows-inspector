@@ -384,6 +384,24 @@ Notas:
 - Equivalente en la GUI: sección **Docker** en el tab **Temporales**, con purga
   guiada de dos pasos.
 
+### Reporte forense de actividad
+
+```powershell
+rootcause report                       # genera un reporte forense (Markdown) y muestra la ruta
+rootcause report --output C:\ruta\reporte.md   # escribe el reporte en una ruta concreta
+```
+
+Notas:
+- El reporte reúne el veredicto de salud, incidentes/anomalías (indicios de
+  seguridad), alertas, cambios de autoarranque vs línea base, procesos de mayor
+  riesgo, conexiones salientes a IP pública y temporales grandes.
+- Son **indicios con evidencia**, no veredictos. Complementa al antivirus/EDR.
+- Sin `--output` se guarda en
+  `%LOCALAPPDATA%\RootCauseInspector\reports\rootcause-YYYYMMDD-HHMMSS.md`.
+- Equivalente en la GUI: botón **Reporte forense** en la barra superior. Además,
+  en **Configuración → Reportes forenses** puedes activar que la app genere uno
+  automáticamente **al cambiar el día** (una vez al día).
+
 ### IA opcional por API
 
 ```powershell

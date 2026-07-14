@@ -10,6 +10,7 @@ pub mod etl;
 pub mod inspector;
 pub mod network;
 pub mod persistence;
+pub mod report;
 pub mod resilience;
 pub mod rules;
 pub mod temp_scan;

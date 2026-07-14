@@ -55,6 +55,9 @@ pub struct UiConfig {
     /// Modo de apariencia (`dark` por defecto).
     #[serde(default)]
     pub theme: ThemeMode,
+    /// Genera un reporte forense automáticamente al cambiar el día (opt-in).
+    #[serde(default)]
+    pub daily_report: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

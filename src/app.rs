@@ -14,6 +14,7 @@ use crate::models::{
 };
 use crate::services::docker::{self, DockerScan};
 use crate::services::inspector::InspectorService;
+use crate::services::report;
 use crate::services::tray::{Tray, TrayAction};
 use crate::services::windows;
 use eframe::egui::{self, Color32, FontId, Margin, RichText, Rounding, Sense, Stroke, Vec2};
@@ -185,6 +186,39 @@ fn system_prefers_dark() -> bool {
 }
 
 /// Fija el modo de tema: resuelve la paleta y reaplica los `Visuals` de egui.
+/// Lee el marcador de la última fecha en que se generó el reporte diario.
+fn read_last_daily_marker() -> Option<chrono::NaiveDate> {
+    let path = report::reports_dir().join(".last-daily");
+    let raw = std::fs::read_to_string(path).ok()?;
+    chrono::NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d").ok()
+}
+
+/// Persiste el marcador de la última fecha en que se generó el reporte diario.
+fn write_last_daily_marker(day: chrono::NaiveDate) {
+    let dir = report::reports_dir();
+    if std::fs::create_dir_all(&dir).is_ok() {
+        let _ = std::fs::write(dir.join(".last-daily"), day.to_string());
+    }
+}
+
+/// Abre una ruta local con la aplicación por defecto de Windows (visor de Markdown/txt).
+fn open_path_in_default_app(path: &std::path::Path) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW evita una ventana de consola parpadeante.
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", ""])
+            .arg(path.as_os_str())
+            .creation_flags(0x0800_0000)
+            .spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+    }
+}
+
 fn set_theme(ctx: &egui::Context, mode: crate::config::ThemeMode) {
     let p = match mode {
         crate::config::ThemeMode::Light => Palette::LIGHT,
@@ -327,6 +361,14 @@ pub struct RootCauseApp {
     docker_result: Option<String>,
     // Icono de bandeja del sistema (None si el SO lo rechaza o falla la creación)
     tray: Option<Tray>,
+    // Reporte forense automático: última fecha en que se generó el reporte diario
+    // (persistida en un marcador junto a los reportes). Evita duplicados el mismo día.
+    daily_report_last: Option<chrono::NaiveDate>,
+    // Optimización segura (estilo PC Manager): modal de confirmación de 2 pasos y
+    // resumen honesto de lo liberado. `optimize_result` en Some conmuta el modal a
+    // vista de resultado.
+    optimize_confirm: bool,
+    optimize_result: Option<String>,
 }
 
 impl RootCauseApp {
@@ -366,6 +408,9 @@ impl RootCauseApp {
             // El icono de bandeja se crea aquí, en el hilo del event-loop de winit
             // (necesario para que sus mensajes de Windows se bombeen). No fatal.
             tray: Tray::new(),
+            daily_report_last: read_last_daily_marker(),
+            optimize_confirm: false,
+            optimize_result: None,
         };
         match inspector {
             Ok(svc) => {
@@ -467,6 +512,47 @@ impl RootCauseApp {
                 self.status_line = format!("Error al exportar: {e}");
                 self.status_is_error = true;
             }
+        }
+    }
+
+    /// Genera un reporte forense de la captura actual, lo guarda y lo abre.
+    fn generate_report_now(&mut self) {
+        let Some(snap) = self.snapshot.as_ref() else {
+            self.status_line = "Sin captura para el reporte todavía".into();
+            self.status_is_error = true;
+            return;
+        };
+        let content = report::build_report(snap, &self.hardware_info);
+        match report::save_report(&content) {
+            Ok(path) => {
+                self.status_line = format!("Reporte forense generado → {}", path.display());
+                self.status_is_error = false;
+                open_path_in_default_app(&path);
+            }
+            Err(e) => {
+                self.status_line = format!("Error al generar el reporte: {e}");
+                self.status_is_error = true;
+            }
+        }
+    }
+
+    /// Si el reporte diario automático está activo y cambió el día, genera un
+    /// reporte del estado actual (una vez por día) y persiste el marcador.
+    fn maybe_generate_daily_report(&mut self) {
+        if !self.cached_config.ui.daily_report {
+            return;
+        }
+        let Some(snap) = self.snapshot.as_ref() else {
+            return;
+        };
+        let today = chrono::Local::now().date_naive();
+        if self.daily_report_last == Some(today) {
+            return;
+        }
+        let content = report::build_report(snap, &self.hardware_info);
+        if report::save_report(&content).is_ok() {
+            self.daily_report_last = Some(today);
+            write_last_daily_marker(today);
         }
     }
 
@@ -616,6 +702,42 @@ impl RootCauseApp {
         self.last_refresh_at = Instant::now() - Duration::from_secs(self.refresh_interval_secs);
     }
 
+    /// Optimización segura (un clic): limpia %TEMP% (solo archivos no usados y con
+    /// más de 24 h) y purga lo **regenerable** de Docker (imágenes colgantes y
+    /// caché de build). No toca la RAM ni "acelera" nada de forma placebo: solo
+    /// libera disco real y reporta con honestidad lo conseguido.
+    fn execute_safe_optimize(&mut self) {
+        let mut lines: Vec<String> = Vec::new();
+
+        // 1) %TEMP% — reutiliza la limpieza segura ya existente (no borra en uso ni reciente).
+        if let Some(insp) = self.inspector.as_ref() {
+            let r = insp.clean_temp(false);
+            lines.push(format!(
+                "• %TEMP%: {:.1} MB liberados · {} archivos borrados ({} en uso y {} recientes: intactos)",
+                r.freed_mb, r.deleted_count, r.skipped_in_use, r.skipped_recent
+            ));
+        }
+
+        // 2) Docker — solo lo regenerable. Si Docker no está, el propio mensaje lo indica.
+        match docker::prune_dangling_images() {
+            Ok(msg) => lines.push(format!("• Docker imágenes colgantes: {msg}")),
+            Err(e) => lines.push(format!("• Docker imágenes colgantes: {e}")),
+        }
+        match docker::prune_build_cache() {
+            Ok(msg) => lines.push(format!("• Docker caché de build: {msg}")),
+            Err(e) => lines.push(format!("• Docker caché de build: {e}")),
+        }
+
+        self.optimize_result = Some(lines.join("\n"));
+        self.status_line = "Optimización segura completada".to_owned();
+        self.status_is_error = false;
+        // Refrescar la vista para reflejar el disco liberado.
+        self.last_refresh_at = Instant::now() - Duration::from_secs(self.refresh_interval_secs);
+        if self.docker_scan.is_some() {
+            self.docker_scan = Some(docker::scan());
+        }
+    }
+
     /// Ejecuta una acción de Docker (escaneo o purga) de forma síncrona. Docker
     /// puede tardar 1–2 s; se hace bajo demanda (pulsando un botón), no en el
     /// bucle de refresco, así que el bloqueo puntual es aceptable.
@@ -717,6 +839,10 @@ impl eframe::App for RootCauseApp {
         {
             self.refresh_now();
         }
+
+        // Reporte forense diario automático: si está activo y cambió el día, se
+        // genera una vez (guardado barato: comparación de fecha por frame).
+        self.maybe_generate_daily_report();
 
         // Recargar historial cuando el tab está activo y los datos son viejos (> 30 s)
         if self.active_tab == Tab::History
@@ -945,6 +1071,89 @@ impl eframe::App for RootCauseApp {
                         }
                     });
             });
+
+        // ── Modal: Optimización segura (estilo PC Manager, honesto) ────────────
+        if self.optimize_confirm {
+            let mut do_optimize = false;
+            let mut close = false;
+            egui::Window::new(tr("Optimización segura", "Safe optimization"))
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ctx, |ui| {
+                    ui.set_max_width(470.0);
+                    if let Some(result) = self.optimize_result.as_ref() {
+                        ui.label(
+                            RichText::new(tr("Listo. Esto se liberó:", "Done. This was freed:"))
+                                .size(13.0)
+                                .strong()
+                                .color(pal().text_pri),
+                        );
+                        ui.add_space(6.0);
+                        ui.label(RichText::new(result.as_str()).size(12.0).color(pal().text_sec));
+                        ui.add_space(10.0);
+                        if action_btn(ui, tr("Cerrar", "Close"), pal().accent, pal().text_pri)
+                            .clicked()
+                        {
+                            close = true;
+                        }
+                    } else {
+                        ui.label(
+                            RichText::new(tr(
+                                "Optimización segura y auditada. Va a:",
+                                "Safe, audited optimization. It will:",
+                            ))
+                            .size(13.0)
+                            .strong()
+                            .color(pal().text_pri),
+                        );
+                        ui.add_space(6.0);
+                        ui.label(
+                            RichText::new(tr(
+                                "• Limpiar %TEMP%: solo archivos de más de 24 h y que no estén en uso.\n\
+                                 • Purgar Docker: imágenes colgantes y caché de build (regenerables).\n\n\
+                                 No toca tus datos, ni volúmenes de Docker, ni la RAM. Solo libera disco real.",
+                                "• Clean %TEMP%: only files older than 24 h and not in use.\n\
+                                 • Prune Docker: dangling images and build cache (regenerable).\n\n\
+                                 It won't touch your data, Docker volumes, or RAM. It only frees real disk.",
+                            ))
+                            .size(12.0)
+                            .color(pal().text_sec),
+                        );
+                        ui.add_space(12.0);
+                        ui.horizontal(|ui| {
+                            if action_btn(
+                                ui,
+                                tr("Optimizar ahora", "Optimize now"),
+                                pal().accent,
+                                pal().text_pri,
+                            )
+                            .clicked()
+                            {
+                                do_optimize = true;
+                            }
+                            ui.add_space(8.0);
+                            if action_btn(
+                                ui,
+                                tr("Cancelar", "Cancel"),
+                                pal().c_bl_bg,
+                                pal().c_bl_fg,
+                            )
+                            .clicked()
+                            {
+                                close = true;
+                            }
+                        });
+                    }
+                });
+            if do_optimize {
+                self.execute_safe_optimize();
+            }
+            if close {
+                self.optimize_confirm = false;
+                self.optimize_result = None;
+            }
+        }
     }
 }
 
@@ -1192,7 +1401,7 @@ fn draw_sidebar(app: &mut RootCauseApp, ctx: &egui::Context) {
         .frame(
             egui::Frame::none()
                 .fill(pal().bg_panel)
-                .stroke(Stroke::new(1.0, pal().border))
+                .stroke(Stroke::new(1.0_f32, pal().border))
                 .inner_margin(Margin::symmetric(10.0, 12.0)),
         )
         .show(ctx, |ui| {
@@ -1252,7 +1461,7 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
         .frame(
             egui::Frame::none()
                 .fill(pal().bg_app)
-                .stroke(Stroke::new(1.0, pal().border))
+                .stroke(Stroke::new(1.0_f32, pal().border))
                 .inner_margin(Margin::symmetric(20.0, 12.0)),
         )
         .show(ctx, |ui| {
@@ -1275,6 +1484,13 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
                 }
                 if header_btn(ui, "💾", "Exportar JSON").clicked() {
                     app.export_snapshot();
+                }
+                if header_btn(ui, "📊", "Reporte forense").clicked() {
+                    app.generate_report_now();
+                }
+                if header_btn(ui, "🚀", "Optimizar").clicked() {
+                    app.optimize_confirm = true;
+                    app.optimize_result = None;
                 }
 
                 ui.add_space(10.0);
@@ -1345,7 +1561,7 @@ fn draw_statusbar(app: &RootCauseApp, ctx: &egui::Context) {
         .frame(
             egui::Frame::none()
                 .fill(pal().bg_panel)
-                .stroke(Stroke::new(1.0, pal().border))
+                .stroke(Stroke::new(1.0_f32, pal().border))
                 .inner_margin(Margin::symmetric(16.0, 5.0)),
         )
         .show(ctx, |ui| {
@@ -1423,7 +1639,7 @@ fn draw_tab_overview(
     };
     egui::Frame::none()
         .fill(score_bg)
-        .stroke(Stroke::new(1.5, score_fg.linear_multiply(0.6)))
+        .stroke(Stroke::new(1.5_f32, score_fg.linear_multiply(0.6)))
         .rounding(Rounding::same(12.0))
         .inner_margin(Margin::symmetric(18.0, 16.0))
         .show(ui, |ui| {
@@ -1597,7 +1813,7 @@ fn draw_tab_overview(
             let bg = sev_bg(alert.severity);
             egui::Frame::none()
                 .fill(bg)
-                .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+                .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
                 .rounding(Rounding::same(6.0))
                 .inner_margin(Margin::same(12.0))
                 .show(ui, |ui| {
@@ -1646,7 +1862,7 @@ fn draw_tab_overview(
         let bg = sev_bg(incident_sev);
         egui::Frame::none()
             .fill(bg)
-            .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+            .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(14.0))
             .show(ui, |ui| {
@@ -1881,7 +2097,7 @@ fn draw_tab_overview(
         ui.add_space(8.0);
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(14.0))
             .show(ui, |ui| {
@@ -1968,7 +2184,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                     Color32::TRANSPARENT
                 })
                 .stroke(Stroke::new(
-                    1.0,
+                    1.0_f32,
                     if sel_none {
                         pal().border
                     } else {
@@ -1998,7 +2214,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                     }))
                     .fill(if selected { bg } else { Color32::TRANSPARENT })
                     .stroke(Stroke::new(
-                        1.0,
+                        1.0_f32,
                         if selected {
                             fg.linear_multiply(0.5)
                         } else {
@@ -2617,7 +2833,7 @@ fn draw_docker_section(
         // Aún no se ha escaneado: tarjeta con botón.
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
@@ -2645,7 +2861,7 @@ fn draw_docker_section(
                                 .color(pal().c_bl_fg),
                         )
                         .fill(pal().c_bl_bg)
-                        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.4)))
+                        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.4)))
                         .rounding(Rounding::same(5.0)),
                     )
                     .clicked()
@@ -2660,7 +2876,7 @@ fn draw_docker_section(
         // Docker no instalado o daemon caído.
         egui::Frame::none()
             .fill(pal().c_wn_bg)
-            .stroke(Stroke::new(1.0, pal().c_wn_fg.linear_multiply(0.4)))
+            .stroke(Stroke::new(1.0_f32, pal().c_wn_fg.linear_multiply(0.4)))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
@@ -2688,7 +2904,7 @@ fn draw_docker_section(
     // ── Resumen: ocupado / recuperable + botón de reescaneo ────────────────────
     egui::Frame::none()
         .fill(pal().bg_card)
-        .stroke(Stroke::new(1.0, pal().border))
+        .stroke(Stroke::new(1.0_f32, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(12.0))
         .show(ui, |ui| {
@@ -2862,7 +3078,7 @@ fn draw_docker_section(
     ui.add_space(10.0);
     egui::Frame::none()
         .fill(pal().bg_panel)
-        .stroke(Stroke::new(1.0, pal().border))
+        .stroke(Stroke::new(1.0_f32, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
@@ -3001,7 +3217,7 @@ fn docker_prune_row(
             .add(
                 egui::Button::new(RichText::new(label).size(11.5).color(pal().text_pri))
                     .fill(pal().bg_card)
-                    .stroke(Stroke::new(1.0, pal().border)),
+                    .stroke(Stroke::new(1.0_f32, pal().border)),
             )
             .clicked()
         {
@@ -3040,7 +3256,7 @@ fn draw_tab_precision(
             pal().bg_card
         })
         .stroke(Stroke::new(
-            1.0,
+            1.0_f32,
             if recording {
                 pal().c_wn_fg.linear_multiply(0.5)
             } else {
@@ -3157,7 +3373,7 @@ fn draw_tab_precision(
 fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
     egui::Frame::none()
         .fill(pal().bg_card)
-        .stroke(Stroke::new(1.0, pal().border))
+        .stroke(Stroke::new(1.0_f32, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
@@ -3197,7 +3413,7 @@ fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
                             let fg = sev_fg(f.severity);
                             egui::Frame::none()
                                 .fill(sev_bg(f.severity))
-                                .stroke(Stroke::new(1.0, fg.linear_multiply(0.3)))
+                                .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.3)))
                                 .rounding(Rounding::same(5.0))
                                 .inner_margin(Margin::same(8.0))
                                 .show(ui, |ui| {
@@ -3607,7 +3823,7 @@ fn draw_tab_history(
                                     egui::pos2(r.left(), r.top()),
                                     egui::pos2(r.left(), r.bottom()),
                                 ],
-                                Stroke::new(3.0, bg),
+                                Stroke::new(3.0_f32, bg),
                             );
                         }
                     });
@@ -3624,7 +3840,7 @@ fn draw_tab_history(
         ui.add_space(8.0);
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
@@ -3638,7 +3854,7 @@ fn draw_tab_history(
                     cols[1].label(
                         RichText::new(format!(
                             "A  {}",
-                            &row_a.collected_at.chars().take(19).collect::<String>()
+                            row_a.collected_at.chars().take(19).collect::<String>()
                         ))
                         .strong()
                         .size(12.0)
@@ -3647,7 +3863,7 @@ fn draw_tab_history(
                     cols[2].label(
                         RichText::new(format!(
                             "B  {}",
-                            &row_b.collected_at.chars().take(19).collect::<String>()
+                            row_b.collected_at.chars().take(19).collect::<String>()
                         ))
                         .strong()
                         .size(12.0)
@@ -3740,7 +3956,7 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
 
         egui::Frame::none()
             .fill(bg)
-            .stroke(Stroke::new(1.0, fg.linear_multiply(0.3)))
+            .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.3)))
             .rounding(Rounding::same(6.0))
             .inner_margin(Margin::same(10.0))
             .show(ui, |ui| {
@@ -3947,7 +4163,7 @@ fn draw_tab_autostart(
     if n_changes > 0 {
         egui::Frame::none()
             .fill(pal().c_cr_bg)
-            .stroke(Stroke::new(1.0, pal().c_cr_fg.linear_multiply(0.4)))
+            .stroke(Stroke::new(1.0_f32, pal().c_cr_fg.linear_multiply(0.4)))
             .rounding(Rounding::same(6.0))
             .inner_margin(Margin::same(10.0))
             .show(ui, |ui| {
@@ -4177,7 +4393,7 @@ fn draw_tab_autostart(
     ui.add_space(12.0);
     egui::Frame::none()
         .fill(pal().c_bl_bg)
-        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.3)))
+        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.3)))
         .rounding(Rounding::same(6.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
@@ -4206,7 +4422,7 @@ fn draw_tab_autostart(
 fn manual_note(ui: &mut egui::Ui, text: &str) {
     egui::Frame::none()
         .fill(pal().c_bl_bg)
-        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.3)))
+        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.3)))
         .rounding(Rounding::same(6.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
@@ -4455,8 +4671,8 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
         pal().accent,
         tr("Configuración", "Settings"),
         tr(
-            "Idioma (español / inglés), umbrales de detección, anomalías e intervalo de refresco. Se guarda sin reiniciar.",
-            "Language (Spanish / English), detection thresholds, anomalies and refresh interval. Saved without restarting.",
+            "Modo de apariencia (claro / oscuro / Windows), idioma (español / inglés), reporte forense diario, umbrales de detección, anomalías e intervalo de refresco. Se guarda sin reiniciar.",
+            "Appearance mode (light / dark / Windows), language (Spanish / English), daily forensic report, detection thresholds, anomalies and refresh interval. Saved without restarting.",
         ),
         tr(
             "Cada equipo tiene un \"normal\" distinto; ajustar umbrales evita falsos positivos o puntos ciegos.",
@@ -4525,6 +4741,56 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     );
 
     ui.add_space(16.0);
+    section_header(ui, tr("Reportes forenses", "Forensic reports"));
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        tr(
+            "El botón \"Reporte forense\" (barra superior) vuelca la captura actual a un documento \
+             Markdown archivable: veredicto de salud, incidentes y anomalías, alertas \"dónde mirar \
+             primero\", cambios de autoarranque vs baseline, procesos de mayor riesgo, conexiones \
+             salientes a IP pública y temporales. En Configuración → Reportes forenses puedes activar \
+             que se genere uno solo al CAMBIAR EL DÍA (con la app abierta). Desde consola: `rootcause \
+             report`. El porqué: un incidente se investiga y se comunica mejor con un informe fechado \
+             que con una pantalla; y son INDICIOS con evidencia, no veredictos.",
+            "The \"Forensic report\" button (top bar) dumps the current snapshot to an archivable \
+             Markdown document: health verdict, incidents and anomalies, \"where to look first\" \
+             alerts, autostart changes vs baseline, top-risk processes, outbound public-IP \
+             connections and temp files. In Settings → Forensic reports you can enable generating one \
+             automatically when the DAY CHANGES (with the app open). From the console: `rootcause \
+             report`. The why: an incident is investigated and communicated better with a dated report \
+             than with a screen; and these are LEADS with evidence, not verdicts.",
+        ),
+    );
+
+    ui.add_space(16.0);
+    section_header(
+        ui,
+        tr(
+            "Optimización segura (1 clic)",
+            "Safe optimization (1 click)",
+        ),
+    );
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        tr(
+            "El botón \"Optimizar\" (barra superior) hace, tras confirmar, una limpieza honesta: borra \
+             de %TEMP% solo lo que tiene más de 24 h y no está en uso, y purga de Docker lo regenerable \
+             (imágenes colgantes y caché de build). Al terminar muestra los MB liberados reales. Lo que \
+             NO hace —a propósito—: no \"vacía la RAM\" ni promete acelerones mágicos; no toca tus datos \
+             ni los volúmenes de Docker. El porqué: optimizar debe liberar disco real y medible, nunca \
+             ser un placebo que empeore las cosas al reabrir programas.",
+            "The \"Optimize\" button (top bar) performs, after confirmation, an honest cleanup: it \
+             deletes from %TEMP% only what is older than 24 h and not in use, and prunes Docker's \
+             regenerable data (dangling images and build cache). When done it shows the real MB freed. \
+             What it does NOT do —on purpose—: it doesn't \"empty the RAM\" or promise magic speedups; \
+             it doesn't touch your data or Docker volumes. The why: optimizing must free real, \
+             measurable disk, never be a placebo that makes things worse when apps reopen.",
+        ),
+    );
+
+    ui.add_space(16.0);
     section_header(
         ui,
         tr(
@@ -4571,6 +4837,26 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
         tr(
             "Borra lo no usado de %TEMP% (>24h) y purga dangling/caché de Docker. Confirmación de 2 pasos.",
             "Removes unused %TEMP% (>24h) and prunes Docker dangling/cache. Two-step confirmation.",
+        ),
+    );
+    manual_item(
+        ui,
+        "•",
+        pal().c_bl_fg,
+        tr("Optimización segura", "Safe optimization"),
+        tr(
+            "Un clic: %TEMP% (>24h, no en uso) + Docker regenerable. Confirmación previa; muestra los MB liberados. No toca RAM ni datos.",
+            "One click: %TEMP% (>24h, not in use) + regenerable Docker. Prior confirmation; shows MB freed. Never touches RAM or data.",
+        ),
+    );
+    manual_item(
+        ui,
+        "•",
+        pal().c_bl_fg,
+        tr("Reporte forense", "Forensic report"),
+        tr(
+            "Genera un informe Markdown fechado de la captura actual (o automático al cambiar el día).",
+            "Generates a dated Markdown report of the current snapshot (or automatically on day change).",
         ),
     );
     manual_item(
@@ -4625,12 +4911,13 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
         ui,
         tr(
             "Todo funciona también sin interfaz. `rootcause --help` lista los comandos: status, snapshot, \
-             history, autostart, services, clean-temp, docker, wpr, kill, block-ip, stop-service, config, \
-             ai. El porqué: en servidores sin escritorio o dentro de scripts, el diagnóstico debe seguir \
-             estando a un comando de distancia.",
+             history, autostart, services, clean-temp, docker, report, wpr, kill, block-ip, stop-service, \
+             config, ai. El porqué: en servidores sin escritorio o dentro de scripts, el diagnóstico debe \
+             seguir estando a un comando de distancia.",
             "Everything works without a GUI too. `rootcause --help` lists the commands: status, snapshot, \
-             history, autostart, services, clean-temp, docker, wpr, kill, block-ip, stop-service, config, \
-             ai. The why: on headless servers or inside scripts, diagnostics must stay one command away.",
+             history, autostart, services, clean-temp, docker, report, wpr, kill, block-ip, stop-service, \
+             config, ai. The why: on headless servers or inside scripts, diagnostics must stay one command \
+             away.",
         ),
     );
 
@@ -4663,7 +4950,7 @@ fn draw_tab_config(
     ui.vertical_centered(|ui| {
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(14.0))
             .inner_margin(Margin::same(28.0))
             .show(ui, |ui| {
@@ -4723,7 +5010,7 @@ fn draw_tab_config(
                             .add(
                                 egui::Button::new(RichText::new(tr(es, en)).size(12.5).color(fg))
                                     .fill(bg)
-                                    .stroke(Stroke::new(1.0, pal().border))
+                                    .stroke(Stroke::new(1.0_f32, pal().border))
                                     .min_size(Vec2::new(112.0, 30.0))
                                     .rounding(Rounding::same(6.0)),
                             )
@@ -4773,7 +5060,7 @@ fn draw_tab_config(
                                     .color(fg),
                                 )
                                 .fill(bg)
-                                .stroke(Stroke::new(1.0, pal().border))
+                                .stroke(Stroke::new(1.0_f32, pal().border))
                                 .min_size(Vec2::new(150.0, 30.0))
                                 .rounding(Rounding::same(6.0)),
                             )
@@ -4784,6 +5071,57 @@ fn draw_tab_config(
                         ui.add_space(6.0);
                     }
                 });
+
+                ui.add_space(16.0);
+                ui.add(egui::Separator::default());
+                ui.add_space(14.0);
+
+                // ── Reportes forenses ─────────────────────────────────────────
+                section_header(ui, tr("▸  Reportes forenses", "▸  Forensic reports"));
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(tr(
+                        "Puedes generar un reporte cuando quieras con el botón «Reporte \
+                         forense» de la barra superior. Si activas esta opción, RootCause \
+                         además generará uno automáticamente al cambiar el día (una vez al día).",
+                        "You can generate a report anytime with the «Forensic report» button \
+                         in the top bar. If you enable this, RootCause will also generate one \
+                         automatically when the day changes (once per day).",
+                    ))
+                    .size(11.0)
+                    .color(pal().text_mut),
+                );
+                ui.add_space(6.0);
+                if ui
+                    .checkbox(
+                        &mut cfg.ui.daily_report,
+                        RichText::new(tr(
+                            "Generar un reporte diario automáticamente",
+                            "Generate a daily report automatically",
+                        ))
+                        .size(12.5)
+                        .color(pal().text_sec),
+                    )
+                    .changed()
+                {
+                    *save_requested = true;
+                }
+                ui.add_space(6.0);
+                if action_btn(
+                    ui,
+                    tr("Abrir carpeta de reportes", "Open reports folder"),
+                    pal().c_bl_bg,
+                    pal().c_bl_fg,
+                )
+                .clicked()
+                {
+                    let dir = report::reports_dir();
+                    let _ = std::fs::create_dir_all(&dir);
+                    let _ = windows::powershell(&format!(
+                        "Start-Process explorer.exe '{}'",
+                        dir.display().to_string().replace('\'', "''")
+                    ));
+                }
 
                 ui.add_space(16.0);
                 ui.add(egui::Separator::default());
@@ -5005,7 +5343,7 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
         // ── Tarjeta principal ─────────────────────────────────────────────────
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(14.0))
             .inner_margin(Margin::same(32.0))
             .show(ui, |ui| {
@@ -5122,7 +5460,7 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                 // CLI hint
                 egui::Frame::none()
                     .fill(pal().bg_panel)
-                    .stroke(Stroke::new(1.0, pal().border))
+                    .stroke(Stroke::new(1.0_f32, pal().border))
                     .rounding(Rounding::same(6.0))
                     .inner_margin(Margin::same(10.0))
                     .show(ui, |ui| {
@@ -5166,7 +5504,7 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                     ui.horizontal(|ui| {
                         egui::Frame::none()
                             .fill(pal().bg_panel)
-                            .stroke(Stroke::new(1.0, pal().border))
+                            .stroke(Stroke::new(1.0_f32, pal().border))
                             .rounding(Rounding::same(4.0))
                             .inner_margin(Margin::symmetric(8.0, 2.0))
                             .show(ui, |ui| {
@@ -5389,21 +5727,21 @@ fn apply_theme(ctx: &egui::Context) {
     vis.faint_bg_color = pal().bg_card;
     vis.extreme_bg_color = pal().bg_panel;
     vis.widgets.noninteractive.bg_fill = pal().bg_card;
-    vis.widgets.noninteractive.fg_stroke = Stroke::new(1.0, pal().text_sec);
+    vis.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, pal().text_sec);
     vis.widgets.noninteractive.rounding = Rounding::same(4.0);
     vis.widgets.inactive.bg_fill = pal().bg_card;
-    vis.widgets.inactive.fg_stroke = Stroke::new(1.0, pal().text_sec);
+    vis.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, pal().text_sec);
     vis.widgets.inactive.rounding = Rounding::same(4.0);
     vis.widgets.hovered.bg_fill = Color32::from_rgb(38, 46, 57);
-    vis.widgets.hovered.fg_stroke = Stroke::new(1.0, pal().text_pri);
+    vis.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, pal().text_pri);
     vis.widgets.hovered.rounding = Rounding::same(4.0);
     vis.widgets.active.bg_fill = pal().accent;
-    vis.widgets.active.fg_stroke = Stroke::new(1.0, pal().text_pri);
+    vis.widgets.active.fg_stroke = Stroke::new(1.0_f32, pal().text_pri);
     vis.widgets.active.rounding = Rounding::same(4.0);
     vis.selection.bg_fill = pal().accent.linear_multiply(0.35);
-    vis.selection.stroke = Stroke::new(1.0, pal().c_bl_fg);
+    vis.selection.stroke = Stroke::new(1.0_f32, pal().c_bl_fg);
     vis.window_rounding = Rounding::same(8.0);
-    vis.window_stroke = Stroke::new(1.0, pal().border);
+    vis.window_stroke = Stroke::new(1.0_f32, pal().border);
     vis.override_text_color = Some(pal().text_pri);
     ctx.set_visuals(vis);
 
@@ -5436,7 +5774,7 @@ fn action_btn(ui: &mut egui::Ui, label: &str, bg: Color32, fg: Color32) -> egui:
     ui.add(
         egui::Button::new(RichText::new(label).size(12.0).color(fg))
             .fill(bg)
-            .stroke(Stroke::new(1.0, fg.linear_multiply(0.45)))
+            .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.45)))
             .rounding(Rounding::same(5.0)),
     )
 }
@@ -5450,7 +5788,7 @@ fn header_btn(ui: &mut egui::Ui, icon: &str, label: &str) -> egui::Response {
                 .color(pal().c_bl_fg),
         )
         .fill(pal().c_bl_bg)
-        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.4)))
+        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.4)))
         .rounding(Rounding::same(5.0)),
     )
 }
@@ -5477,7 +5815,7 @@ fn alert_badge(ui: &mut egui::Ui, text: &str, fg: Color32, bg: Color32) {
     ui.painter().rect_stroke(
         rect,
         Rounding::same(11.0),
-        Stroke::new(1.0, fg.linear_multiply(0.6)),
+        Stroke::new(1.0_f32, fg.linear_multiply(0.6)),
     );
     ui.painter().text(
         rect.center(),
@@ -5512,7 +5850,7 @@ fn health_score_card(
 ) {
     egui::Frame::none()
         .fill(score_bg)
-        .stroke(Stroke::new(1.5, score_fg.linear_multiply(0.5)))
+        .stroke(Stroke::new(1.5_f32, score_fg.linear_multiply(0.5)))
         .rounding(Rounding::same(10.0))
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
@@ -5549,7 +5887,7 @@ fn overview_card(
     let bg = sev_bg(severity);
     egui::Frame::none()
         .fill(bg)
-        .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+        .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
         .rounding(Rounding::same(10.0))
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
@@ -5587,7 +5925,7 @@ fn mini_process_card(ui: &mut egui::Ui, p: &ProcessInsight, width: f32) {
     let bg = sev_bg(p.severity);
     egui::Frame::none()
         .fill(bg)
-        .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+        .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(12.0))
         .show(ui, |ui| {
@@ -5631,7 +5969,7 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
     let bg = sev_bg(sev);
     egui::Frame::none()
         .fill(bg)
-        .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+        .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(12.0))
         .show(ui, |ui| {
@@ -5730,7 +6068,7 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
     let height = 52.0;
     egui::Frame::none()
         .fill(pal().bg_card)
-        .stroke(Stroke::new(1.0, pal().border))
+        .stroke(Stroke::new(1.0_f32, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(8.0))
         .show(ui, |ui| {
@@ -5777,7 +6115,7 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
                         .collect();
                     for w in pts.windows(2) {
                         ui.painter()
-                            .line_segment([w[0], w[1]], Stroke::new(1.5, color));
+                            .line_segment([w[0], w[1]], Stroke::new(1.5_f32, color));
                     }
                     // Punto actual
                     if let Some(&last_pt) = pts.last() {
@@ -5815,7 +6153,7 @@ fn section_header(ui: &mut egui::Ui, title: &str) {
             egui::pos2(r.left(), r.top() + 1.0),
             egui::pos2(r.right(), r.top() + 1.0),
         ],
-        Stroke::new(1.0, pal().border),
+        Stroke::new(1.0_f32, pal().border),
     );
 }
 
@@ -5886,13 +6224,13 @@ fn draw_search_icon(ui: &mut egui::Ui, size: f32) {
     let center = rect.center() - Vec2::new(1.5, 1.5);
     let r = size * 0.28;
     ui.painter()
-        .circle_stroke(center, r, Stroke::new(1.5, pal().text_mut));
+        .circle_stroke(center, r, Stroke::new(1.5_f32, pal().text_mut));
     ui.painter().line_segment(
         [
             center + Vec2::new(r * 0.7, r * 0.7),
             rect.right_bottom() - Vec2::new(1.0, 1.0),
         ],
-        Stroke::new(1.5, pal().text_mut),
+        Stroke::new(1.5_f32, pal().text_mut),
     );
 }
 
@@ -5950,7 +6288,7 @@ fn draw_sev_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     let bg = sev_bg(sev);
     ui.painter().circle_filled(rect.center(), size * 0.46, bg);
     ui.painter()
-        .circle_stroke(rect.center(), size * 0.46, Stroke::new(1.2, fg));
+        .circle_stroke(rect.center(), size * 0.46, Stroke::new(1.2_f32, fg));
     // Símbolos de la fuente base (Ubuntu-Light): el checkmark/✕ Unicode no está en
     // la fuente y salía como "□". El color del círculo ya comunica la severidad;
     // el interior solo refuerza con glifos que sí renderizan.
@@ -5976,7 +6314,7 @@ fn draw_proc_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     ui.painter()
         .rect_filled(rect, Rounding::same(size * 0.18), bg);
     ui.painter()
-        .rect_stroke(rect, Rounding::same(size * 0.18), Stroke::new(1.0, fg));
+        .rect_stroke(rect, Rounding::same(size * 0.18), Stroke::new(1.0_f32, fg));
     // Tres líneas horizontales estilo "proceso"
     for i in 0..3 {
         let y = rect.top() + (i as f32 + 1.0) * rect.height() / 4.0;
@@ -5986,7 +6324,7 @@ fn draw_proc_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
                 egui::pos2(rect.left() + rect.width() * 0.2, y),
                 egui::pos2(rect.left() + rect.width() * (0.2 + w * 0.6), y),
             ],
-            Stroke::new(1.5, fg.linear_multiply(0.8)),
+            Stroke::new(1.5_f32, fg.linear_multiply(0.8)),
         );
     }
 }
@@ -5996,7 +6334,7 @@ fn draw_service_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
     let fg = sev_fg(sev);
     ui.painter()
-        .circle_stroke(rect.center(), size * 0.35, Stroke::new(1.5, fg));
+        .circle_stroke(rect.center(), size * 0.35, Stroke::new(1.5_f32, fg));
     ui.painter().circle_filled(rect.center(), size * 0.14, fg);
 }
 
