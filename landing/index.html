@@ -65,12 +65,12 @@
         <img src="https://img.shields.io/badge/rust-edition%202024-orange.svg" alt="Rust 2024" />
         <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows 10/11" />
         <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0" />
-        <img src="https://img.shields.io/badge/versión-0.17.0-brightgreen.svg" alt="v0.17.0" />
+        <img src="https://img.shields.io/badge/versión-0.18.0-brightgreen.svg" alt="v0.18.0" />
         <img src="https://img.shields.io/badge/telemetría-cero-success.svg" alt="Telemetría cero" />
       </div>
 
       <div class="hero-cta">
-        <a href="#download" class="btn-primary">⬇ Descargar v0.17.0</a>
+        <a href="#download" class="btn-primary">⬇ Descargar v0.18.0</a>
         <a href="#install" class="btn-ghost">📖 Instrucciones</a>
       </div>
 
@@ -342,7 +342,7 @@ choco install rootcause-windows-inspector</code></pre>
     <div class="container">
       <h2 class="section-title">🛡 Enfoque forense de ciberseguridad</h2>
       <p class="section-sub" style="margin-bottom:1.2rem">Su razón de ser: <strong>toda distorsión de recursos puede ser el primer indicio de una amenaza</strong>. RootCause detecta señales de comportamiento —persistencia, tráfico saliente inusual, ejecución en rutas sospechosas, escritura agresiva tipo <em>ransomware</em>, <em>cryptojacking</em>, un control de seguridad apagado— las correlaciona en incidentes y explica la causa raíz con evidencia. Complementa a tu antivirus/EDR; no lo reemplaza. <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/blob/master/docs/DETECCION_AMENAZAS.md">Qué detecta hoy, amenaza por amenaza →</a></p>
-      <p class="section-sub">v0.9–v0.17 incorporan autoprotección del agente, tab Autostart con heurística de severidad y baseline en SQLite que detecta cambios de persistencia (NUEVA / MODIFICADA / ELIMINADA), un motor genérico de baseline que vigila también los servicios de Windows (NUEVO / MODIFICADO / ELIMINADO con alertas <code>service-change</code>), edición inline de umbrales, limpieza segura de <code>%TEMP%</code>, gestión del espacio de Docker (imágenes, volúmenes y purga guiada segura), interfaz bilingüe español / inglés, un manual integrado con el porqué de cada parte, un icono de bandeja con color según la salud del sistema, una colección de datos más robusta (UTF-8, servicios y eventos siempre poblados) y un rediseño de interfaz estilo Windows 11 (barra lateral, iconos de línea, Segoe UI y modos Claro/Oscuro/Windows) — sin convertir RootCause en un antivirus.</p>
+      <p class="section-sub">v0.9–v0.18 incorporan autoprotección del agente, tab Autostart con heurística de severidad y baseline en SQLite que detecta cambios de persistencia (NUEVA / MODIFICADA / ELIMINADA), un motor genérico de baseline que vigila también los servicios de Windows (NUEVO / MODIFICADO / ELIMINADO con alertas <code>service-change</code>), edición inline de umbrales, limpieza segura de <code>%TEMP%</code>, gestión del espacio de Docker (imágenes, volúmenes y purga guiada segura), interfaz bilingüe español / inglés, un manual integrado con el porqué de cada parte, un icono de bandeja con color según la salud del sistema, una colección de datos más robusta (UTF-8, servicios y eventos siempre poblados), un rediseño de interfaz estilo Windows 11 (barra lateral, iconos de línea, Segoe UI y modos Claro/Oscuro/Windows), <strong>reportes forenses de actividad</strong> (Markdown fechado, bajo demanda o automático al cambiar el día) y una <strong>optimización segura de un clic</strong> (limpieza honesta de %TEMP% + Docker regenerable, sin tocar RAM ni datos) — sin convertir RootCause en un antivirus.</p>
 
       <div class="feature-grid">
         <div class="feature-card">
@@ -479,7 +479,7 @@ code --install-extension RootCause-VSCode-Extension.vsix
         <div class="install-block">
           <h3>✅ Verificar instalación</h3>
           <pre><code class="shell">rootcause --version
-# RootCause Windows Inspector v0.17.0
+# RootCause Windows Inspector v0.18.0
 
 rootcause --help
 # muestra todos los comandos disponibles</code></pre>
@@ -554,7 +554,7 @@ rootcause --help
         <pre><span class="t-prompt">C:\&gt;</span> rootcause status
 
 <span class="t-box">┌─────────────────────────────────────────────────┐
-│  RootCause Windows Inspector  v0.17.0           │
+│  RootCause Windows Inspector  v0.18.0           │
 │  Estado del sistema                             │
 ├─────────────────────────────────────────────────┤
 │  Severidad  : ⚠ WARNING                        │
@@ -600,9 +600,9 @@ rootcause --help
 
       <div class="download-grid">
         <div class="download-card primary">
-          <div class="dl-badge">Recomendado · v0.17.0</div>
+          <div class="dl-badge">Recomendado · v0.18.0</div>
           <h3>📦 Portable ZIP (GUI)</h3>
-          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.17.0.</p>
+          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.18.0.</p>
           <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Portable.zip"
             class="btn-download" target="_blank" rel="noopener">
             ⬇ RootCause-Portable.zip
@@ -628,7 +628,7 @@ rootcause --help
             class="btn-download-ghost" target="_blank" rel="noopener">
             ⬇ SHA256SUMS.txt
           </a>
-          <p class="dl-meta">Integridad · release v0.17.0</p>
+          <p class="dl-meta">Integridad · release v0.18.0</p>
         </div>
 
         <div class="download-card">
@@ -665,7 +665,7 @@ rootcause --help
       </div>
 
       <p class="download-note">
-        ⚠ Todos los artefactos son builds reales compilados por CI (v0.17.0) y verificados con SHA-256. El binario no tiene firma digital todavía, por lo que Windows puede mostrar una advertencia de SmartScreen (More info → Run anyway).
+        ⚠ Todos los artefactos son builds reales compilados por CI (v0.18.0) y verificados con SHA-256. El binario no tiene firma digital todavía, por lo que Windows puede mostrar una advertencia de SmartScreen (More info → Run anyway).
       </p>
     </div>
   </section>

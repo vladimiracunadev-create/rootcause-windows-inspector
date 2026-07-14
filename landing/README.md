@@ -4,7 +4,7 @@ Pagina web publica del producto [RootCause Windows Inspector](https://github.com
 
 Ver online: https://vladimiracunadev-create.github.io/rootcause-windows-inspector
 
-**Version actual:** v0.17.0
+**Version actual:** v0.18.0
 
 ---
 

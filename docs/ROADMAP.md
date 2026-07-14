@@ -29,7 +29,8 @@ CONVENCIÓN DE MANTENIMIENTO (leer antes de bumpear versión, para no romper el 
 | [v0.14](#v014-entregado) | ✅ Entregado | Overhaul de UI (ventana, scroll, glifos) + fix de colección PowerShell |
 | [v0.15](#v015-entregado) | ✅ Entregado | Idioma ES/EN + tab Configuración, sección Docker, banner de veredicto y Manual profundo |
 | [v0.16](#v016-entregado) | ✅ Entregado | Icono de bandeja con color por severidad, tooltip de veredicto y menú de acciones |
-| [v0.17](#v017-entregado) | ✅ **Actual** | Rediseño Fluent/Win11: barra lateral, iconos de línea, Segoe UI, logo del radar, modos de tema |
+| [v0.17](#v017-entregado) | ✅ Entregado | Rediseño Fluent/Win11: barra lateral, iconos de línea, Segoe UI, logo del radar, modos de tema |
+| [v0.18](#v018-entregado) | ✅ **Actual** | Reportes forenses (GUI/CLI/auto al cambiar el día) + optimización segura de un clic + manual interno |
 | [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: firma digital, publicación, cerrar-a-bandeja |
 | [v2.0+](#v20-largo-plazo) | 🔭 Largo plazo | Windows Service 24/7, ediciones Seguridad y Enterprise |
 
@@ -158,6 +159,16 @@ CONVENCIÓN DE MANTENIMIENTO (leer antes de bumpear versión, para no romper el 
 - Colores en runtime (Palette/tokens) con acento = azul del icono (#1f6feb) en todos los modos
 - Banner de veredicto tipo hero en el Resumen (de v0.15) integrado en el nuevo lenguaje visual
 - version bump a 0.17.0
+
+## v0.18 Entregado
+- Reportes forenses de actividad: nuevo modulo `src/services/report.rs` que vuelca una captura a Markdown fechado (veredicto de salud, incidentes/anomalias, alertas "donde mirar primero", cambios de autoarranque vs baseline, procesos de mayor riesgo, conexiones salientes a IP publica, temporales y salud del agente) — indicios con evidencia, no veredictos
+- Reportes: boton "Reporte forense" en la barra superior (genera, guarda y abre)
+- Reportes: comando CLI `rootcause report [--output PATH]`
+- Reportes: generacion automatica al **cambiar el dia** con la app abierta, activable en Configuracion → Reportes forenses; marcador `.last-daily` evita duplicados
+- Optimizacion segura (estilo PC Manager, honesta): boton "Optimizar" con confirmacion de 2 pasos que limpia %TEMP% (solo >24 h y no en uso) y purga Docker regenerable (imagenes colgantes + cache de build); muestra los MB reales liberados; no toca datos, volumenes ni RAM
+- Manual interno: secciones nuevas "Reportes forenses" y "Optimizacion segura" con el porque y la honestidad; item Configuracion actualizado (modo de apariencia + reporte diario)
+- Compatibilidad con Rust 1.97: correccion de `float_literal_f32_fallback` (literales de ancho en `Stroke::new`) y `useless_borrows_in_formatting`
+- version bump a 0.18.0
 
 ## v1.0 Objetivo de distribucion formal
 - tray icon: cerrar-a-bandeja (el icono base ya se entrego en v0.16)

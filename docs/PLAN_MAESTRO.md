@@ -1,10 +1,10 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.17.0 · **Actualizado:** 2026-07-08
+**Versión base:** v0.18.0 · **Actualizado:** 2026-07-14
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
-> Estado del entorno: CI debe estar verde — v0.17.0 completada (**rediseño Fluent/Windows 11**: barra lateral NavigationView con iconos de línea, tipografía nativa Segoe UI, logo del radar, y modos de tema Claro/Oscuro/Windows en Configuración; acento = azul del icono). Antes: v0.16.0 (icono de bandeja). Próximo objetivo: v1.0 (cerrar-a-bandeja, firma digital, distribución pública).
+> Estado del entorno: CI debe estar verde — v0.18.0 completada (**reportes forenses de actividad** en GUI/CLI y automáticos al cambiar el día; **optimización segura de un clic** —%TEMP% + Docker regenerable, honesta, sin RAM ni datos—; **manual interno** actualizado; compatibilidad con Rust 1.97). Antes: v0.17.0 (rediseño Fluent/Windows 11). Próximo objetivo: v1.0 (cerrar-a-bandeja, firma digital, distribución pública).
 
 ---
 
@@ -44,9 +44,10 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 ## II. Estado técnico — hito v0.7 (snapshot histórico)
 
 > Nota: esta sección es un registro del hito v0.7. El estado actual del producto es
-> v0.17.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
+> v0.18.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
 > hasta hoy: detección de anomalías, baseline de autoarranque y de servicios, Docker,
-> idioma ES/EN, icono de bandeja y el rediseño Windows 11 / Fluent con modos de tema).
+> idioma ES/EN, icono de bandeja, el rediseño Windows 11 / Fluent con modos de tema,
+> reportes forenses de actividad y optimización segura de un clic).
 
 ### ✅ Completado en v0.7
 - Feature flags GUI/CLI-only en `Cargo.toml` (eframe/egui opcionales)
