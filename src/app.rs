@@ -1401,7 +1401,7 @@ fn draw_sidebar(app: &mut RootCauseApp, ctx: &egui::Context) {
         .frame(
             egui::Frame::none()
                 .fill(pal().bg_panel)
-                .stroke(Stroke::new(1.0, pal().border))
+                .stroke(Stroke::new(1.0_f32, pal().border))
                 .inner_margin(Margin::symmetric(10.0, 12.0)),
         )
         .show(ctx, |ui| {
@@ -1461,7 +1461,7 @@ fn draw_topbar(app: &mut RootCauseApp, ctx: &egui::Context) {
         .frame(
             egui::Frame::none()
                 .fill(pal().bg_app)
-                .stroke(Stroke::new(1.0, pal().border))
+                .stroke(Stroke::new(1.0_f32, pal().border))
                 .inner_margin(Margin::symmetric(20.0, 12.0)),
         )
         .show(ctx, |ui| {
@@ -1561,7 +1561,7 @@ fn draw_statusbar(app: &RootCauseApp, ctx: &egui::Context) {
         .frame(
             egui::Frame::none()
                 .fill(pal().bg_panel)
-                .stroke(Stroke::new(1.0, pal().border))
+                .stroke(Stroke::new(1.0_f32, pal().border))
                 .inner_margin(Margin::symmetric(16.0, 5.0)),
         )
         .show(ctx, |ui| {
@@ -1639,7 +1639,7 @@ fn draw_tab_overview(
     };
     egui::Frame::none()
         .fill(score_bg)
-        .stroke(Stroke::new(1.5, score_fg.linear_multiply(0.6)))
+        .stroke(Stroke::new(1.5_f32, score_fg.linear_multiply(0.6)))
         .rounding(Rounding::same(12.0))
         .inner_margin(Margin::symmetric(18.0, 16.0))
         .show(ui, |ui| {
@@ -1813,7 +1813,7 @@ fn draw_tab_overview(
             let bg = sev_bg(alert.severity);
             egui::Frame::none()
                 .fill(bg)
-                .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+                .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
                 .rounding(Rounding::same(6.0))
                 .inner_margin(Margin::same(12.0))
                 .show(ui, |ui| {
@@ -1862,7 +1862,7 @@ fn draw_tab_overview(
         let bg = sev_bg(incident_sev);
         egui::Frame::none()
             .fill(bg)
-            .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+            .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(14.0))
             .show(ui, |ui| {
@@ -2097,7 +2097,7 @@ fn draw_tab_overview(
         ui.add_space(8.0);
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(14.0))
             .show(ui, |ui| {
@@ -2184,7 +2184,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                     Color32::TRANSPARENT
                 })
                 .stroke(Stroke::new(
-                    1.0,
+                    1.0_f32,
                     if sel_none {
                         pal().border
                     } else {
@@ -2214,7 +2214,7 @@ fn draw_tab_processes<F: FnMut(u32), G: FnMut(Option<Severity>)>(
                     }))
                     .fill(if selected { bg } else { Color32::TRANSPARENT })
                     .stroke(Stroke::new(
-                        1.0,
+                        1.0_f32,
                         if selected {
                             fg.linear_multiply(0.5)
                         } else {
@@ -2833,7 +2833,7 @@ fn draw_docker_section(
         // Aún no se ha escaneado: tarjeta con botón.
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
@@ -2861,7 +2861,7 @@ fn draw_docker_section(
                                 .color(pal().c_bl_fg),
                         )
                         .fill(pal().c_bl_bg)
-                        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.4)))
+                        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.4)))
                         .rounding(Rounding::same(5.0)),
                     )
                     .clicked()
@@ -2876,7 +2876,7 @@ fn draw_docker_section(
         // Docker no instalado o daemon caído.
         egui::Frame::none()
             .fill(pal().c_wn_bg)
-            .stroke(Stroke::new(1.0, pal().c_wn_fg.linear_multiply(0.4)))
+            .stroke(Stroke::new(1.0_f32, pal().c_wn_fg.linear_multiply(0.4)))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
@@ -2904,7 +2904,7 @@ fn draw_docker_section(
     // ── Resumen: ocupado / recuperable + botón de reescaneo ────────────────────
     egui::Frame::none()
         .fill(pal().bg_card)
-        .stroke(Stroke::new(1.0, pal().border))
+        .stroke(Stroke::new(1.0_f32, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(12.0))
         .show(ui, |ui| {
@@ -3078,7 +3078,7 @@ fn draw_docker_section(
     ui.add_space(10.0);
     egui::Frame::none()
         .fill(pal().bg_panel)
-        .stroke(Stroke::new(1.0, pal().border))
+        .stroke(Stroke::new(1.0_f32, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
@@ -3217,7 +3217,7 @@ fn docker_prune_row(
             .add(
                 egui::Button::new(RichText::new(label).size(11.5).color(pal().text_pri))
                     .fill(pal().bg_card)
-                    .stroke(Stroke::new(1.0, pal().border)),
+                    .stroke(Stroke::new(1.0_f32, pal().border)),
             )
             .clicked()
         {
@@ -3256,7 +3256,7 @@ fn draw_tab_precision(
             pal().bg_card
         })
         .stroke(Stroke::new(
-            1.0,
+            1.0_f32,
             if recording {
                 pal().c_wn_fg.linear_multiply(0.5)
             } else {
@@ -3373,7 +3373,7 @@ fn draw_tab_precision(
 fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
     egui::Frame::none()
         .fill(pal().bg_card)
-        .stroke(Stroke::new(1.0, pal().border))
+        .stroke(Stroke::new(1.0_f32, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
@@ -3413,7 +3413,7 @@ fn draw_trace_analysis(ui: &mut egui::Ui, ta: &TraceAnalysisSummary) {
                             let fg = sev_fg(f.severity);
                             egui::Frame::none()
                                 .fill(sev_bg(f.severity))
-                                .stroke(Stroke::new(1.0, fg.linear_multiply(0.3)))
+                                .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.3)))
                                 .rounding(Rounding::same(5.0))
                                 .inner_margin(Margin::same(8.0))
                                 .show(ui, |ui| {
@@ -3823,7 +3823,7 @@ fn draw_tab_history(
                                     egui::pos2(r.left(), r.top()),
                                     egui::pos2(r.left(), r.bottom()),
                                 ],
-                                Stroke::new(3.0, bg),
+                                Stroke::new(3.0_f32, bg),
                             );
                         }
                     });
@@ -3840,7 +3840,7 @@ fn draw_tab_history(
         ui.add_space(8.0);
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(8.0))
             .inner_margin(Margin::same(12.0))
             .show(ui, |ui| {
@@ -3854,7 +3854,7 @@ fn draw_tab_history(
                     cols[1].label(
                         RichText::new(format!(
                             "A  {}",
-                            &row_a.collected_at.chars().take(19).collect::<String>()
+                            row_a.collected_at.chars().take(19).collect::<String>()
                         ))
                         .strong()
                         .size(12.0)
@@ -3863,7 +3863,7 @@ fn draw_tab_history(
                     cols[2].label(
                         RichText::new(format!(
                             "B  {}",
-                            &row_b.collected_at.chars().take(19).collect::<String>()
+                            row_b.collected_at.chars().take(19).collect::<String>()
                         ))
                         .strong()
                         .size(12.0)
@@ -3956,7 +3956,7 @@ fn draw_tab_services<F: FnMut(&str)>(ui: &mut egui::Ui, snap: &SystemSnapshot, m
 
         egui::Frame::none()
             .fill(bg)
-            .stroke(Stroke::new(1.0, fg.linear_multiply(0.3)))
+            .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.3)))
             .rounding(Rounding::same(6.0))
             .inner_margin(Margin::same(10.0))
             .show(ui, |ui| {
@@ -4163,7 +4163,7 @@ fn draw_tab_autostart(
     if n_changes > 0 {
         egui::Frame::none()
             .fill(pal().c_cr_bg)
-            .stroke(Stroke::new(1.0, pal().c_cr_fg.linear_multiply(0.4)))
+            .stroke(Stroke::new(1.0_f32, pal().c_cr_fg.linear_multiply(0.4)))
             .rounding(Rounding::same(6.0))
             .inner_margin(Margin::same(10.0))
             .show(ui, |ui| {
@@ -4393,7 +4393,7 @@ fn draw_tab_autostart(
     ui.add_space(12.0);
     egui::Frame::none()
         .fill(pal().c_bl_bg)
-        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.3)))
+        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.3)))
         .rounding(Rounding::same(6.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
@@ -4422,7 +4422,7 @@ fn draw_tab_autostart(
 fn manual_note(ui: &mut egui::Ui, text: &str) {
     egui::Frame::none()
         .fill(pal().c_bl_bg)
-        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.3)))
+        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.3)))
         .rounding(Rounding::same(6.0))
         .inner_margin(Margin::same(10.0))
         .show(ui, |ui| {
@@ -4950,7 +4950,7 @@ fn draw_tab_config(
     ui.vertical_centered(|ui| {
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(14.0))
             .inner_margin(Margin::same(28.0))
             .show(ui, |ui| {
@@ -5010,7 +5010,7 @@ fn draw_tab_config(
                             .add(
                                 egui::Button::new(RichText::new(tr(es, en)).size(12.5).color(fg))
                                     .fill(bg)
-                                    .stroke(Stroke::new(1.0, pal().border))
+                                    .stroke(Stroke::new(1.0_f32, pal().border))
                                     .min_size(Vec2::new(112.0, 30.0))
                                     .rounding(Rounding::same(6.0)),
                             )
@@ -5060,7 +5060,7 @@ fn draw_tab_config(
                                     .color(fg),
                                 )
                                 .fill(bg)
-                                .stroke(Stroke::new(1.0, pal().border))
+                                .stroke(Stroke::new(1.0_f32, pal().border))
                                 .min_size(Vec2::new(150.0, 30.0))
                                 .rounding(Rounding::same(6.0)),
                             )
@@ -5343,7 +5343,7 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
         // ── Tarjeta principal ─────────────────────────────────────────────────
         egui::Frame::none()
             .fill(pal().bg_card)
-            .stroke(Stroke::new(1.0, pal().border))
+            .stroke(Stroke::new(1.0_f32, pal().border))
             .rounding(Rounding::same(14.0))
             .inner_margin(Margin::same(32.0))
             .show(ui, |ui| {
@@ -5460,7 +5460,7 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                 // CLI hint
                 egui::Frame::none()
                     .fill(pal().bg_panel)
-                    .stroke(Stroke::new(1.0, pal().border))
+                    .stroke(Stroke::new(1.0_f32, pal().border))
                     .rounding(Rounding::same(6.0))
                     .inner_margin(Margin::same(10.0))
                     .show(ui, |ui| {
@@ -5504,7 +5504,7 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                     ui.horizontal(|ui| {
                         egui::Frame::none()
                             .fill(pal().bg_panel)
-                            .stroke(Stroke::new(1.0, pal().border))
+                            .stroke(Stroke::new(1.0_f32, pal().border))
                             .rounding(Rounding::same(4.0))
                             .inner_margin(Margin::symmetric(8.0, 2.0))
                             .show(ui, |ui| {
@@ -5727,21 +5727,21 @@ fn apply_theme(ctx: &egui::Context) {
     vis.faint_bg_color = pal().bg_card;
     vis.extreme_bg_color = pal().bg_panel;
     vis.widgets.noninteractive.bg_fill = pal().bg_card;
-    vis.widgets.noninteractive.fg_stroke = Stroke::new(1.0, pal().text_sec);
+    vis.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, pal().text_sec);
     vis.widgets.noninteractive.rounding = Rounding::same(4.0);
     vis.widgets.inactive.bg_fill = pal().bg_card;
-    vis.widgets.inactive.fg_stroke = Stroke::new(1.0, pal().text_sec);
+    vis.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, pal().text_sec);
     vis.widgets.inactive.rounding = Rounding::same(4.0);
     vis.widgets.hovered.bg_fill = Color32::from_rgb(38, 46, 57);
-    vis.widgets.hovered.fg_stroke = Stroke::new(1.0, pal().text_pri);
+    vis.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, pal().text_pri);
     vis.widgets.hovered.rounding = Rounding::same(4.0);
     vis.widgets.active.bg_fill = pal().accent;
-    vis.widgets.active.fg_stroke = Stroke::new(1.0, pal().text_pri);
+    vis.widgets.active.fg_stroke = Stroke::new(1.0_f32, pal().text_pri);
     vis.widgets.active.rounding = Rounding::same(4.0);
     vis.selection.bg_fill = pal().accent.linear_multiply(0.35);
-    vis.selection.stroke = Stroke::new(1.0, pal().c_bl_fg);
+    vis.selection.stroke = Stroke::new(1.0_f32, pal().c_bl_fg);
     vis.window_rounding = Rounding::same(8.0);
-    vis.window_stroke = Stroke::new(1.0, pal().border);
+    vis.window_stroke = Stroke::new(1.0_f32, pal().border);
     vis.override_text_color = Some(pal().text_pri);
     ctx.set_visuals(vis);
 
@@ -5774,7 +5774,7 @@ fn action_btn(ui: &mut egui::Ui, label: &str, bg: Color32, fg: Color32) -> egui:
     ui.add(
         egui::Button::new(RichText::new(label).size(12.0).color(fg))
             .fill(bg)
-            .stroke(Stroke::new(1.0, fg.linear_multiply(0.45)))
+            .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.45)))
             .rounding(Rounding::same(5.0)),
     )
 }
@@ -5788,7 +5788,7 @@ fn header_btn(ui: &mut egui::Ui, icon: &str, label: &str) -> egui::Response {
                 .color(pal().c_bl_fg),
         )
         .fill(pal().c_bl_bg)
-        .stroke(Stroke::new(1.0, pal().c_bl_fg.linear_multiply(0.4)))
+        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.4)))
         .rounding(Rounding::same(5.0)),
     )
 }
@@ -5815,7 +5815,7 @@ fn alert_badge(ui: &mut egui::Ui, text: &str, fg: Color32, bg: Color32) {
     ui.painter().rect_stroke(
         rect,
         Rounding::same(11.0),
-        Stroke::new(1.0, fg.linear_multiply(0.6)),
+        Stroke::new(1.0_f32, fg.linear_multiply(0.6)),
     );
     ui.painter().text(
         rect.center(),
@@ -5850,7 +5850,7 @@ fn health_score_card(
 ) {
     egui::Frame::none()
         .fill(score_bg)
-        .stroke(Stroke::new(1.5, score_fg.linear_multiply(0.5)))
+        .stroke(Stroke::new(1.5_f32, score_fg.linear_multiply(0.5)))
         .rounding(Rounding::same(10.0))
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
@@ -5887,7 +5887,7 @@ fn overview_card(
     let bg = sev_bg(severity);
     egui::Frame::none()
         .fill(bg)
-        .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+        .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
         .rounding(Rounding::same(10.0))
         .inner_margin(Margin::same(14.0))
         .show(ui, |ui| {
@@ -5925,7 +5925,7 @@ fn mini_process_card(ui: &mut egui::Ui, p: &ProcessInsight, width: f32) {
     let bg = sev_bg(p.severity);
     egui::Frame::none()
         .fill(bg)
-        .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+        .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(12.0))
         .show(ui, |ui| {
@@ -5969,7 +5969,7 @@ fn anomaly_summary_card(ui: &mut egui::Ui, anomaly: &AnomalyEvent, width: f32) {
     let bg = sev_bg(sev);
     egui::Frame::none()
         .fill(bg)
-        .stroke(Stroke::new(1.0, fg.linear_multiply(0.4)))
+        .stroke(Stroke::new(1.0_f32, fg.linear_multiply(0.4)))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(12.0))
         .show(ui, |ui| {
@@ -6068,7 +6068,7 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
     let height = 52.0;
     egui::Frame::none()
         .fill(pal().bg_card)
-        .stroke(Stroke::new(1.0, pal().border))
+        .stroke(Stroke::new(1.0_f32, pal().border))
         .rounding(Rounding::same(8.0))
         .inner_margin(Margin::same(8.0))
         .show(ui, |ui| {
@@ -6115,7 +6115,7 @@ fn sparkline_card(ui: &mut egui::Ui, label: &str, values: &[f32], color: Color32
                         .collect();
                     for w in pts.windows(2) {
                         ui.painter()
-                            .line_segment([w[0], w[1]], Stroke::new(1.5, color));
+                            .line_segment([w[0], w[1]], Stroke::new(1.5_f32, color));
                     }
                     // Punto actual
                     if let Some(&last_pt) = pts.last() {
@@ -6153,7 +6153,7 @@ fn section_header(ui: &mut egui::Ui, title: &str) {
             egui::pos2(r.left(), r.top() + 1.0),
             egui::pos2(r.right(), r.top() + 1.0),
         ],
-        Stroke::new(1.0, pal().border),
+        Stroke::new(1.0_f32, pal().border),
     );
 }
 
@@ -6224,13 +6224,13 @@ fn draw_search_icon(ui: &mut egui::Ui, size: f32) {
     let center = rect.center() - Vec2::new(1.5, 1.5);
     let r = size * 0.28;
     ui.painter()
-        .circle_stroke(center, r, Stroke::new(1.5, pal().text_mut));
+        .circle_stroke(center, r, Stroke::new(1.5_f32, pal().text_mut));
     ui.painter().line_segment(
         [
             center + Vec2::new(r * 0.7, r * 0.7),
             rect.right_bottom() - Vec2::new(1.0, 1.0),
         ],
-        Stroke::new(1.5, pal().text_mut),
+        Stroke::new(1.5_f32, pal().text_mut),
     );
 }
 
@@ -6288,7 +6288,7 @@ fn draw_sev_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     let bg = sev_bg(sev);
     ui.painter().circle_filled(rect.center(), size * 0.46, bg);
     ui.painter()
-        .circle_stroke(rect.center(), size * 0.46, Stroke::new(1.2, fg));
+        .circle_stroke(rect.center(), size * 0.46, Stroke::new(1.2_f32, fg));
     // Símbolos de la fuente base (Ubuntu-Light): el checkmark/✕ Unicode no está en
     // la fuente y salía como "□". El color del círculo ya comunica la severidad;
     // el interior solo refuerza con glifos que sí renderizan.
@@ -6314,7 +6314,7 @@ fn draw_proc_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     ui.painter()
         .rect_filled(rect, Rounding::same(size * 0.18), bg);
     ui.painter()
-        .rect_stroke(rect, Rounding::same(size * 0.18), Stroke::new(1.0, fg));
+        .rect_stroke(rect, Rounding::same(size * 0.18), Stroke::new(1.0_f32, fg));
     // Tres líneas horizontales estilo "proceso"
     for i in 0..3 {
         let y = rect.top() + (i as f32 + 1.0) * rect.height() / 4.0;
@@ -6324,7 +6324,7 @@ fn draw_proc_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
                 egui::pos2(rect.left() + rect.width() * 0.2, y),
                 egui::pos2(rect.left() + rect.width() * (0.2 + w * 0.6), y),
             ],
-            Stroke::new(1.5, fg.linear_multiply(0.8)),
+            Stroke::new(1.5_f32, fg.linear_multiply(0.8)),
         );
     }
 }
@@ -6334,7 +6334,7 @@ fn draw_service_icon(ui: &mut egui::Ui, sev: Severity, size: f32) {
     let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
     let fg = sev_fg(sev);
     ui.painter()
-        .circle_stroke(rect.center(), size * 0.35, Stroke::new(1.5, fg));
+        .circle_stroke(rect.center(), size * 0.35, Stroke::new(1.5_f32, fg));
     ui.painter().circle_filled(rect.center(), size * 0.14, fg);
 }
 
