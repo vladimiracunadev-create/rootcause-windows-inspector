@@ -9,7 +9,7 @@
 ║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝      ║
 ║                                                                                   ║
 ║                     W I N D O W S   I N S P E C T O R                             ║
-║               Forensic diagnostics · Built in Rust · v0.18.0                      ║
+║               Forensic diagnostics · Built in Rust · v0.19.0                      ║
 ╚═══════════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -17,7 +17,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-edition%202024-orange.svg)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg)](docs/REQUIREMENTS.md)
-[![Version](https://img.shields.io/badge/version-0.18.0-green.svg)](docs/ROADMAP.md)
+[![Version](https://img.shields.io/badge/version-0.19.0-green.svg)](docs/ROADMAP.md)
 
 🌐 **[Página del producto →](https://vladimiracunadev-create.github.io/rootcause-windows-inspector/)**  ·  📘 **[Manual de usuario →](docs/MANUAL_USUARIO.md)** (qué es cada cosa, en claro)
 
@@ -77,11 +77,12 @@ El modo principal. Bajo consumo, útil para observación frecuente.
 - 🌡️ Presión CPU / RAM / escritura / lectura entre intervalos
 - 🗂️ Escaneo de `TEMP` y cachés de Windows Update
 - 🌐 Conexiones activas por proceso con correlación a IP pública
+- 📡 Tab Red: equipos cercanos del segmento local (vecinos ARP/NDP, estilo nmap honesto) con IP, MAC, fabricante (OUI) y rol — detecta equipos nuevos contra una baseline de **red conocida** (alertas `unknown-device`; crítica si cambia la MAC de la puerta de enlace) y ofrece un **escaneo profundo** de descubrimiento (`rootcause network [--deep] [--json] [--accept]`)
 - 📜 Eventos recientes del sistema y servicios relevantes
 - 🗃️ Exportación JSON · Historial SQLite con comparación A vs B
 - ⚡ Filtro de severidad por proceso (Critical / Warning / Normal)
 - 🔔 Notificaciones toast cuando aparece proceso Critical
-- ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…8` primeras 8 tabs · `Ctrl+9` Configuración · `Ctrl+0` Manual (Acerca solo por clic)
+- ⌨️ Atajos de teclado: `F5` actualizar · `Ctrl+E` exportar · `Ctrl+1…9` primeras 9 tabs (Resumen…Historial) · `Ctrl+0` Configuración (Manual y Acerca solo por clic)
 - 🖥️ Info de hardware del equipo: OS, CPU, núcleos, frecuencia, RAM
 - 🚀 Tab Autostart: registro Run (HKCU/HKLM) y carpetas Startup con severidad y verificación en disco — detecta cambios contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) y genera alertas `persistence-change`
 - ⚙️ Detección de cambios en servicios de Windows (vía CLI `rootcause services` + alertas `service-change` en incidentes; no es un tab de la GUI): vigila `StartMode` + ruta del binario de cada servicio contra una baseline conocida (NUEVA/MODIFICADA/ELIMINADA) — captura servicios nuevos, secuestro del binario o cambios de modo de arranque (ej. deshabilitar Defender)
@@ -226,13 +227,14 @@ Manifests en `packaging/distribution/` · Módulo PowerShell en `packaging/power
 
 ## 🗂️ Secciones de la interfaz
 
-Las **11 secciones** viven en una **barra lateral** (NavigationView estilo Windows 11), agrupadas por tema:
+Las **12 secciones** viven en una **barra lateral** (NavigationView estilo Windows 11), agrupadas por tema:
 
 | Tab | Descripción |
 |---|---|
 | **Resumen** | Banner de veredicto + semáforo global + sparklines + características del equipo |
 | **Procesos** | Tabla con filtro de severidad + command line de proceso |
 | **Conexiones** | Conexiones activas por proceso + bloqueo de IP |
+| **Red** | Equipos cercanos del segmento (vecinos ARP/NDP) + baseline de red conocida + escaneo profundo |
 | **Temporales** | Cachés de Windows (TEMP, SoftwareDistribution, etc.) + botón **Limpiar %TEMP%** + **gestión de Docker** (imágenes, volúmenes, purga segura) |
 | **ETW / WPR** | Captura WPR + resumen de traza ETL |
 | **Servicios** | wuauserv, BITS, DoSvc, SysMain + eventos recientes |

@@ -37,13 +37,15 @@ que RootCause hace **en la versión actual**, con una leyenda de cobertura clara
 | **C2 / RAT / backdoor / exfiltración** | 🟡 | `multi-destination-outbound` + tab **Conexiones** (proceso ↔ IP) + **bloquear IP** |
 | **Dropper / troyano en ubicación rara** | 🟡 | `suspicious-execution-path` (%TEMP%, AppData, Downloads…), `outside-trusted-baseline` |
 | **Movimiento lateral / recon interno** | 🟡 | `local-network-scan`: un proceso hablando con muchos destinos de la LAN |
+| **Dispositivo no autorizado en el segmento** | 🟡 | Baseline de **red conocida** (tab **Red**): `unknown-device` cuando aparece un equipo nuevo (MAC no vista) cerca de ti |
+| **Suplantación de puerta de enlace (rogue AP / ARP spoof del gateway)** | 🟡 | El tab **Red** marca crítico si la MAC de la puerta de enlace cambia de identidad |
 | **Malware genérico (por síntomas)** | 🟡 | `memory-growth`, score de riesgo por proceso, `correlated-anomaly` (varias señales juntas) |
 | **Exfiltración por insider** | 🟡 | Red Tx elevada + `multi-destination-outbound` + proceso asociado |
 | **Explotación de vulnerabilidad / zero-day** | 🟡 | No ve el exploit; sí el **resultado** (proceso nuevo, respawn, persistencia, conexión) |
 | **Ingeniería social / phishing** | 🟡 | Solo el **payload post-clic** (proceso/persistencia/conexión que deja el clic) |
 | **Rootkit / bootkit** | ⬜ | Se ocultan del SO; RootCause usa las APIs del SO |
 | **Web/app (SQLi, XSS, CSRF…)** | ⬜ | Es del lado servidor/web; RootCause es endpoint |
-| **Red interna (MITM, sniffing, ARP/DNS spoof)** | ⬜ | No inspecciona el tráfico de la LAN (solo conexiones por proceso) |
+| **Red interna (MITM, sniffing, ARP/DNS spoof del tráfico)** | ⬜ | No inspecciona el tráfico de la LAN; sí descubre equipos y detecta el cambio de MAC del gateway (ver fila anterior) |
 | **Cadena de suministro (pre-runtime)** | ⬜ | No escanea dependencias/CVEs (la sección Docker es higiene de espacio, no seguridad) |
 | **Físico / hardware / side-channel** | ⬜ | Fuera de alcance |
 | **Nube / contenedores / móvil / IoT/OT** | ⬜ | RootCause es endpoint Windows |
@@ -106,6 +108,20 @@ las rutas/nombres de confianza. Es donde el software legítimo *normalmente no* 
 local** puede estar escaneando o moviéndose lateralmente. Es un indicio, no una prueba
 de intrusión.
 
+### Dispositivo no autorizado / red conocida 🟡 (tab Red)
+Muchas amenazas no entran por Internet sino por el **mismo segmento de red**: un equipo
+ya comprometido que escanea a sus vecinos, un dispositivo no autorizado que se enchufa,
+o un punto de acceso pirata. El tab **Red** lee la **tabla de vecinos** (ARP/NDP) que
+Windows ya mantiene y, bajo demanda, hace un **barrido activo** de descubrimiento del
+segmento (pings asíncronos) para despertar a los equipos que aún no respondían. Cada
+equipo se identifica por su **MAC** (estable aunque la IP cambie por DHCP), su fabricante
+aproximado (OUI) y su rol. Sobre esa lista aplica el **motor de baseline** de "red
+conocida": la primera foto se siembra en silencio y, después, cualquier equipo nuevo se
+marca como `unknown-device`. Un cambio de identidad de la **puerta de enlace** (MAC
+nueva) se eleva a crítico, porque es la huella típica de la **suplantación de router**.
+No inspecciona el tráfico de otros (eso es de un IDS/NDR): descubre *quién está cerca* y
+avisa cuando aparece alguien no reconocido. Indicio con evidencia, no veredicto.
+
 ### Malware genérico (por síntomas de recursos) 🟡
 Aunque RootCause no sepa qué es, nota `memory-growth` (crecimiento anómalo de RAM),
 CPU/IO fuera de rango, y sobre todo `correlated-anomaly`: cuando **varias señales
@@ -129,8 +145,10 @@ crea persistencia o que abre una conexión. RootCause ve la consecuencia, no el 
   que lo que el rootkit oculta, no lo ve.
 - **Web/aplicaciones (SQLi, XSS, CSRF, SSRF…):** es del lado servidor; corresponde a
   un WAF/pentest.
-- **Red interna (MITM, sniffing, ARP/DNS spoofing):** RootCause ve *tus* conexiones por
-  proceso, no el tráfico de otros en la LAN.
+- **Red interna (MITM, sniffing, ARP/DNS spoofing del tráfico):** RootCause ve *tus*
+  conexiones por proceso, no el tráfico de otros en la LAN. **Sí** descubre los equipos
+  del segmento y marca los nuevos/desconocidos, y detecta el cambio de MAC del gateway
+  (indicio de rogue AP), pero no intercepta ni analiza paquetes de terceros.
 - **Cadena de suministro / paquetes maliciosos (antes de ejecutarse):** no escanea
   dependencias ni CVEs. *(La sección Docker mide espacio, no seguridad de imágenes.)*
 - **Físico, hardware, side-channels, nube/contenedores/móvil/IoT, criptografía,
@@ -141,7 +159,7 @@ crea persistencia o que abre una conexión. RootCause ve la consecuencia, no el 
 
 ---
 
-## Vocabulario de detección (las 16 señales reales de hoy)
+## Vocabulario de detección (las 17 señales reales de hoy)
 
 Estas son las señales que RootCause emite actualmente (nombres internos → qué
 significan):
@@ -153,6 +171,7 @@ significan):
 | `aggressive-disk-write` | escritura masiva y sostenida | **ransomware** en curso |
 | `multi-destination-outbound` | muchas conexiones a IPs públicas | C2 / exfiltración / botnet |
 | `local-network-scan` | muchas conexiones a la LAN | recon / movimiento lateral |
+| `unknown-device` | equipo nuevo en el segmento vs "red conocida" | intruso en la LAN / rogue AP (si es el gateway) |
 | `suspicious-execution-path` | ejecución en %TEMP%/AppData/… | dropper / troyano |
 | `outside-trusted-baseline` | fuera de rutas/nombres de confianza | binario inesperado |
 | `suspicious-parent-child` | lanzado por PowerShell/cmd/mshta… | fileless / LOLBins |

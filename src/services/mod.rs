@@ -8,6 +8,7 @@ pub mod baseline;
 pub mod docker;
 pub mod etl;
 pub mod inspector;
+pub mod netscan;
 pub mod network;
 pub mod persistence;
 pub mod report;

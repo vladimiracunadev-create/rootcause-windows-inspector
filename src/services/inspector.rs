@@ -5,7 +5,7 @@
 
 use crate::config::{ConfigManager, RootCauseConfig};
 use crate::models::{
-    AiIncidentAdvice, Alert, AnomalyEvent, AuditRecord, HardwareInfo, IncidentSummary,
+    AiIncidentAdvice, Alert, AnomalyEvent, AuditRecord, HardwareInfo, IncidentSummary, NetworkScan,
     PersistenceChange, PersistenceEntry, PrecisionStatus, ProcessInsight, Severity, SnapshotRow,
     SystemOverview, SystemSnapshot, TempCleanResult, TraceAnalysisSummary, WatchedItem,
 };
@@ -13,7 +13,7 @@ use crate::services::{
     ai::AiAdvisor,
     anomaly::{AnomalyTracker, DetectionInput, persistence_change_event},
     baseline::{self, SurfaceSpec},
-    etl, network,
+    etl, netscan, network,
     persistence::{PersistenceStore, persistence_entry_key},
     resilience::ResilienceMonitor,
     rules, temp_scan, windows,
@@ -27,6 +27,10 @@ const SERVICE_SURFACE: SurfaceSpec = SurfaceSpec {
     title_removed: "Servicio eliminado",
     summary_noun: "El servicio",
 };
+
+/// Superficie vigilada: dispositivos de la red local ("red conocida"). Reutiliza
+/// el motor genérico de baseline; la clave estable de cada equipo es su MAC.
+const NETWORK_SURFACE_ID: &str = "network-device";
 use anyhow::{Context, Result, anyhow};
 use chrono::{DateTime, Utc};
 use std::collections::{HashMap, HashSet};
@@ -346,6 +350,16 @@ impl InspectorService {
             Ok(output) => network::parse_netstat_output(&output, &process_names, &process_paths),
             Err(_) => Vec::new(),
         };
+        // Red local (escaneo pasivo): lee la tabla de vecinos y la coteja con la
+        // baseline de "red conocida". Los dispositivos nuevos generan alertas
+        // `unknown-device`. El barrido activo se hace solo bajo demanda (GUI/CLI).
+        let mut network = netscan::scan_from_json(
+            &windows::network_scan_raw(false).unwrap_or_default(),
+            false,
+            &collected_at.to_rfc3339(),
+        );
+        let network_change_events = self.detect_network_changes(collected_at, &mut network);
+
         let temp = temp_scan::scan_temp_overview(&self.config.thresholds.temp).unwrap_or_default();
         let events = windows::recent_system_events(18).unwrap_or_default();
         let services = windows::relevant_services().unwrap_or_default();
@@ -404,6 +418,7 @@ impl InspectorService {
         // del recorte de alertas.
         let mut change_events = persistence_change_events;
         change_events.extend(service_change_events);
+        change_events.extend(network_change_events);
         if !change_events.is_empty() {
             anomalies.extend(change_events);
             anomalies.sort_by(|left, right| {
@@ -448,6 +463,7 @@ impl InspectorService {
             processes,
             temp,
             connections,
+            network: Some(network),
             events,
             services,
             persistence_entries,
@@ -915,6 +931,91 @@ impl InspectorService {
         let mut items = windows::services_baseline_items().unwrap_or_default();
         baseline::diff_surface(&self.store, SERVICE_SURFACE.id, &mut items);
         items
+    }
+
+    /// Explora la red local y devuelve el escaneo ya cotejado contra la baseline
+    /// de "red conocida". `deep = true` hace barrido activo de descubrimiento y
+    /// resuelve nombres (más lento). No emite alertas: la protección permanente
+    /// vive en `collect_snapshot`; esto es para vista y CLI bajo demanda.
+    pub fn scan_network(&self, deep: bool) -> NetworkScan {
+        let raw = windows::network_scan_raw(deep).unwrap_or_default();
+        let mut scan = netscan::scan_from_json(&raw, deep, &Utc::now().to_rfc3339());
+        self.annotate_network_changes(&mut scan);
+        scan
+    }
+
+    /// Cruza los dispositivos del escaneo contra la baseline conocida: anota el
+    /// estado de cambio en cada uno, añade filas sintéticas para los que ya no
+    /// responden y re-clasifica severidad/motivo. Si no hay baseline (primera
+    /// vez), la siembra en silencio. Devuelve `true` si había baseline previa.
+    fn annotate_network_changes(&self, scan: &mut NetworkScan) -> bool {
+        let mut items = netscan::device_watch_items(&scan.devices);
+        let had_baseline = baseline::diff_surface(&self.store, NETWORK_SURFACE_ID, &mut items);
+
+        let mut status_by_key: HashMap<String, PersistenceChange> = HashMap::new();
+        for item in &items {
+            status_by_key.insert(item.key.clone(), item.change_status);
+        }
+        for device in scan.devices.iter_mut() {
+            if let Some(status) = status_by_key.get(&netscan::device_key(device)) {
+                device.change_status = *status;
+            }
+            netscan::classify_device(device);
+        }
+
+        let present: HashSet<String> = scan.devices.iter().map(netscan::device_key).collect();
+        for item in items
+            .iter()
+            .filter(|item| item.change_status == PersistenceChange::Removed)
+        {
+            if !present.contains(&item.key) {
+                scan.devices.push(netscan::device_from_watch_item(item));
+            }
+        }
+
+        scan.total_devices = scan.devices.iter().filter(|device| !device.is_self).count();
+        scan.new_devices = scan
+            .devices
+            .iter()
+            .filter(|device| device.change_status == PersistenceChange::Added)
+            .count();
+        had_baseline
+    }
+
+    /// Anota el escaneo con los cambios vs baseline y genera un evento por cada
+    /// dispositivo nuevo/desconocido (gated por configuración de anomalías).
+    fn detect_network_changes(
+        &self,
+        collected_at: DateTime<Utc>,
+        scan: &mut NetworkScan,
+    ) -> Vec<AnomalyEvent> {
+        let had_baseline = self.annotate_network_changes(scan);
+        if !had_baseline
+            || !self.config.anomaly.enabled
+            || !self.config.anomaly.watch_network_devices
+        {
+            return Vec::new();
+        }
+        scan.devices
+            .iter()
+            .filter_map(|device| netscan::new_device_event(collected_at, device))
+            .collect()
+    }
+
+    /// Reconoce el estado actual de la red como la nueva baseline "conocida". A
+    /// partir de aquí, los dispositivos presentes dejan de marcarse como nuevos.
+    pub fn accept_network_baseline(&self) -> Result<usize> {
+        let scan = self.scan_network(false);
+        let items = netscan::device_watch_items(&scan.devices);
+        let count = items.len();
+        self.store.replace_baseline(NETWORK_SURFACE_ID, &items)?;
+        self.audit_action(
+            "accept-network-baseline",
+            &format!("{count} dispositivos"),
+            Some("Baseline de red conocida actualizada"),
+            None,
+        );
+        Ok(count)
     }
 
     /// Limpia la carpeta `%TEMP%` del usuario: borra lo no usado y con más de 24h

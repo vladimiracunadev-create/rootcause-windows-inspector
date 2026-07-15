@@ -45,6 +45,7 @@ pub fn run(args: &[String]) -> i32 {
         "config" => cmd_config(&args[1..]),
         "autostart" => cmd_autostart(&args[1..]),
         "services" => cmd_services(&args[1..]),
+        "network" => cmd_network(&args[1..]),
         "clean-temp" => cmd_clean_temp(&args[1..]),
         "docker" => cmd_docker(&args[1..]),
         "report" => cmd_report(&args[1..]),
@@ -92,6 +93,11 @@ AUTOSTART Y PERSISTENCIA:
   rootcause autostart --accept            Fija el estado actual como baseline "buena conocida"
   rootcause services [--json]             Servicios: detecta cambios vs baseline (nuevo/modificado/eliminado)
   rootcause services --accept             Fija el estado actual de servicios como baseline
+
+RED LOCAL (equipos cercanos / red conocida):
+  rootcause network [--json]              Equipos del segmento (vecinos ARP); marca los nuevos vs baseline
+  rootcause network --deep                Barrido activo de descubrimiento + resolución de nombres
+  rootcause network --accept              Fija los equipos actuales como "red conocida"
   rootcause clean-temp                    Simula limpieza de %TEMP% (>24h, no en uso) — no borra
   rootcause clean-temp --yes              Limpia de verdad %TEMP% (>24h, no en uso); salta lo bloqueado
 
@@ -709,6 +715,128 @@ fn cmd_services(args: &[String]) -> i32 {
     0
 }
 
+fn cmd_network(args: &[String]) -> i32 {
+    let json_mode = has_flag(args, "--json");
+    let deep = has_flag(args, "--deep");
+    let accept_mode = has_flag(args, "--accept");
+
+    let insp = match init_inspector() {
+        Ok(i) => i,
+        Err(c) => return c,
+    };
+
+    if accept_mode {
+        return match insp.accept_network_baseline() {
+            Ok(count) => {
+                println!(
+                    "Red conocida actualizada: {count} equipo(s) marcados como estado bueno conocido."
+                );
+                0
+            }
+            Err(e) => {
+                eprintln!("No se pudo aceptar la red conocida: {e}");
+                1
+            }
+        };
+    }
+
+    let scan = insp.scan_network(deep);
+    if json_mode {
+        return print_json(&scan);
+    }
+
+    println!(
+        "Red local — {}",
+        if scan.deep {
+            "barrido profundo"
+        } else {
+            "escaneo pasivo"
+        }
+    );
+    println!(
+        "  Adaptador : {}   ·   Tu IP : {}",
+        blank_dash(&scan.adapter_name),
+        blank_dash(&scan.local_ip)
+    );
+    let segment = if scan.subnet_prefix.is_empty() {
+        "—".to_owned()
+    } else {
+        format!("{}.0/24", scan.subnet_prefix)
+    };
+    println!(
+        "  Segmento  : {}   ·   Puerta de enlace : {}",
+        segment,
+        blank_dash(&scan.gateway_ip)
+    );
+    println!();
+
+    if scan.devices.is_empty() {
+        println!("No se detectaron equipos (¿sin red o sin vecinos en la tabla ARP?).");
+        for limitation in &scan.limitations {
+            println!("  • {limitation}");
+        }
+        return 0;
+    }
+
+    println!(
+        "{:<10}  {:<16}  {:<19}  {:<16}  Nombre / rol",
+        "Cambio", "IP", "MAC", "Fabricante"
+    );
+    println!("{}", "─".repeat(92));
+    for dev in &scan.devices {
+        let change_col = match dev.change_status {
+            crate::models::PersistenceChange::Added => "[NUEVO]",
+            crate::models::PersistenceChange::Removed => "[AUSENTE]",
+            _ => "",
+        };
+        let role = if dev.is_self {
+            " (tú)"
+        } else if dev.is_gateway {
+            " (router)"
+        } else {
+            ""
+        };
+        let name: String = crate::services::netscan::display_name(dev)
+            .chars()
+            .take(28)
+            .collect();
+        let vendor: String = if dev.vendor.is_empty() {
+            "—".to_owned()
+        } else {
+            dev.vendor.chars().take(15).collect()
+        };
+        let mac = if dev.mac.is_empty() {
+            "—"
+        } else {
+            dev.mac.as_str()
+        };
+        println!(
+            "{:<10}  {:<16}  {:<19}  {:<16}  {}{}",
+            change_col, dev.ip, mac, vendor, name, role
+        );
+    }
+    println!();
+
+    println!(
+        "{} equipo(s) en la red — {} nuevo(s) vs baseline conocida",
+        scan.total_devices, scan.new_devices
+    );
+    if scan.new_devices > 0 {
+        println!(
+            "Revisa cada equipo NUEVO. Si los reconoces, ejecuta `rootcause network --accept` \
+             para fijar la red conocida."
+        );
+    } else {
+        println!("Sin equipos nuevos respecto a la red conocida.");
+    }
+    if !scan.deep {
+        println!(
+            "Sugerencia: `rootcause network --deep` para descubrir equipos que aún no responden."
+        );
+    }
+    0
+}
+
 fn cmd_clean_temp(args: &[String]) -> i32 {
     // Por seguridad, sin `--yes` es una SIMULACIÓN (no borra nada).
     let confirmed = has_flag(args, "--yes");
@@ -908,6 +1036,11 @@ fn cmd_report(args: &[String]) -> i32 {
             }
         }
     }
+}
+
+/// Devuelve la cadena, o un guion si está vacía (para la salida de consola).
+fn blank_dash(s: &str) -> &str {
+    if s.trim().is_empty() { "—" } else { s }
 }
 
 /// Trunca una cadena para la salida de consola.

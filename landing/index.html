@@ -65,12 +65,12 @@
         <img src="https://img.shields.io/badge/rust-edition%202024-orange.svg" alt="Rust 2024" />
         <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows 10/11" />
         <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache 2.0" />
-        <img src="https://img.shields.io/badge/versión-0.18.0-brightgreen.svg" alt="v0.18.0" />
+        <img src="https://img.shields.io/badge/versión-0.19.0-brightgreen.svg" alt="v0.19.0" />
         <img src="https://img.shields.io/badge/telemetría-cero-success.svg" alt="Telemetría cero" />
       </div>
 
       <div class="hero-cta">
-        <a href="#download" class="btn-primary">⬇ Descargar v0.18.0</a>
+        <a href="#download" class="btn-primary">⬇ Descargar v0.19.0</a>
         <a href="#install" class="btn-ghost">📖 Instrucciones</a>
       </div>
 
@@ -105,6 +105,14 @@
           <h3>Conexiones de red</h3>
           <p>Netstat enriquecido con nombre de proceso y ruta. Bloqueo directo de IP vía firewall de Windows. Filtro IPs
             públicas.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">📡</div>
+          <h3>Red local / red conocida</h3>
+          <p>Equipos cercanos del segmento (vecinos ARP/NDP, estilo nmap honesto) con IP, MAC, fabricante y rol. Detecta
+            equipos nuevos contra una baseline de red conocida (alerta <code>unknown-device</code>) y ofrece un escaneo
+            profundo de descubrimiento.</p>
         </div>
 
         <div class="feature-card">
@@ -479,7 +487,7 @@ code --install-extension RootCause-VSCode-Extension.vsix
         <div class="install-block">
           <h3>✅ Verificar instalación</h3>
           <pre><code class="shell">rootcause --version
-# RootCause Windows Inspector v0.18.0
+# RootCause Windows Inspector v0.19.0
 
 rootcause --help
 # muestra todos los comandos disponibles</code></pre>
@@ -554,7 +562,7 @@ rootcause --help
         <pre><span class="t-prompt">C:\&gt;</span> rootcause status
 
 <span class="t-box">┌─────────────────────────────────────────────────┐
-│  RootCause Windows Inspector  v0.18.0           │
+│  RootCause Windows Inspector  v0.19.0           │
 │  Estado del sistema                             │
 ├─────────────────────────────────────────────────┤
 │  Severidad  : ⚠ WARNING                        │
@@ -600,9 +608,9 @@ rootcause --help
 
       <div class="download-grid">
         <div class="download-card primary">
-          <div class="dl-badge">Recomendado · v0.18.0</div>
+          <div class="dl-badge">Recomendado · v0.19.0</div>
           <h3>📦 Portable ZIP (GUI)</h3>
-          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.18.0.</p>
+          <p>Extraer y ejecutar directamente. Incluye la app completa GUI + CLI. Build real de CI con todas las features v0.19.0.</p>
           <a href="https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Portable.zip"
             class="btn-download" target="_blank" rel="noopener">
             ⬇ RootCause-Portable.zip
@@ -628,7 +636,7 @@ rootcause --help
             class="btn-download-ghost" target="_blank" rel="noopener">
             ⬇ SHA256SUMS.txt
           </a>
-          <p class="dl-meta">Integridad · release v0.18.0</p>
+          <p class="dl-meta">Integridad · release v0.19.0</p>
         </div>
 
         <div class="download-card">
@@ -665,7 +673,7 @@ rootcause --help
       </div>
 
       <p class="download-note">
-        ⚠ Todos los artefactos son builds reales compilados por CI (v0.18.0) y verificados con SHA-256. El binario no tiene firma digital todavía, por lo que Windows puede mostrar una advertencia de SmartScreen (More info → Run anyway).
+        ⚠ Todos los artefactos son builds reales compilados por CI (v0.19.0) y verificados con SHA-256. El binario no tiene firma digital todavía, por lo que Windows puede mostrar una advertencia de SmartScreen (More info → Run anyway).
       </p>
     </div>
   </section>

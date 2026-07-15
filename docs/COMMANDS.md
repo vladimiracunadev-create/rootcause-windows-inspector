@@ -347,6 +347,30 @@ Notas:
   nuevos/modificados, Media para eliminados), gobernada por el flag de configuración
   `watch_service_changes` (default `true`).
 
+### Red local (equipos cercanos / red conocida)
+
+```powershell
+rootcause network          # equipos del segmento (vecinos ARP), marca los [NUEVO]/[AUSENTE] vs baseline
+rootcause network --deep   # barrido activo de descubrimiento del /24 + resolución de nombres (más lento)
+rootcause network --json   # escaneo completo en JSON (adaptador, gateway, dispositivos con change_status)
+rootcause network --accept # fija los equipos actuales como "red conocida" buena conocida
+```
+
+Notas:
+- Lee la tabla de vecinos (`Get-NetNeighbor`) del adaptador que tiene la puerta de enlace por
+  defecto: no captura tráfico ni hace nada invasivo por defecto. `--deep` añade un barrido de
+  descubrimiento (pings asíncronos al `/24`, tope global ~4 s) para despertar a los equipos que aún
+  no respondían, y resuelve nombres por DNS/NetBIOS.
+- Cada equipo se identifica por su **MAC** (clave estable aunque la IP cambie por DHCP), su fabricante
+  aproximado por prefijo OUI y su rol (tú / router). Sobre esa lista se aplica el mismo motor de
+  baseline que Autostart/Servicios: la primera foto se siembra en silencio y luego cada equipo nuevo
+  se marca **[NUEVO]**; los que dejan de responder aparecen **[AUSENTE]**.
+- Genera alertas de kind `unknown-device` (Media para un equipo nuevo, Alta si la MAC de la **puerta
+  de enlace** cambia — indicio de suplantación de router), gobernadas por el flag de configuración
+  `watch_network_devices` (default `true`).
+- `rootcause network --accept` fija el estado actual como nueva "red conocida" y registra la acción
+  `accept-network-baseline` en `audit_log`.
+
 ### Limpieza segura de temporales
 
 ```powershell

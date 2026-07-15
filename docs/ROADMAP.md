@@ -30,7 +30,8 @@ CONVENCIÓN DE MANTENIMIENTO (leer antes de bumpear versión, para no romper el 
 | [v0.15](#v015-entregado) | ✅ Entregado | Idioma ES/EN + tab Configuración, sección Docker, banner de veredicto y Manual profundo |
 | [v0.16](#v016-entregado) | ✅ Entregado | Icono de bandeja con color por severidad, tooltip de veredicto y menú de acciones |
 | [v0.17](#v017-entregado) | ✅ Entregado | Rediseño Fluent/Win11: barra lateral, iconos de línea, Segoe UI, logo del radar, modos de tema |
-| [v0.18](#v018-entregado) | ✅ **Actual** | Reportes forenses (GUI/CLI/auto al cambiar el día) + optimización segura de un clic + manual interno |
+| [v0.18](#v018-entregado) | ✅ Entregado | Reportes forenses (GUI/CLI/auto al cambiar el día) + optimización segura de un clic + manual interno |
+| [v0.19](#v019-entregado) | ✅ **Actual** | Tab Red: equipos cercanos / red conocida (baseline `network-device`), señal `unknown-device`, CLI `network` |
 | [v1.0](#v10-objetivo-de-distribucion-formal) | 🎯 Objetivo | Distribución formal: firma digital, publicación, cerrar-a-bandeja |
 | [v2.0+](#v20-largo-plazo) | 🔭 Largo plazo | Windows Service 24/7, ediciones Seguridad y Enterprise |
 
@@ -169,6 +170,14 @@ CONVENCIÓN DE MANTENIMIENTO (leer antes de bumpear versión, para no romper el 
 - Manual interno: secciones nuevas "Reportes forenses" y "Optimizacion segura" con el porque y la honestidad; item Configuracion actualizado (modo de apariencia + reporte diario)
 - Compatibilidad con Rust 1.97: correccion de `float_literal_f32_fallback` (literales de ancho en `Stroke::new`) y `useless_borrows_in_formatting`
 - version bump a 0.18.0
+
+## v0.19 Entregado
+- Tab **Red** (equipos cercanos / red conocida): nuevo modulo `src/services/netscan.rs` + recolector `windows::network_scan_raw`. Lee la tabla de vecinos (ARP/NDP) del adaptador con puerta de enlace por defecto y, bajo demanda, hace un barrido activo de descubrimiento del `/24` (pings asincronos, tope ~4 s) + resolucion de nombres. Cada equipo se identifica por su MAC (clave estable), fabricante aproximado (OUI) y rol (tu / router).
+- Red conocida (baseline): reutiliza el motor generico de baseline (surface `network-device`); la primera foto se siembra en silencio y luego cada equipo nuevo se marca **[NUEVO]** y genera alerta `unknown-device` (Media; Alta/critica si cambia la MAC de la puerta de enlace = indicio de suplantacion de router). Boton "Aceptar red conocida" en la GUI y `rootcause network --accept`. Flag de configuracion `watch_network_devices` (default `true`).
+- Escaneo pasivo integrado en cada captura (proteccion permanente); barrido profundo bajo demanda con override + "Vista en vivo". Icono vectorial `Ic::Radar` en la barra lateral (grupo ACTIVIDAD).
+- CLI `rootcause network [--deep] [--json] [--accept]`. Manual interno: item del tab Red + seccion "Red conocida / red protegida". Mapa amenaza→deteccion actualizado en `docs/DETECCION_AMENAZAS.md` (senal `unknown-device`, ahora 17 senales). Nueva pestana => 12 tabs; atajos `Ctrl+1..0` recorridos (Red = Ctrl+4).
+- Encuadre honesto: descubre *quien esta cerca* y avisa de equipos no reconocidos; **no** inspecciona el trafico de terceros (eso seria un IDS/NDR). Complementa —no reemplaza— al firewall.
+- version bump a 0.19.0
 
 ## v1.0 Objetivo de distribucion formal
 - tray icon: cerrar-a-bandeja (el icono base ya se entrego en v0.16)

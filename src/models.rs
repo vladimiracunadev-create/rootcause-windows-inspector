@@ -408,6 +408,74 @@ pub struct ConnectionInsight {
     pub is_public_remote: bool,
 }
 
+/// Dispositivo observado en la red local, a partir de la tabla de vecinos
+/// (ARP/NDP) del sistema y, opcionalmente, de un barrido activo del segmento.
+///
+/// Es la unidad del tab **Red**: responde "¿qué otros equipos están cerca de mí
+/// y cuáles son conocidos?". Un dispositivo nuevo respecto a la baseline de
+/// "red conocida" puede ser el primer indicio de un intruso en el mismo segmento
+/// (escaneo lateral, intento de acceso, punto de acceso no autorizado).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NetworkDevice {
+    pub ip: String,
+    pub mac: String,
+    /// Nombre resuelto (DNS/NetBIOS) si se pudo; vacío en escaneo pasivo.
+    #[serde(default)]
+    pub hostname: String,
+    /// Fabricante aproximado deducido del prefijo OUI de la MAC.
+    #[serde(default)]
+    pub vendor: String,
+    /// Estado del vecino: Reachable, Stale, Permanent…
+    #[serde(default)]
+    pub state: String,
+    /// Interfaz/adaptador por el que se observó.
+    #[serde(default)]
+    pub interface: String,
+    /// `true` si es la puerta de enlace (router) del segmento.
+    #[serde(default)]
+    pub is_gateway: bool,
+    /// `true` si es el propio equipo.
+    #[serde(default)]
+    pub is_self: bool,
+    #[serde(default)]
+    pub severity: Severity,
+    #[serde(default)]
+    pub reason: String,
+    /// Estado de cambio respecto a la baseline de "red conocida".
+    #[serde(default)]
+    pub change_status: PersistenceChange,
+}
+
+/// Resultado de una exploración de la red local (equipos cercanos, estilo nmap).
+///
+/// El escaneo *pasivo* (por defecto, en cada captura) solo lee la tabla de
+/// vecinos que el sistema ya conoce; es rápido y no genera ruido. El escaneo
+/// *profundo* (`deep`) hace primero un barrido de descubrimiento del segmento
+/// para despertar a los equipos que aún no estaban en la tabla, y resuelve
+/// nombres. Complementa —no reemplaza— al firewall.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NetworkScan {
+    pub scanned_at: String,
+    /// Nombre del adaptador activo (el que tiene puerta de enlace por defecto).
+    pub adapter_name: String,
+    pub local_ip: String,
+    #[serde(default)]
+    pub local_mac: String,
+    /// Prefijo del segmento, p. ej. `192.168.1` (asume /24 para el barrido).
+    pub subnet_prefix: String,
+    pub gateway_ip: String,
+    /// `true` si se hizo barrido activo de descubrimiento.
+    #[serde(default)]
+    pub deep: bool,
+    pub devices: Vec<NetworkDevice>,
+    pub total_devices: usize,
+    /// Dispositivos marcados como NUEVOS respecto a la baseline conocida.
+    #[serde(default)]
+    pub new_devices: usize,
+    #[serde(default)]
+    pub limitations: Vec<String>,
+}
+
 /// Evento reciente de Windows que puede ayudar a correlacionar lentitud o fallas.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EventRecord {
@@ -502,6 +570,8 @@ pub struct SystemSnapshot {
     pub processes: Vec<ProcessInsight>,
     pub temp: TempOverview,
     pub connections: Vec<ConnectionInsight>,
+    #[serde(default)]
+    pub network: Option<NetworkScan>,
     pub events: Vec<EventRecord>,
     pub services: Vec<ServiceState>,
     #[serde(default)]

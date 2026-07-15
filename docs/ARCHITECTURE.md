@@ -57,6 +57,7 @@ src/
     ├── rules.rs
     ├── inspector.rs
     ├── network.rs
+    ├── netscan.rs
     ├── persistence.rs
     ├── baseline.rs
     ├── temp_scan.rs
@@ -157,6 +158,15 @@ Responsabilidades:
 
 ### `services/network.rs`
 Parsea `netstat` y clasifica conexiones.
+
+### `services/netscan.rs`
+Explora la **red local** (tab Red): parte del JSON que produce `windows::network_scan_raw`
+(vecinos ARP/NDP + adaptador/gateway; opcionalmente un barrido activo del `/24` y
+resolución de nombres) y devuelve un `NetworkScan` clasificado. Lógica pura y testeable:
+identifica el propio equipo y la puerta de enlace, deduce el fabricante por prefijo OUI de
+la MAC, construye los `WatchedItem` (clave = MAC) para el motor de baseline de "red
+conocida" y genera el evento `unknown-device` para equipos nuevos. El cruce contra la
+baseline y la emisión de alertas viven en `inspector.rs`.
 
 ### `services/temp_scan.rs`
 Escanea rutas temporales y cachés relevantes.

@@ -8,12 +8,13 @@ use crate::config::{RootCauseConfig, ThemeMode};
 use crate::i18n::{self, Lang, tr};
 use crate::meta;
 use crate::models::{
-    AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, PersistenceChange, PersistenceEntry,
-    ProcessInsight, RiskLevel, ServiceState, Severity, SnapshotRow, SystemSnapshot,
-    TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
+    AgentHealth, AgentStatus, AnomalyEvent, HardwareInfo, NetworkScan, PersistenceChange,
+    PersistenceEntry, ProcessInsight, RiskLevel, ServiceState, Severity, SnapshotRow,
+    SystemSnapshot, TraceAnalysisSummary, TracePathSummary, TraceProcessSummary,
 };
 use crate::services::docker::{self, DockerScan};
 use crate::services::inspector::InspectorService;
+use crate::services::netscan;
 use crate::services::report;
 use crate::services::tray::{Tray, TrayAction};
 use crate::services::windows;
@@ -260,6 +261,7 @@ enum Tab {
     Overview,
     Processes,
     Connections,
+    Network,
     TempFiles,
     Precision,
     Services,
@@ -281,6 +283,7 @@ impl Tab {
         (Tab::Overview, "📊", "Resumen", "Overview"),
         (Tab::Processes, "⚙", "Procesos", "Processes"),
         (Tab::Connections, "🌐", "Conexiones", "Connections"),
+        (Tab::Network, "📡", "Red", "Network"),
         (Tab::TempFiles, "🗑", "Temporales", "Storage"),
         (Tab::Precision, "🎯", "ETW / WPR", "ETW / WPR"),
         (Tab::Services, "🔧", "Servicios", "Services"),
@@ -369,6 +372,10 @@ pub struct RootCauseApp {
     // vista de resultado.
     optimize_confirm: bool,
     optimize_result: Option<String>,
+    // Tab Red: resultado del último escaneo profundo (barrido activo + nombres).
+    // Si es Some, el tab lo muestra en vez de la vista pasiva en vivo hasta que el
+    // usuario vuelve a "vista en vivo".
+    network_override: Option<NetworkScan>,
 }
 
 impl RootCauseApp {
@@ -411,6 +418,7 @@ impl RootCauseApp {
             daily_report_last: read_last_daily_marker(),
             optimize_confirm: false,
             optimize_result: None,
+            network_override: None,
         };
         match inspector {
             Ok(svc) => {
@@ -681,6 +689,52 @@ impl RootCauseApp {
             }
             Err(e) => {
                 self.status_line = format!("No se pudo aceptar la baseline: {e}");
+                self.status_is_error = true;
+            }
+        }
+    }
+
+    /// Escaneo profundo de red bajo demanda: barrido activo del segmento +
+    /// resolución de nombres. Puede tardar unos segundos (bloqueo puntual, como el
+    /// escaneo de Docker). El resultado se muestra como "override" hasta que el
+    /// usuario vuelve a la vista en vivo. La protección permanente (alertas de
+    /// dispositivo nuevo) sigue viniendo del escaneo pasivo de cada captura.
+    fn run_network_deep(&mut self) {
+        let Some(insp) = self.inspector.as_ref() else {
+            return;
+        };
+        let scan = insp.scan_network(true);
+        let total = scan.total_devices;
+        let nuevos = scan.new_devices;
+        self.network_override = Some(scan);
+        self.status_line = if nuevos > 0 {
+            format!(
+                "Escaneo profundo de red: {total} equipos · {nuevos} nuevo(s) vs baseline conocida"
+            )
+        } else {
+            format!("Escaneo profundo de red: {total} equipos · sin novedades vs baseline conocida")
+        };
+        self.status_is_error = false;
+    }
+
+    fn accept_network_baseline(&mut self) {
+        let Some(insp) = self.inspector.as_ref() else {
+            return;
+        };
+        match insp.accept_network_baseline() {
+            Ok(count) => {
+                self.status_line = format!(
+                    "Red conocida actualizada ({count} equipos). Los dispositivos actuales dejan \
+                     de marcarse como nuevos."
+                );
+                self.status_is_error = false;
+                self.network_override = None;
+                // Fuerza un refresco para re-evaluar contra la nueva baseline.
+                self.last_refresh_at =
+                    Instant::now() - Duration::from_secs(self.refresh_interval_secs);
+            }
+            Err(e) => {
+                self.status_line = format!("No se pudo aceptar la red conocida: {e}");
                 self.status_is_error = true;
             }
         }
@@ -970,6 +1024,9 @@ impl eframe::App for RootCauseApp {
                         let mut ip_to_block: Option<String> = None;
                         let mut svc_to_stop: Option<String> = None;
                         let mut accept_baseline = false;
+                        let mut net_deep_scan = false;
+                        let mut net_accept = false;
+                        let mut net_clear_override = false;
                         // Option<Option<Severity>>: outer=changed, inner=new value
                         let mut sev_filter_change: Option<Option<Severity>> = None;
 
@@ -996,6 +1053,14 @@ impl eframe::App for RootCauseApp {
                                 &self.filter_text,
                                 &mut self.only_public_connections,
                                 |ip| ip_to_block = Some(ip.to_owned()),
+                            ),
+                            Tab::Network => draw_tab_network(
+                                ui,
+                                &snapshot,
+                                self.network_override.as_ref(),
+                                &mut net_deep_scan,
+                                &mut net_accept,
+                                &mut net_clear_override,
                             ),
                             Tab::TempFiles => {
                                 let mut do_clean = false;
@@ -1065,6 +1130,15 @@ impl eframe::App for RootCauseApp {
                         }
                         if accept_baseline {
                             self.accept_persistence_baseline();
+                        }
+                        if net_deep_scan {
+                            self.run_network_deep();
+                        }
+                        if net_accept {
+                            self.accept_network_baseline();
+                        }
+                        if net_clear_override {
+                            self.network_override = None;
                         }
                         if let Some(new_sev) = sev_filter_change {
                             self.proc_severity_filter = new_sev;
@@ -1175,6 +1249,7 @@ enum Ic {
     Grid,
     Activity,
     Globe,
+    Radar,
     Disk,
     Target,
     Shield,
@@ -1191,6 +1266,7 @@ fn tab_ic(tab: Tab) -> Ic {
         Tab::Overview => Ic::Grid,
         Tab::Processes => Ic::Activity,
         Tab::Connections => Ic::Globe,
+        Tab::Network => Ic::Radar,
         Tab::TempFiles => Ic::Disk,
         Tab::Precision => Ic::Target,
         Tab::Services => Ic::Shield,
@@ -1253,6 +1329,15 @@ fn draw_ic(p: &egui::Painter, ic: Ic, c: egui::Pos2, s: f32, color: Color32) {
             p.circle_stroke(c, r, st);
             seg(egui::pos2(c.x - r, c.y), egui::pos2(c.x + r, c.y));
             ring(c.x, c.y, r * 0.45, r, 0.0, tau);
+        }
+        Ic::Radar => {
+            // Ondas de difusión (estilo señal): un punto y tres arcos abiertos
+            // hacia arriba, como "escuchando" a los equipos del segmento.
+            let by = c.y + r * 0.55;
+            p.circle_filled(egui::pos2(c.x, by), sw * 1.3, color);
+            for k in [0.42_f32, 0.74, 1.06] {
+                ring(c.x, by, r * k, r * k, tau * 0.58, tau * 0.92);
+            }
         }
         Ic::Disk => {
             let rx = r * 0.82;
@@ -1431,6 +1516,7 @@ fn draw_sidebar(app: &mut RootCauseApp, ctx: &egui::Context) {
             sidebar_group(ui, tr("ACTIVIDAD", "ACTIVITY"));
             nav(ui, app, Tab::Processes);
             nav(ui, app, Tab::Connections);
+            nav(ui, app, Tab::Network);
             sidebar_group(ui, tr("SISTEMA", "SYSTEM"));
             nav(ui, app, Tab::TempFiles);
             nav(ui, app, Tab::Services);
@@ -2615,6 +2701,389 @@ fn draw_tab_connections<F: FnMut(&str)>(
     if let Some(ip) = to_block {
         on_block(&ip);
     }
+}
+
+// ── Tab: Red ───────────────────────────────────────────────────────────────────
+
+/// Tab **Red**: equipos cercanos del segmento local y control de "red conocida".
+///
+/// Muestra el escaneo pasivo (en vivo) o, si el usuario lanzó un barrido profundo,
+/// ese resultado (`override_scan`) hasta que vuelve a la vista en vivo. Un
+/// dispositivo NUEVO respecto a la baseline es el indicio clave: alguien no
+/// reconocido está en tu misma red.
+fn draw_tab_network(
+    ui: &mut egui::Ui,
+    snap: &SystemSnapshot,
+    override_scan: Option<&NetworkScan>,
+    deep_scan: &mut bool,
+    accept_baseline: &mut bool,
+    clear_override: &mut bool,
+) {
+    section_header(
+        ui,
+        "▸  Red local  ·  equipos cercanos, puerta de enlace y red conocida",
+    );
+    ui.add_space(6.0);
+
+    let showing_override = override_scan.is_some();
+    let scan = match override_scan.or(snap.network.as_ref()) {
+        Some(scan) => scan,
+        None => {
+            ui.add_space(24.0);
+            ui.vertical_centered(|ui| {
+                ui.label(
+                    RichText::new("📡")
+                        .size(40.0)
+                        .color(pal().text_mut.linear_multiply(0.5)),
+                );
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new("Explorando la red local…")
+                        .size(13.0)
+                        .color(pal().text_mut),
+                );
+            });
+            return;
+        }
+    };
+
+    // Tarjeta de contexto: adaptador, IP/segmento, puerta de enlace, modo.
+    egui::Frame::none()
+        .fill(pal().bg_card)
+        .rounding(Rounding::same(8.0))
+        .inner_margin(Margin::same(12.0))
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                net_fact(ui, "Adaptador", &nonempty(&scan.adapter_name));
+                net_fact(ui, "Tu IP", &nonempty(&scan.local_ip));
+                let segmento = if scan.subnet_prefix.is_empty() {
+                    "—".to_owned()
+                } else {
+                    format!("{}.0/24", scan.subnet_prefix)
+                };
+                net_fact(ui, "Segmento", &segmento);
+                net_fact(ui, "Puerta de enlace", &nonempty(&scan.gateway_ip));
+                net_fact(
+                    ui,
+                    "Modo",
+                    if scan.deep {
+                        "Barrido profundo"
+                    } else {
+                        "Pasivo (en vivo)"
+                    },
+                );
+            });
+        });
+    ui.add_space(8.0);
+
+    // Barra de acciones.
+    ui.horizontal_wrapped(|ui| {
+        if action_btn(ui, "🔄  Escaneo profundo", pal().c_bl_bg, pal().c_bl_fg)
+            .on_hover_text(
+                "Despierta al segmento con un barrido de descubrimiento y resuelve nombres. \
+                 Puede tardar unos segundos.",
+            )
+            .clicked()
+        {
+            *deep_scan = true;
+        }
+        if action_btn(ui, "✅  Aceptar red conocida", pal().c_ok_bg, pal().c_ok_fg)
+            .on_hover_text(
+                "Marca los equipos actuales como \"red conocida\". Dejarán de señalarse como \
+                 nuevos; los que aparezcan después sí se marcarán.",
+            )
+            .clicked()
+        {
+            *accept_baseline = true;
+        }
+        if showing_override
+            && action_btn(ui, "⏱  Vista en vivo", pal().bg_card, pal().text_sec)
+                .on_hover_text("Vuelve al escaneo pasivo que se actualiza solo.")
+                .clicked()
+        {
+            *clear_override = true;
+        }
+    });
+    ui.add_space(8.0);
+
+    // Resumen y banner de novedades vs baseline conocida.
+    let n_new = scan
+        .devices
+        .iter()
+        .filter(|d| d.change_status == PersistenceChange::Added)
+        .count();
+    let n_gone = scan
+        .devices
+        .iter()
+        .filter(|d| d.change_status == PersistenceChange::Removed)
+        .count();
+    let n_known = scan
+        .devices
+        .iter()
+        .filter(|d| !d.is_self && d.change_status == PersistenceChange::Unchanged)
+        .count();
+
+    ui.horizontal_wrapped(|ui| {
+        pill(
+            ui,
+            &format!("{} equipos en la red", scan.total_devices),
+            pal().text_sec,
+            pal().bg_card,
+        );
+        if n_known > 0 {
+            pill(
+                ui,
+                &format!("{n_known} conocidos"),
+                pal().c_ok_fg,
+                pal().c_ok_bg,
+            );
+        }
+        if n_new > 0 {
+            pill(ui, &format!("{n_new} nuevos"), pal().c_cr_fg, pal().c_cr_bg);
+        }
+        if n_gone > 0 {
+            pill(
+                ui,
+                &format!("{n_gone} ausentes"),
+                pal().text_mut,
+                pal().bg_card,
+            );
+        }
+    });
+    ui.add_space(8.0);
+
+    if n_new > 0 {
+        egui::Frame::none()
+            .fill(pal().c_cr_bg)
+            .stroke(Stroke::new(1.0_f32, pal().c_cr_fg.linear_multiply(0.4)))
+            .rounding(Rounding::same(6.0))
+            .inner_margin(Margin::same(10.0))
+            .show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(RichText::new("⚠").color(pal().c_cr_fg).size(14.0));
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new(format!(
+                            "{n_new} dispositivo(s) NUEVO(s) en tu segmento respecto a la red \
+                             conocida. Verifica que los reconoces antes de aceptarlos.",
+                        ))
+                        .size(12.0)
+                        .strong()
+                        .color(pal().text_pri),
+                    );
+                });
+            });
+        ui.add_space(8.0);
+    } else if scan.total_devices > 0 {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("✅").color(pal().c_ok_fg).size(12.0));
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new("Sin equipos nuevos respecto a la red conocida.")
+                    .size(11.0)
+                    .color(pal().text_mut),
+            );
+        });
+        ui.add_space(6.0);
+    }
+
+    if showing_override {
+        ui.label(
+            RichText::new(format!(
+                "Mostrando el escaneo profundo ({}). Pulsa \"Vista en vivo\" para volver al \
+                 monitoreo automático.",
+                short_time(&scan.scanned_at)
+            ))
+            .size(10.5)
+            .italics()
+            .color(pal().text_mut),
+        );
+        ui.add_space(6.0);
+    }
+
+    // Cabecera de columnas.
+    table_header(
+        ui,
+        &[
+            ("", 18.0),
+            ("Nombre", 180.0),
+            ("Dirección IP", 130.0),
+            ("MAC", 150.0),
+            ("Fabricante", 130.0),
+            ("Estado", 92.0),
+        ],
+    );
+
+    egui::ScrollArea::vertical()
+        .id_source("tab_network")
+        .show(ui, |ui| {
+            for (i, dev) in scan.devices.iter().enumerate() {
+                let fg = sev_fg(dev.severity);
+                let row_bg = if i % 2 == 0 {
+                    pal().bg_app
+                } else {
+                    pal().bg_row_alt
+                };
+
+                egui::Frame::none()
+                    .fill(row_bg)
+                    .inner_margin(Margin::symmetric(6.0, 5.0))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.add_sized(
+                                [18.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(sev_dot(dev.severity)).size(10.0).color(fg),
+                                ),
+                            );
+
+                            // Nombre / host + tooltip con el motivo.
+                            let name = netscan::display_name(dev);
+                            let name_resp = ui.add_sized(
+                                [180.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(trunc(&name, 24))
+                                        .size(12.0)
+                                        .strong()
+                                        .color(pal().text_pri),
+                                ),
+                            );
+                            name_resp.on_hover_text(&dev.reason);
+
+                            // Badges de rol y de cambio.
+                            if dev.is_self {
+                                pill(ui, "Tú", pal().c_bl_fg, pal().c_bl_bg);
+                            } else if dev.is_gateway {
+                                pill(ui, "Router", pal().c_wn_fg, pal().c_wn_bg);
+                            }
+                            match dev.change_status {
+                                PersistenceChange::Added => {
+                                    pill(ui, "NUEVO", pal().c_cr_fg, pal().c_cr_bg)
+                                }
+                                PersistenceChange::Removed => {
+                                    pill(ui, "AUSENTE", pal().text_mut, pal().bg_card)
+                                }
+                                _ => {}
+                            }
+
+                            // IP.
+                            ui.add_sized(
+                                [130.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(&dev.ip)
+                                        .size(11.5)
+                                        .monospace()
+                                        .color(pal().text_sec),
+                                ),
+                            );
+
+                            // MAC.
+                            let mac = if dev.mac.is_empty() {
+                                "—"
+                            } else {
+                                dev.mac.as_str()
+                            };
+                            ui.add_sized(
+                                [150.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(mac)
+                                        .size(11.0)
+                                        .monospace()
+                                        .color(pal().text_mut),
+                                ),
+                            );
+
+                            // Fabricante (aprox. por OUI).
+                            let vendor = if dev.vendor.is_empty() {
+                                "—"
+                            } else {
+                                dev.vendor.as_str()
+                            };
+                            ui.add_sized(
+                                [130.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(vendor).size(11.0).color(pal().text_sec),
+                                ),
+                            );
+
+                            // Estado del vecino.
+                            ui.add_sized(
+                                [92.0, 18.0],
+                                egui::Label::new(
+                                    RichText::new(&dev.state).size(11.0).color(pal().text_mut),
+                                ),
+                            );
+                        });
+                    });
+            }
+        });
+
+    // Nota informativa al pie: encuadre honesto de seguridad.
+    ui.add_space(12.0);
+    egui::Frame::none()
+        .fill(pal().c_bl_bg)
+        .stroke(Stroke::new(1.0_f32, pal().c_bl_fg.linear_multiply(0.3)))
+        .rounding(Rounding::same(6.0))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(RichText::new("ℹ").color(pal().c_bl_fg).size(13.0));
+                ui.add_space(4.0);
+                ui.label(
+                    RichText::new(
+                        "Muchas amenazas llegan por el mismo segmento de red, no por Internet: un \
+                         equipo comprometido que escanea a sus vecinos, un dispositivo no \
+                         autorizado o un router suplantado. Mantén tu \"red conocida\" al día y \
+                         revisa cada equipo NUEVO. Es un indicio con evidencia, no un veredicto; \
+                         complementa —no reemplaza— a tu firewall.",
+                    )
+                    .size(11.0)
+                    .color(pal().text_sec),
+                );
+            });
+        });
+    if !scan.limitations.is_empty() {
+        ui.add_space(6.0);
+        for limitation in &scan.limitations {
+            ui.label(
+                RichText::new(format!("• {limitation}"))
+                    .size(10.5)
+                    .color(pal().text_mut),
+            );
+        }
+    }
+}
+
+/// Dato etiquetado (clave arriba en gris, valor abajo) para la tarjeta de red.
+fn net_fact(ui: &mut egui::Ui, label: &str, value: &str) {
+    ui.vertical(|ui| {
+        ui.label(RichText::new(label).size(10.0).color(pal().text_mut));
+        ui.label(
+            RichText::new(value)
+                .size(12.5)
+                .strong()
+                .color(pal().text_pri),
+        );
+    });
+    ui.add_space(18.0);
+}
+
+/// Devuelve el texto o un guion si está vacío.
+fn nonempty(value: &str) -> String {
+    if value.trim().is_empty() {
+        "—".to_owned()
+    } else {
+        value.to_owned()
+    }
+}
+
+/// Extrae `HH:MM:SS` de un timestamp RFC3339 (para etiquetas breves).
+fn short_time(rfc3339: &str) -> String {
+    rfc3339
+        .split('T')
+        .nth(1)
+        .map(|rest| rest.chars().take(8).collect::<String>())
+        .unwrap_or_else(|| rfc3339.to_owned())
 }
 
 // ── Tab: Temporales ────────────────────────────────────────────────────────────
@@ -4597,6 +5066,20 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
     );
     manual_item_why(
         ui,
+        "📡",
+        pal().accent,
+        tr("Red", "Network"),
+        tr(
+            "Equipos cercanos en tu segmento (vecinos ARP/NDP), con su IP, MAC, fabricante y rol (tú / router). Marca los NUEVOS respecto a la baseline de red conocida. \"Escaneo profundo\" hace un barrido activo y resuelve nombres.",
+            "Nearby devices on your segment (ARP/NDP neighbors), with IP, MAC, vendor and role (you / router). Flags NEW ones vs the known-network baseline. \"Deep scan\" does an active sweep and resolves names.",
+        ),
+        tr(
+            "Muchos ataques vienen del mismo segmento (movimiento lateral, dispositivos no autorizados, router suplantado); un equipo nuevo cerca de ti es un indicio temprano.",
+            "Many attacks come from the same segment (lateral movement, unauthorized devices, spoofed router); a new machine near you is an early lead.",
+        ),
+    );
+    manual_item_why(
+        ui,
         "🗑",
         pal().accent,
         tr("Temporales / Almacenamiento", "Temporary / Storage"),
@@ -4719,6 +5202,59 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
              MODIFIED or REMOVED and raises an alert until you accept the new baseline. The why: malware \
              doesn't always burn CPU —sometimes it just ADDS a startup entry and waits. Comparing against \
              a known-good state exposes it even when it's stealthy.",
+        ),
+    );
+
+    ui.add_space(16.0);
+    section_header(
+        ui,
+        tr(
+            "Red conocida / red protegida",
+            "Known network / protected network",
+        ),
+    );
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        tr(
+            "El tab Red parte de una idea simple de seguridad: no toda amenaza entra por Internet; \
+             muchas vienen del MISMO segmento de red. Un equipo ya comprometido escanea a sus \
+             vecinos para saltar de máquina en máquina (movimiento lateral), alguien enchufa un \
+             dispositivo no autorizado, o un atacante levanta un router/punto de acceso falso que \
+             suplanta a tu puerta de enlace para interceptar tráfico. RootCause lee los equipos que \
+             tu Windows ya conoce (tabla de vecinos ARP/NDP) y, si lo pides, hace un barrido activo \
+             para descubrir a los que aún no respondían. Cada equipo se identifica por su MAC \
+             (dirección física, estable aunque cambie la IP por DHCP), su fabricante aproximado y su \
+             rol. El \"Escaneo profundo\" además resuelve nombres.",
+            "The Network tab starts from a simple security idea: not every threat comes from the \
+             internet; many come from the SAME network segment. An already-compromised machine \
+             scans its neighbors to hop from host to host (lateral movement), someone plugs in an \
+             unauthorized device, or an attacker stands up a fake router/access point that spoofs \
+             your gateway to intercept traffic. RootCause reads the devices your Windows already \
+             knows (ARP/NDP neighbor table) and, on request, runs an active sweep to discover ones \
+             that weren't answering yet. Each device is identified by its MAC (physical address, \
+             stable even when DHCP changes the IP), its approximate vendor and its role. \"Deep \
+             scan\" also resolves names.",
+        ),
+    );
+    ui.add_space(8.0);
+    manual_note(
+        ui,
+        tr(
+            "\"Red conocida\" es tu baseline: la primera vez se siembra en silencio con los equipos \
+             presentes. Después, cualquier equipo que aparezca se marca como NUEVO y genera una \
+             alerta (unknown-device) hasta que lo revisas y pulsas \"Aceptar red conocida\". Un \
+             cambio de identidad de la puerta de enlace (MAC nueva) se marca como crítico, porque \
+             es la huella típica de la suplantación de router. Así conviertes \"apareció alguien \
+             cerca de mí\" en una señal accionable. El porqué: son INDICIOS con evidencia (IP, MAC, \
+             fabricante), no veredictos; y RootCause complementa —no reemplaza— a tu firewall.",
+            "\"Known network\" is your baseline: the first time it is seeded silently with the \
+             present devices. Afterwards, any device that shows up is flagged as NEW and raises an \
+             alert (unknown-device) until you review it and click \"Accept known network\". A change \
+             of the gateway's identity (new MAC) is flagged critical, because it's the classic \
+             fingerprint of router spoofing. That turns \"someone appeared near me\" into an \
+             actionable signal. The why: these are LEADS with evidence (IP, MAC, vendor), not \
+             verdicts; and RootCause complements —does not replace— your firewall.",
         ),
     );
 
@@ -4911,13 +5447,13 @@ fn draw_tab_manual(ui: &mut egui::Ui) {
         ui,
         tr(
             "Todo funciona también sin interfaz. `rootcause --help` lista los comandos: status, snapshot, \
-             history, autostart, services, clean-temp, docker, report, wpr, kill, block-ip, stop-service, \
-             config, ai. El porqué: en servidores sin escritorio o dentro de scripts, el diagnóstico debe \
-             seguir estando a un comando de distancia.",
+             history, autostart, services, network, clean-temp, docker, report, wpr, kill, block-ip, \
+             stop-service, config, ai. El porqué: en servidores sin escritorio o dentro de scripts, el \
+             diagnóstico debe seguir estando a un comando de distancia.",
             "Everything works without a GUI too. `rootcause --help` lists the commands: status, snapshot, \
-             history, autostart, services, clean-temp, docker, report, wpr, kill, block-ip, stop-service, \
-             config, ai. The why: on headless servers or inside scripts, diagnostics must stay one command \
-             away.",
+             history, autostart, services, network, clean-temp, docker, report, wpr, kill, block-ip, \
+             stop-service, config, ai. The why: on headless servers or inside scripts, diagnostics must \
+             stay one command away.",
         ),
     );
 
@@ -5493,13 +6029,13 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                     ("Ctrl + 1", "Ir a Resumen"),
                     ("Ctrl + 2", "Ir a Procesos"),
                     ("Ctrl + 3", "Ir a Conexiones"),
-                    ("Ctrl + 4", "Ir a Temporales"),
-                    ("Ctrl + 5", "Ir a ETW / WPR"),
-                    ("Ctrl + 6", "Ir a Servicios"),
-                    ("Ctrl + 7", "Ir a Autostart"),
-                    ("Ctrl + 8", "Ir a Historial"),
-                    ("Ctrl + 9", "Ir a Configuración"),
-                    ("Ctrl + 0", "Ir a Manual"),
+                    ("Ctrl + 4", "Ir a Red"),
+                    ("Ctrl + 5", "Ir a Temporales"),
+                    ("Ctrl + 6", "Ir a ETW / WPR"),
+                    ("Ctrl + 7", "Ir a Servicios"),
+                    ("Ctrl + 8", "Ir a Autostart"),
+                    ("Ctrl + 9", "Ir a Historial"),
+                    ("Ctrl + 0", "Ir a Configuración"),
                 ] {
                     ui.horizontal(|ui| {
                         egui::Frame::none()
@@ -5559,8 +6095,8 @@ fn draw_tab_about(ui: &mut egui::Ui, hw: &HardwareInfo, snapshot: Option<&System
                 ui.add_space(6.0);
                 ui.label(
                     RichText::new(tr(
-                        "Ajustes y umbrales: pestaña Configuración (Ctrl+9).",
-                        "Settings and thresholds: Settings tab (Ctrl+9).",
+                        "Ajustes y umbrales: pestaña Configuración (Ctrl+0).",
+                        "Settings and thresholds: Settings tab (Ctrl+0).",
                     ))
                     .size(11.0)
                     .italics()

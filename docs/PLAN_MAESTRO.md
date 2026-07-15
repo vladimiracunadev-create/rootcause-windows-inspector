@@ -1,10 +1,10 @@
 # Plan Maestro — RootCause Windows Inspector
 
-**Versión base:** v0.18.0 · **Actualizado:** 2026-07-14
+**Versión base:** v0.19.0 · **Actualizado:** 2026-07-15
 **Propósito:** hoja de ruta completa del producto — qué mejorar, en qué orden, con qué ediciones y hacia dónde escalar. Diseñado para retomar el trabajo en cualquier sesión sin perder contexto.
 
 > **Al iniciar sesión:** leer este documento antes de cualquier acción.
-> Estado del entorno: CI debe estar verde — v0.18.0 completada (**reportes forenses de actividad** en GUI/CLI y automáticos al cambiar el día; **optimización segura de un clic** —%TEMP% + Docker regenerable, honesta, sin RAM ni datos—; **manual interno** actualizado; compatibilidad con Rust 1.97). Antes: v0.17.0 (rediseño Fluent/Windows 11). Próximo objetivo: v1.0 (cerrar-a-bandeja, firma digital, distribución pública).
+> Estado del entorno: CI debe estar verde — v0.19.0 completada (**nuevo tab Red**: equipos cercanos del segmento local —vecinos ARP/NDP, estilo nmap honesto— con IP/MAC/fabricante/rol, baseline de **red conocida** y señal de amenaza `unknown-device`, escaneo profundo bajo demanda y CLI `rootcause network`; módulo `services/netscan.rs`). Antes: v0.18.0 (reportes forenses + optimización segura de un clic). Próximo objetivo: v1.0 (cerrar-a-bandeja, firma digital, distribución pública).
 
 ---
 
@@ -44,10 +44,11 @@ RootCause         → ¿cuál es la CAUSA RAÍZ? (diagnóstico interpretado + ac
 ## II. Estado técnico — hito v0.7 (snapshot histórico)
 
 > Nota: esta sección es un registro del hito v0.7. El estado actual del producto es
-> v0.18.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
+> v0.19.0 (ver sección IV "Mapa de versiones" y `docs/ROADMAP.md` para lo entregado
 > hasta hoy: detección de anomalías, baseline de autoarranque y de servicios, Docker,
 > idioma ES/EN, icono de bandeja, el rediseño Windows 11 / Fluent con modos de tema,
-> reportes forenses de actividad y optimización segura de un clic).
+> reportes forenses de actividad, optimización segura de un clic y el tab Red —red
+> conocida / equipos cercanos con la señal `unknown-device`).
 
 ### ✅ Completado en v0.7
 - Feature flags GUI/CLI-only en `Cargo.toml` (eframe/egui opcionales)

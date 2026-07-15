@@ -103,6 +103,16 @@ controles (Actualizar, Exportar, filtro, avisos). Cada sección se explica igual
 - **Por qué importa:** saber *qué* proceso se conecta a Internet es media
   investigación de una fuga de datos o un programa no deseado. Puedes **bloquear** una IP.
 
+### Red
+- **Qué es:** los equipos cercanos en tu misma red (segmento local), estilo nmap pero honesto.
+- **Qué ves:** cada equipo con su IP, MAC, fabricante aproximado y rol (tú / router). Los
+  que aparecen por primera vez respecto a tu **red conocida** se marcan **NUEVO**. Botones:
+  **Escaneo profundo** (barrido activo + nombres) y **Aceptar red conocida**.
+- **Por qué importa:** muchas amenazas vienen del **mismo segmento**, no de Internet: un
+  equipo comprometido que escanea a sus vecinos, un dispositivo no autorizado, o un router
+  suplantado. Un equipo nuevo cerca de ti es un **indicio temprano**. Es un indicio con
+  evidencia, no un veredicto, y **complementa** a tu firewall.
+
 ### Temporales
 - **Qué es:** las carpetas que crecen y comen disco — incluida la sección **Docker**.
 - **Qué ves:** `%TEMP%`, cachés de Windows Update, y el espacio de Docker (imágenes,
@@ -209,6 +219,7 @@ lista todo. Los más usados:
 | `rootcause history [N]` | Últimas N capturas. |
 | `rootcause autostart [--json] [--accept]` | Entradas de autoarranque y cambios vs baseline. |
 | `rootcause services [--json] [--accept]` | Cambios en servicios vs baseline. |
+| `rootcause network [--deep] [--json] [--accept]` | Equipos cercanos; marca los nuevos vs red conocida. |
 | `rootcause clean-temp [--yes]` | Limpieza de `%TEMP%` (sin `--yes` solo simula). |
 | `rootcause docker [--json\|--prune-images\|--prune-cache]` | Uso de disco de Docker y purga segura. |
 | `rootcause wpr start\|stop\|analyze` | Modo de precisión ETW/WPR. |

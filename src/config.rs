@@ -128,6 +128,10 @@ pub struct AnomalyConfig {
     pub watch_persistence: bool,
     #[serde(default = "default_true")]
     pub watch_service_changes: bool,
+    /// Vigila la aparición de dispositivos nuevos en el segmento de red local
+    /// (baseline de "red conocida"). Genera alertas `unknown-device`.
+    #[serde(default = "default_true")]
+    pub watch_network_devices: bool,
 }
 
 impl Default for AnomalyConfig {
@@ -152,6 +156,7 @@ impl Default for AnomalyConfig {
             security_service_names: default_security_service_names(),
             watch_persistence: default_true(),
             watch_service_changes: default_true(),
+            watch_network_devices: default_true(),
         }
     }
 }

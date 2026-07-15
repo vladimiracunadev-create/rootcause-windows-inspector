@@ -100,6 +100,88 @@ pub fn netstat() -> Result<String> {
     }
 }
 
+/// Explora la red local y devuelve un JSON con el adaptador activo, la puerta de
+/// enlace, la IP/MAC locales y los vecinos (ARP/NDP) del segmento.
+///
+/// `deep = false` (por defecto, en cada captura): solo lee la tabla de vecinos que
+/// Windows ya mantiene. Es rápido y silencioso.
+///
+/// `deep = true` (bajo demanda): antes de leer, hace un barrido de descubrimiento
+/// del /24 con pings asíncronos (250 ms c/u, tope global 4 s) para despertar a los
+/// equipos que aún no estaban en la tabla, y resuelve nombres por DNS/NetBIOS. Es
+/// más completo pero puede tardar unos segundos.
+///
+/// El parseo y la clasificación viven en `netscan.rs`; aquí solo se ejecuta.
+pub fn network_scan_raw(deep: bool) -> Result<String> {
+    let deep_literal = if deep { "$true" } else { "$false" };
+    let script = NETWORK_SCAN_SCRIPT.replace("__DEEP__", deep_literal);
+    powershell(&script)
+}
+
+/// Script de descubrimiento de red. Se mantiene aparte (sin `format!`) porque usa
+/// muchas llaves de PowerShell; el único parámetro (`__DEEP__`) se sustituye por
+/// `$true`/`$false` antes de ejecutar.
+const NETWORK_SCAN_SCRIPT: &str = r#"
+$ErrorActionPreference = 'SilentlyContinue'
+$deep = __DEEP__
+$route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object RouteMetric | Select-Object -First 1
+$ifIndex = $route.ifIndex
+$gateway = [string]$route.NextHop
+$ipInfo = Get-NetIPAddress -InterfaceIndex $ifIndex -AddressFamily IPv4 |
+    Where-Object { $_.IPAddress -notlike '169.254*' -and $_.IPAddress -ne '127.0.0.1' } |
+    Select-Object -First 1
+$localIp = [string]$ipInfo.IPAddress
+$adapter = Get-NetAdapter -InterfaceIndex $ifIndex
+$adapterName = [string]$adapter.Name
+$localMac = [string]$adapter.MacAddress
+$prefix = ''
+if ($localIp) {
+    $p = $localIp.Split('.')
+    if ($p.Length -ge 3) { $prefix = "$($p[0]).$($p[1]).$($p[2])" }
+}
+
+if ($deep -and $prefix) {
+    $tasks = 1..254 | ForEach-Object { (New-Object System.Net.NetworkInformation.Ping).SendPingAsync("$prefix.$_", 250) }
+    try { [System.Threading.Tasks.Task]::WaitAll($tasks, 4000) } catch {}
+}
+
+$neigh = @()
+if ($ifIndex) {
+    $neigh = Get-NetNeighbor -InterfaceIndex $ifIndex -AddressFamily IPv4 |
+        Where-Object {
+            ([string]$_.State) -in @('Reachable','Stale','Permanent','Delay','Probe') -and
+            $_.LinkLayerAddress -and
+            $_.LinkLayerAddress -ne '00-00-00-00-00-00' -and
+            $_.LinkLayerAddress -ne 'FF-FF-FF-FF-FF-FF' -and
+            $_.IPAddress -notlike '224.*' -and $_.IPAddress -notlike '239.*' -and
+            $_.IPAddress -notlike '169.254*' -and $_.IPAddress -ne '255.255.255.255'
+        }
+}
+
+$devices = @()
+foreach ($n in $neigh) {
+    $dnsName = ''
+    if ($deep) {
+        try { $dnsName = [System.Net.Dns]::GetHostEntry($n.IPAddress).HostName } catch { $dnsName = '' }
+    }
+    $devices += [pscustomobject]@{
+        ip    = [string]$n.IPAddress
+        mac   = [string]$n.LinkLayerAddress
+        state = [string]$n.State
+        host  = $dnsName
+    }
+}
+
+[pscustomobject]@{
+    adapter  = $adapterName
+    localIp  = $localIp
+    localMac = $localMac
+    prefix   = $prefix
+    gateway  = $gateway
+    devices  = @($devices)
+} | ConvertTo-Json -Depth 4
+"#;
+
 /// Devuelve eventos recientes de Warning/Error desde el log System.
 pub fn recent_system_events(limit: usize) -> Result<Vec<EventRecord>> {
     let script = format!(
