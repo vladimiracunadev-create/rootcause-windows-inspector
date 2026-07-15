@@ -6,7 +6,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/vladimiracunadev-create/rootcause-windows-inspector/releases/latest/download/RootCause-Portable.zip",
-            "hash": "ef18ac273203ba109d2103aaef6a98c6fdece588010a09bde16049977bb02d55"
+            "hash": "703ce314774e2ff39f413f6001e32fc9892403b0ac65b97409f1ddd778d72ad9"
         }
     },
     "bin": "rootcause.exe",
